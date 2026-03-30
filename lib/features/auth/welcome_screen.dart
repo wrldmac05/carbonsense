@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:carbonsense/theme/app_theme.dart';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
 class WelcomeScreen extends StatefulWidget {
   const WelcomeScreen({super.key});
@@ -80,8 +81,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                               borderRadius: BorderRadius.circular(12),
                             ),
                           ),
-                          onPressed: () =>
-                              Navigator.pushNamed(context, '/login'),
+                          onPressed: () => context.push('/login'),
                           child: const Text(
                             'Login',
                             style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
@@ -98,8 +98,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                               borderRadius: BorderRadius.circular(12),
                             ),
                           ),
-                          onPressed: () =>
-                              Navigator.pushNamed(context, '/register'),
+                          onPressed: () => context.push('/register'),
                           child: const Text(
                             'Register',
                             style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),

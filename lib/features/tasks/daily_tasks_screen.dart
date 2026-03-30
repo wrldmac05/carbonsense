@@ -1,5 +1,7 @@
+// TODO: Consolidate this screen with tasks_screen.dart
 import 'package:carbonsense/theme/app_theme.dart';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
 class DailyTasksScreen extends StatefulWidget {
   const DailyTasksScreen({super.key});
@@ -40,7 +42,7 @@ class _DailyTasksScreenState extends State<DailyTasksScreen> {
                   children: [
                     IconButton(
                       icon: const Icon(Icons.arrow_back),
-                      onPressed: () => Navigator.pop(context),
+                      onPressed: () => context.pop(),
                     ),
                     Text(
                       'Daily Tasks',
