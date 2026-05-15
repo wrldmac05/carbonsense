@@ -19,7 +19,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 version: 1.0.0+1
 
 environment:
-  sdk: ^3.11.1
+  sdk: '>=3.11.1 <4.0.0'
 
 # Dependencies specify other packages that your package needs in order to work.
 # To automatically upgrade your package dependencies to the latest versions
@@ -40,6 +40,10 @@ dependencies:
   go_router: ^14.1.0
   timeago: ^3.7.1
   intl: ^0.20.2
+  
+  # State Management Dependencies
+  flutter_riverpod: ^2.5.1
+  riverpod_annotation: ^2.3.5
 
 dev_dependencies:
   flutter_test:
@@ -51,6 +55,10 @@ dev_dependencies:
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
   flutter_lints: ^6.0.0
+  
+  # Code generation tools for Riverpod
+  build_runner: ^2.4.9
+  riverpod_generator: ^2.4.0
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec

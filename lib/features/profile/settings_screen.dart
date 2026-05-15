@@ -42,7 +42,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       themeNotifier.value = value ? ThemeMode.dark : ThemeMode.light;
                     });
                   },
-                  activeColor: AppTheme.primaryColor,
+                  activeTrackColor: AppTheme.primaryColor,
                   secondary: const Icon(Icons.dark_mode, color: AppTheme.primaryColor),
                 ),
               ),
@@ -60,7 +60,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       subtitle: const Text('Get notified to complete your eco-tasks.'),
                       value: _dailyReminders,
                       onChanged: (bool value) => setState(() => _dailyReminders = value),
-                      activeColor: AppTheme.primaryColor,
+                      activeTrackColor: AppTheme.primaryColor,
                       secondary: const Icon(Icons.checklist, color: AppTheme.primaryColor),
                     ),
                     const Divider(height: 1, indent: 16, endIndent: 16),
@@ -69,7 +69,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       subtitle: const Text('Alerts when your AI coach has a new tip.'),
                       value: _aiInsights,
                       onChanged: (bool value) => setState(() => _aiInsights = value),
-                      activeColor: AppTheme.primaryColor,
+                      activeTrackColor: AppTheme.primaryColor,
                       secondary: const Icon(Icons.psychology, color: AppTheme.primaryColor),
                     ),
                   ],

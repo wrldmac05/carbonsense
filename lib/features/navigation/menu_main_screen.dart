@@ -66,7 +66,7 @@ class MenuMainScreen extends StatelessWidget {
           children: [
             CircleAvatar(
               radius: 32,
-              backgroundColor: color.withOpacity(0.1),
+              backgroundColor: color.withAlpha(26),
               child: Icon(icon, size: 36, color: color),
             ),
             const SizedBox(height: 16),

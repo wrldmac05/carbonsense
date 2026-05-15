@@ -131,7 +131,7 @@ class ScoreHistoryScreen extends StatelessWidget {
           dotData: const FlDotData(show: false),
           belowBarData: BarAreaData(
             show: true,
-            color: AppTheme.primaryColor.withOpacity(0.3),
+            color: AppTheme.primaryColor.withAlpha(77),
           ),
         ),
       ],

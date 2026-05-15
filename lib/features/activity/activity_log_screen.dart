@@ -163,7 +163,7 @@ class _ActivityLogScreenState extends State<ActivityLogScreen> {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: ListTile(
         leading: CircleAvatar(
-          backgroundColor: AppTheme.primaryColor.withOpacity(0.1),
+          backgroundColor: AppTheme.primaryColor.withAlpha(26),
           child: const Icon(Icons.check_circle, color: AppTheme.primaryColor),
         ),
         title: Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),

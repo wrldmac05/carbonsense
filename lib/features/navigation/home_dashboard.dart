@@ -311,7 +311,7 @@ class _HomeDashboardState extends State<HomeDashboard> {
                       borderRadius: BorderRadius.circular(16)),
                   child: CheckboxListTile(
                     title: Text(description, style: const TextStyle(fontWeight: FontWeight.w500)),
-                    subtitle: Text('Tier: $tier', style: TextStyle(color: AppTheme.primaryColor.withOpacity(0.7))),
+                    subtitle: Text('Tier: $tier', style: TextStyle(color: AppTheme.primaryColor.withAlpha(179))),
                     value: isCompleted,
                     onChanged: (bool? value) {
                       if (value != null) {
