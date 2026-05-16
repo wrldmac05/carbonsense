@@ -3,8 +3,7 @@ import 'package:carbonsense/features/tasks/daily_tasks_screen.dart';
 import 'package:carbonsense/features/auth/forgot_password_screen.dart';
 import 'package:carbonsense/features/navigation/home_dashboard.dart';
 import 'package:carbonsense/features/auth/login_screen.dart';
-import 'package:carbonsense/features/navigation/main_navigation.dart';
-import 'package:carbonsense/features/navigation/menu_main_screen.dart'; 
+import 'package:carbonsense/features/navigation/main_navigation.dart'; 
 import 'package:carbonsense/features/profile/profile_screen.dart';
 import 'package:carbonsense/features/auth/register_screen.dart';
 import 'package:carbonsense/features/activity/score_history_screen.dart';
@@ -17,6 +16,9 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'firebase_options.dart';
+
 
 final ValueNotifier<ThemeMode> themeNotifier = ValueNotifier(ThemeMode.light);
 
@@ -44,73 +46,64 @@ final _router = GoRouter(
       path: '/edit-profile',
       builder: (context, state) => const EditProfileScreen(),
     ),
+    GoRoute(
+  path: '/profile',
+  builder: (context, state) => const ProfileScreen(),
+),
+GoRoute(
+  path: '/settings',
+  builder: (context, state) => const SettingsScreen(), // Ensure your SettingsScreen class name matches this
+),
 
     // --- SHELL ROUTE (BOTTOM NAVIGATION BAR) ---
-    StatefulShellRoute.indexedStack(
-      builder: (context, state, navigationShell) {
-        return MainNavigation(navigationShell: navigationShell);
-      },
-      branches: [
-        // BRANCH 0: Activity
-        StatefulShellBranch(
+    // --- SHELL ROUTE (BOTTOM NAVIGATION BAR) ---
+StatefulShellRoute.indexedStack(
+  builder: (context, state, navigationShell) {
+    return MainNavigation(navigationShell: navigationShell);
+  },
+  branches: [
+    // BRANCH 0: Activity
+    StatefulShellBranch(
+      routes: [
+        GoRoute(
+          path: '/activity',
+          builder: (context, state) => const ActivityLogScreen(),
           routes: [
             GoRoute(
-              path: '/activity',
-              builder: (context, state) => const ActivityLogScreen(),
-              routes: [
-                GoRoute(
-                  path: 'score-history',
-                  builder: (context, state) => const ScoreHistoryScreen(),
-                ),
-              ],
-            ),
-          ],
-        ),
-        // BRANCH 1: Home
-        StatefulShellBranch(
-          routes: [
-            GoRoute(
-              path: '/home',
-              builder: (context, state) => const HomeDashboard(),
-              routes: [
-                GoRoute(
-                  path: 'daily-tasks',
-                  builder: (context, state) => const DailyTasksScreen(),
-                ),
-              ],
-            ),
-          ],
-        ),
-        // 🌟 BRANCH 2: Analytics (THE NEW TAB)
-        StatefulShellBranch(
-          routes: [
-            GoRoute(
-              path: '/analytics',
-              builder: (context, state) => const AnalyticsScreen(),
-            ),
-          ],
-        ),
-        // BRANCH 3: Menu 
-        StatefulShellBranch(
-          routes: [
-            GoRoute(
-              path: '/menu',
-              builder: (context, state) => const MenuMainScreen(), 
-              routes: [
-                GoRoute(
-                  path: 'profile', 
-                  builder: (context, state) => const ProfileScreen(),
-                ),
-                GoRoute(
-                  path: 'settings', 
-                  builder: (context, state) => const SettingsScreen(),
-                ),
-              ],
+              path: 'score-history',
+              builder: (context, state) => const ScoreHistoryScreen(),
             ),
           ],
         ),
       ],
     ),
+    // BRANCH 1: Home
+    StatefulShellBranch(
+      routes: [
+        GoRoute(
+          path: '/home',
+          builder: (context, state) => const HomeDashboard(),
+          routes: [
+            GoRoute(
+              path: 'daily-tasks',
+              builder: (context, state) => const DailyTasksScreen(),
+            ),
+          ],
+        ),
+      ],
+    ),
+    // BRANCH 2: Analytics
+    StatefulShellBranch(
+      routes: [
+        GoRoute(
+          path: '/analytics',
+          builder: (context, state) => const AnalyticsScreen(),
+        ),
+      ],
+    ),
+    // 🗑️ BRANCH 3 HAS BEEN REMOVED ENTIRELY FROM HERE
+  ],
+),
   ],
   
   redirect: (context, state) {
@@ -135,6 +128,11 @@ final _router = GoRouter(
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Initialize Firebase
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
 
   await Supabase.initialize(
     url: 'https://gdreefwxoftmhekchszr.supabase.co',

@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "341120839996",
+    "project_id": "carbonsense-c6f91",
+    "storage_bucket": "carbonsense-c6f91.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:341120839996:android:e2f737c6409f67f000ee39",
+        "android_client_info": {
+          "package_name": "com.example.carbonsense"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC-zUHqsKVuf_ByTZ0qXYB9-458k6CgZkg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

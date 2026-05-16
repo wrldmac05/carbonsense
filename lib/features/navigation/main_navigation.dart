@@ -16,22 +16,20 @@ class MainNavigation extends StatelessWidget {
       body: navigationShell,
       bottomNavigationBar: BottomNavigationBar(
         items: const <BottomNavigationBarItem>[
+          // BRANCH 0
           BottomNavigationBarItem(
             icon: Icon(Icons.list_alt),
             label: 'Activity',
           ),
+          // BRANCH 1
           BottomNavigationBarItem(
             icon: Icon(Icons.home),
             label: 'Home',
           ),
-          // 🌟 THE NEW ANALYTICS ICON
+          // BRANCH 2
           BottomNavigationBarItem(
             icon: Icon(Icons.analytics),
             label: 'Analytics',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.menu),
-            label: 'Menu',
           ),
         ],
         currentIndex: navigationShell.currentIndex,

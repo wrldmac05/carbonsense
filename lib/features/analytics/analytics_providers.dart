@@ -3,33 +3,75 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-// 1. Stream the AI Insight
-final aiInsightStreamProvider = StreamProvider.autoDispose<String>((ref) {
+// 1. Stream the GENERAL AI Insight (Macro View)
+final generalAiInsightProvider = StreamProvider.autoDispose<String>((ref) {
   final userId = Supabase.instance.client.auth.currentUser?.id;
   if (userId == null) return Stream.value("No user logged in.");
 
   return Supabase.instance.client
       .from('ai_prescriptions')
-      .stream(primaryKey: ['id']) // Assuming 'id' is your primary key
-      .eq('user_id', userId)
-      .order('created_at', ascending: false)
-      .limit(1)
-      .map((event) {
-        if (event.isNotEmpty) {
-          return event.first['ai_text'] as String;
+      .stream(primaryKey: ['id']) 
+      .map((events) {
+        // 1. Filter for this user and the 'general' context
+        final userEvents = events.where((e) => 
+            e['user_id'] == userId && 
+            e['context_type'] == 'general'
+        ).toList();
+
+        // 2. Sort to get the newest one first
+        userEvents.sort((a, b) => 
+            DateTime.parse(b['created_at']).compareTo(DateTime.parse(a['created_at']))
+        );
+
+        // 3. Return the text if it exists
+        if (userEvents.isNotEmpty) {
+          return userEvents.first['ai_text'] as String;
         }
-        return "Your AI Eco-Coach is gathering enough data to generate your personalized insight. Keep logging!";
+        return "Your AI Eco-Coach is analyzing your overall trends. Keep logging activities!";
       });
 });
 
-// 2. Stream the Activity Logs for the Chart
+// 2. Stream the MONTHLY AI Insight (Micro View)
+final monthlyAiInsightProvider = StreamProvider.family.autoDispose<String, int>((ref, monthIndex) {
+  final userId = Supabase.instance.client.auth.currentUser?.id;
+  if (userId == null) return Stream.value("No user logged in.");
+
+  // Dynamically creates the target label, e.g., 'month_0' for Jan, 'month_1' for Feb
+  final targetContext = 'month_$monthIndex';
+
+  return Supabase.instance.client
+      .from('ai_prescriptions')
+      .stream(primaryKey: ['id'])
+      .map((events) {
+        // 1. Filter for this user and the specific month
+        final userEvents = events.where((e) => 
+            e['user_id'] == userId && 
+            e['context_type'] == targetContext
+        ).toList();
+
+        // 2. Sort to get the newest one first
+        userEvents.sort((a, b) => 
+            DateTime.parse(b['created_at']).compareTo(DateTime.parse(a['created_at']))
+        );
+
+        // 3. Return the text if it exists
+        if (userEvents.isNotEmpty) {
+          return userEvents.first['ai_text'] as String;
+        }
+        return "No specific AI insight generated for this month yet.";
+      });
+});
+
+// 3. Stream the Activity Logs for the Chart
 final activityLogsStreamProvider = StreamProvider.autoDispose<List<Map<String, dynamic>>>((ref) {
   final userId = Supabase.instance.client.auth.currentUser?.id;
   if (userId == null) return Stream.value([]);
 
   return Supabase.instance.client
       .from('activity_logs')
-      .stream(primaryKey: ['id']) // Assuming 'id' is your primary key
-      .eq('user_id', userId)
-      .map((data) => List<Map<String, dynamic>>.from(data));
+      .stream(primaryKey: ['id']) 
+      .map((events) {
+         // Filter logs so we only see the current user's data
+         return events.where((e) => e['user_id'] == userId).toList();
+      });
 });

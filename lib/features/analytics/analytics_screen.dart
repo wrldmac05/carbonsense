@@ -1,15 +1,13 @@
-// lib/features/analytics/analytics_screen.dart
-
 import 'package:carbonsense/theme/app_theme.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart'; // 👈 Added Riverpod
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
-import 'analytics_providers.dart'; // 👈 Import your new providers!
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'analytics_providers.dart';
+import 'package:carbonsense/widgets/custom_drawer.dart';
+import 'package:carbonsense/widgets/quick_start_guide_dialog.dart';
 
-enum ViewLevel { year, month, week }
-
-// 👇 Changed to ConsumerStatefulWidget
 class AnalyticsScreen extends ConsumerStatefulWidget {
   const AnalyticsScreen({super.key});
 
@@ -18,321 +16,397 @@ class AnalyticsScreen extends ConsumerStatefulWidget {
 }
 
 class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
-  ViewLevel _viewLevel = ViewLevel.year;
-  DateTime _selectedDate = DateTime.now();
-  final List<DateTime> _dateHistory = [];
-
-  // Data processing logic modified to take the stream list directly
-  List<double> _processChartData(List<Map<String, dynamic>> logs) {
-    List<double> newData = [];
-
-    if (_viewLevel == ViewLevel.year) {
-      newData = List.filled(12, 0.0);
-      for (var log in logs) {
-        DateTime date = DateTime.parse(log['logged_at']);
-        if (date.year == _selectedDate.year) {
-          newData[date.month - 1] += (log['total_co2e'] as num).toDouble();
-        }
-      }
-    } else if (_viewLevel == ViewLevel.month) {
-      final weeks = _getWeeksInMonth(_selectedDate);
-      newData = List.filled(weeks.length, 0.0);
-      for (var log in logs) {
-        DateTime date = DateTime.parse(log['logged_at']);
-        if (date.year == _selectedDate.year && date.month == _selectedDate.month) {
-          for (int i = 0; i < weeks.length; i++) {
-            if (date.isAfter(weeks[i]['start']!.subtract(const Duration(days: 1))) && 
-                date.isBefore(weeks[i]['end']!.add(const Duration(days: 1)))) {
-              newData[i] += (log['total_co2e'] as num).toDouble();
-              break;
-            }
-          }
-        }
-      }
-    } else {
-      // Week View
-      newData = List.filled(7, 0.0);
-      final startOfWeek = _selectedDate.subtract(Duration(days: _selectedDate.weekday - 1));
-      for (var log in logs) {
-        DateTime date = DateTime.parse(log['logged_at']);
-        if (date.isAfter(startOfWeek.subtract(const Duration(days: 1))) && 
-            date.isBefore(startOfWeek.add(const Duration(days: 7)))) {
-          newData[date.weekday - 1] += (log['total_co2e'] as num).toDouble();
-        }
-      }
-    }
-    return newData;
-  }
-
-  void _onTimeframeSelected(DateTime newDate, ViewLevel nextView) {
-    setState(() {
-      _dateHistory.add(_selectedDate);
-      _selectedDate = newDate;
-      _viewLevel = nextView;
-    });
-  }
-
-  void _navigateBack() {
-    if (_dateHistory.isEmpty) return;
-    setState(() {
-      _selectedDate = _dateHistory.removeLast();
-      if (_viewLevel == ViewLevel.week) {
-        _viewLevel = ViewLevel.month;
-      } else if (_viewLevel == ViewLevel.month) {
-        _viewLevel = ViewLevel.year;
-      }
-    });
-  }
+  int _selectedMonthIndex = DateTime.now().month - 1; // Defaults to current month
 
   @override
-  Widget build(BuildContext context) {
-    // 👇 Watch the streams!
-    final logsAsync = ref.watch(activityLogsStreamProvider);
-    final aiInsightAsync = ref.watch(aiInsightStreamProvider);
-
-    return Scaffold(
-      body: SafeArea(
-        // Riverpod's .when() handles the loading/error/data states beautifully
-        child: logsAsync.when(
-          loading: () => const Center(child: CircularProgressIndicator(color: AppTheme.primaryColor)),
-          error: (err, stack) => Center(child: Text('Error loading data: $err')),
-          data: (logs) {
-            final chartData = _processChartData(logs);
-
-            return SingleChildScrollView(
-              padding: const EdgeInsets.all(24.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildHeader(),
-                  const SizedBox(height: 16),
-                  if (_viewLevel != ViewLevel.week) _buildTimeframeSelectorGrid(),
-                  const SizedBox(height: 24),
-                  _buildChart(chartData), // Pass the processed data down
-                  const SizedBox(height: 24),
-                  
-                  // Handle the AI Insight loading state independently
-                  aiInsightAsync.when(
-                    loading: () => const Center(child: LinearProgressIndicator(color: AppTheme.primaryColor)),
-                    error: (err, stack) => _buildAiInsightCard("Couldn't connect to the AI Eco-Coach right now."),
-                    data: (insightText) => _buildAiInsightCard(insightText),
-                  ),
-                ],
-              ),
-            );
-          },
-        ),
-      ),
-    );
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _runSmartSync();
+    });
   }
 
-  // --- UI HELPER METHODS BELOW (Mostly unchanged, just removed setState ties) ---
-
-  Widget _buildHeader() {
-    String title;
-    switch (_viewLevel) {
-      case ViewLevel.year:
-        title = DateFormat('yyyy').format(_selectedDate);
-        break;
-      case ViewLevel.month:
-        title = DateFormat('MMMM yyyy').format(_selectedDate);
-        break;
-      case ViewLevel.week:
-        final startOfWeek = _selectedDate.subtract(Duration(days: _selectedDate.weekday - 1));
-        final endOfWeek = startOfWeek.add(const Duration(days: 6));
-        title = '${DateFormat.MMMd().format(startOfWeek)} - ${DateFormat.MMMd().format(endOfWeek)}';
-        break;
+  Future<void> _runSmartSync() async {
+    try {
+      final userId = Supabase.instance.client.auth.currentUser!.id;
+      await Supabase.instance.client.functions.invoke(
+        'eco_coach',
+        body: {'user_id': userId}, 
+      );
+    } catch (e) {
+      debugPrint("Silent Sync Error: $e"); 
     }
+  }
 
-    return Row(
+  List<double> _getYearlyData(List<Map<String, dynamic>> logs) {
+    List<double> yearlyData = List.filled(12, 0.0);
+    final currentYear = DateTime.now().year;
+
+    for (var log in logs) {
+      DateTime date = DateTime.parse(log['logged_at']);
+      if (date.year == currentYear) {
+        yearlyData[date.month - 1] += (log['total_co2e'] as num).toDouble();
+      }
+    }
+    return yearlyData;
+  }
+
+  // 🎨 YOUR UPGRADED MODERN HEADER ENGINE
+  Widget _buildHeader() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (_viewLevel != ViewLevel.year)
-          IconButton(
-            icon: const Icon(Icons.arrow_back_ios, color: AppTheme.primaryColor),
-            onPressed: _navigateBack,
+        const Text(
+          "Analytics", 
+          style: TextStyle(
+            fontSize: 34, 
+            fontWeight: FontWeight.w900, 
+            letterSpacing: -1.0,
           ),
+        ),
+        const SizedBox(height: 4),
         Text(
-          title,
-          style: Theme.of(context)
-              .textTheme
-              .headlineSmall
-              ?.copyWith(fontWeight: FontWeight.bold, color: AppTheme.primaryColor),
+          "Review your real-time carbon mitigation insights.",
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w500,
+            color: Colors.grey.shade600,
+          ),
         ),
       ],
     );
   }
 
-  Widget _buildTimeframeSelectorGrid() {
-    return GridView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: _viewLevel == ViewLevel.year ? 4 : 3,
-        crossAxisSpacing: 16,
-        mainAxisSpacing: 16,
-        childAspectRatio: _viewLevel == ViewLevel.year ? 1.5 : 2.0,
-      ),
-      itemCount: _viewLevel == ViewLevel.year ? 12 :_getWeeksInMonth(_selectedDate).length,
-      itemBuilder: (context, index) {
-        String label;
-        DateTime newDate;
-        ViewLevel nextView;
+  @override
+  Widget build(BuildContext context) {
+    final logsAsync = ref.watch(activityLogsStreamProvider);
+    final generalAiAsync = ref.watch(generalAiInsightProvider);
+    final monthlyAiAsync = ref.watch(monthlyAiInsightProvider(_selectedMonthIndex)); 
 
-        if (_viewLevel == ViewLevel.year) {
-          label = DateFormat('MMM').format(DateTime(_selectedDate.year, index + 1));
-          newDate = DateTime(_selectedDate.year, index + 1);
-          nextView = ViewLevel.month;
-        } else {
-          final weeks = _getWeeksInMonth(_selectedDate);
-          final week = weeks[index];
-          final start = week['start']!;
-          final end = week['end']!;
-          label = '${start.day}-${end.day}';
-          newDate = start;
-          nextView = ViewLevel.week;
-        }
+    return Scaffold(
+      backgroundColor: const Color(0xFFF9FFF9),
+      drawer: const CustomDrawer(),
+      
+      // 1. CLEAN APP BAR Layout 
+      // Gives full focus to your page header while natively housing the hamburger menu
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        centerTitle: true, // Centers your logo beautifully in the middle
 
-        return Card(
-          elevation: 2,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          child: InkWell(
-            borderRadius: BorderRadius.circular(12),
-            onTap: () => _onTimeframeSelected(newDate, nextView),
-            child: Center(
-              child: Text(
-                label,
-                style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.primaryColor),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.help_outline, color: AppTheme.primaryColor),
+            tooltip: 'Quick Start Guide',
+            onPressed: () => showQuickStartGuideDialog(context), // Works instantly!
+          ),
+          const SizedBox(width: 12),
+        ],
+        
+        // Custom branding layout inside the title
+        title: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.eco, color: AppTheme.primaryColor, size: 24),
+            const SizedBox(width: 8),
+            Text(
+              'CarbonSense',
+              style: TextStyle(
+                color: Colors.grey.shade900,
+                fontWeight: FontWeight.w900,
+                fontSize: 20,
+                letterSpacing: -0.5,
               ),
             ),
-          ),
-        );
-      },
+          ],
+        ),
+        
+        // Optional: Add a subtle notification or profile trigger on the right side to balance out the layout      
+        
+        // NOTE: You do not need to add a leading IconButton for the hamburger menu!
+        // Flutter automatically detects the 'drawer' property above and generates 
+        // a perfect, theme-matched hamburger button for you right here.
+      ),
+        
+      body: logsAsync.when(
+        loading: () => const Center(child: CircularProgressIndicator(color: AppTheme.primaryColor)),
+        error: (err, _) => Center(child: Text('Error: $err')),
+        data: (logs) {
+          final yearlyData = _getYearlyData(logs);
+          final totalYearlyImpact = yearlyData.fold(0.0, (sum, item) => sum + item);
+          final selectedMonthImpact = yearlyData[_selectedMonthIndex];
+
+          return SingleChildScrollView(
+            physics: const BouncingScrollPhysics(),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // 🌟 CONNECTION STEP: Injecting your beautiful new header here!
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 8.0),
+                  child: _buildHeader(),
+                ),
+                const SizedBox(height: 16),
+
+                // 2. GENERAL AI INSIGHT (The Big Picture)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 10),
+                  child: generalAiAsync.when(
+                    loading: () => const LinearProgressIndicator(color: AppTheme.primaryColor),
+                    error: (err, _) => const SizedBox.shrink(),
+                    data: (text) => _buildAiCard("GENERAL ECO-COACH", text, isGeneral: true),
+                  ),
+                ),
+
+                // 3. YEARLY OVERVIEW GRAPH
+                Padding(
+                  padding: const EdgeInsets.all(20.0),
+                  child: _buildYearlyChartCard(yearlyData, totalYearlyImpact),
+                ),
+
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 24.0, vertical: 8.0),
+                  child: Text("Monthly Deep Dive", style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18)),
+                ),
+
+                // 4. MONTH SELECTOR
+                _buildMonthSelector(),
+
+                // 5. MONTH-SPECIFIC DETAILS & AI
+                Padding(
+                  padding: const EdgeInsets.all(20.0),
+                  child: Column(
+                    children: [
+                      _buildMonthSummaryCard(selectedMonthImpact),
+                      const SizedBox(height: 16),
+                      
+                      monthlyAiAsync.when(
+                        loading: () => const LinearProgressIndicator(color: Colors.greenAccent),
+                        error: (err, _) => const SizedBox.shrink(),
+                        data: (text) {
+                          if (_selectedMonthIndex == DateTime.now().month - 1) {
+                            text = "Activity tracking in progress... Your full AI summary will be generated on the 1st of next month!";
+                          }
+
+                          return _buildAiCard(
+                            "${DateFormat('MMMM').format(DateTime(2026, _selectedMonthIndex + 1)).toUpperCase()} INSIGHT", 
+                            text,
+                            isGeneral: false,
+                          );
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 40),
+              ],
+            ),
+          );
+        },
+      ),
     );
   }
-  
-  List<Map<String, DateTime>> _getWeeksInMonth(DateTime month) {
-    final firstDay = DateTime(month.year, month.month, 1);
-    final lastDay = DateTime(month.year, month.month + 1, 0);
-    final weeks = <Map<String, DateTime>>[];
 
-    DateTime weekStart = firstDay;
-    while (weekStart.isBefore(lastDay)) {
-        DateTime weekEnd = weekStart.add(const Duration(days: 6));
-        if (weekEnd.month != weekStart.month) {
-            weekEnd = DateTime(weekStart.year, weekStart.month, lastDay.day);
-        }
-        weeks.add({'start': weekStart, 'end': weekEnd});
-        weekStart = weekEnd.add(const Duration(days: 1));
-    }
-    return weeks;
+  // --- UI COMPONENTS ---
+
+  Widget _buildAiCard(String title, String text, {required bool isGeneral}) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: isGeneral ? Colors.white : const Color(0xFF1A1A1A), 
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: AppTheme.primaryColor.withOpacity(0.2)),
+        boxShadow: [
+          BoxShadow(color: AppTheme.primaryColor.withOpacity(0.08), blurRadius: 20, offset: const Offset(0, 10)),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.auto_awesome, color: isGeneral ? AppTheme.primaryColor : Colors.greenAccent, size: 20),
+              const SizedBox(width: 8),
+              Text(title, 
+                style: TextStyle(
+                  color: isGeneral ? AppTheme.primaryColor : Colors.greenAccent, 
+                  fontWeight: FontWeight.w900, 
+                  fontSize: 11, 
+                  letterSpacing: 1.2
+                )),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text(text, 
+            style: TextStyle(
+              fontSize: 15, 
+              height: 1.5, 
+              color: isGeneral ? Colors.black87 : Colors.white
+            )),
+        ],
+      ),
+    );
   }
 
-  // 👇 Modified to accept chartData as a parameter
-  Widget _buildChart(List<double> chartData) {
-    if (chartData.isEmpty || chartData.every((val) => val == 0)) {
-       return const SizedBox(
-         height: 250, 
-         child: Center(child: Text("No data for this period", style: TextStyle(color: Colors.grey)))
-       );
-    }
-    
-    final maxY = chartData.reduce((a, b) => a > b ? a : b);
-    final chartMaxY = maxY > 0 ? maxY * 1.2 : 10.0; 
+  Widget _buildYearlyChartCard(List<double> data, double total) {
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(32),
+        boxShadow: [BoxShadow(color: AppTheme.primaryColor.withOpacity(0.08), blurRadius: 30, offset: const Offset(0, 15))],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text("Year-to-Date Impact", style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 4),
+          Text("${total.toStringAsFixed(1)} kg CO₂e", 
+              style: const TextStyle(fontSize: 32, fontWeight: FontWeight.w900, letterSpacing: -1)),
+          const SizedBox(height: 32),
+          _buildYearlyGraph(data),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildYearlyGraph(List<double> data) {
+    final maxY = data.isEmpty ? 100.0 : (data.reduce((a, b) => a > b ? a : b) * 1.2);
 
     return SizedBox(
-      height: 250,
-      child: BarChart(
-        BarChartData(
-          alignment: BarChartAlignment.spaceAround,
-          maxY: chartMaxY, 
-          barTouchData: BarTouchData(enabled: true),
+      height: 200,
+      child: LineChart(
+        LineChartData(
+          maxY: maxY == 0 ? 10 : maxY, 
+          gridData: FlGridData(
+            show: true, 
+            drawVerticalLine: false, 
+            getDrawingHorizontalLine: (val) => FlLine(color: Colors.grey.withOpacity(0.1), strokeWidth: 1)
+          ),
           titlesData: FlTitlesData(
-            show: true,
-            bottomTitles: AxisTitles(
+            topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+            rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+            leftTitles: AxisTitles(
               sideTitles: SideTitles(
                 showTitles: true,
-                reservedSize: 30,
-                getTitlesWidget: (double value, TitleMeta meta) {
-                  String text = '';
-                  if (_viewLevel == ViewLevel.year) {
-                    final monthIndex = (value.toInt() % 12) + 1;
-                    text = DateFormat('MMM').format(DateTime(2000, monthIndex)).substring(0, 1);
-                  } else if (_viewLevel == ViewLevel.month) {
-                    text = 'W${value.toInt() + 1}';
-                  } else { 
-                    final dayIndex = (value.toInt() % 7) + 1;
-                    text = DateFormat('E').format(DateTime(2000, 1, 2 + dayIndex)).substring(0, 1);
-                  }
-                  return SideTitleWidget(
-                    meta: meta,
-                    child: Text(text, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                reservedSize: 40, 
+                getTitlesWidget: (val, _) {
+                  return Padding(
+                    padding: const EdgeInsets.only(right: 8.0),
+                    child: Text(
+                      val.toInt().toString(), 
+                      textAlign: TextAlign.right,
+                      style: const TextStyle(color: Colors.grey, fontSize: 11, fontWeight: FontWeight.bold),
+                    ),
                   );
                 },
               ),
             ),
-            leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-            topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-            rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-          ),
-          gridData: const FlGridData(show: false),
-          borderData: FlBorderData(show: false),
-          barGroups: chartData
-              .asMap()
-              .map((index, value) => MapEntry(
-                    index,
-                    BarChartGroupData(
-                      x: index,
-                      barRods: [
-                        BarChartRodData(
-                          toY: value,
-                          color: AppTheme.primaryColor,
-                          width: 16,
-                          borderRadius: const BorderRadius.all(Radius.circular(8)),
-                        ),
-                      ],
+            bottomTitles: AxisTitles(
+              sideTitles: SideTitles(
+                showTitles: true,
+                getTitlesWidget: (val, _) {
+                  final months = ["J", "F", "M", "A", "M", "J", "J", "A", "S", "O", "N", "D"];
+                  int index = val.toInt();
+                  if (index < 0 || index > 11) return const SizedBox.shrink();
+                  
+                  bool isSelected = index == _selectedMonthIndex;
+                  
+                  return Padding(
+                    padding: const EdgeInsets.only(top: 8.0),
+                    child: Text(
+                      months[index], 
+                      style: TextStyle(
+                        color: isSelected ? AppTheme.primaryColor : Colors.grey, 
+                        fontWeight: isSelected ? FontWeight.w900 : FontWeight.bold, 
+                        fontSize: 12
+                      )
                     ),
-                  ))
-              .values
-              .toList(),
+                  );
+                },
+              ),
+            ),
+          ),
+          borderData: FlBorderData(show: false),
+          lineBarsData: [
+            LineChartBarData(
+              spots: data.asMap().entries.map((e) => FlSpot(e.key.toDouble(), e.value)).toList(),
+              isCurved: true,
+              color: AppTheme.primaryColor,
+              barWidth: 4,
+              dotData: const FlDotData(show: false),
+              belowBarData: BarAreaData(
+                show: true,
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [AppTheme.primaryColor.withOpacity(0.2), AppTheme.primaryColor.withOpacity(0)],
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
   }
 
-  // 👇 Modified to accept the String directly
-  Widget _buildAiInsightCard(String insightText) {
-    return Card(
-      elevation: 4,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      color: AppTheme.primaryColor.withAlpha(26),
-      child: Padding(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Row(
-              children: [
-                Icon(Icons.auto_awesome, color: AppTheme.primaryColor),
-                SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    'Eco-Coach Insight',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
-                      color: AppTheme.primaryColor,
-                    ),
-                  ),
+  Widget _buildMonthSelector() {
+    final months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+    return SizedBox(
+      height: 50,
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 20),
+        itemCount: 12,
+        itemBuilder: (context, index) {
+          bool isSelected = index == _selectedMonthIndex;
+          return GestureDetector(
+            onTap: () => setState(() => _selectedMonthIndex = index),
+            child: Container(
+              margin: const EdgeInsets.only(right: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              decoration: BoxDecoration(
+                color: isSelected ? AppTheme.primaryColor : Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: isSelected ? AppTheme.primaryColor : Colors.grey.shade200),
+                boxShadow: isSelected ? [BoxShadow(color: AppTheme.primaryColor.withOpacity(0.3), blurRadius: 8, offset: const Offset(0, 4))] : [],
+              ),
+              child: Center(
+                child: Text(
+                  months[index], 
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: isSelected ? Colors.white : Colors.black87)
                 ),
-              ],
+              ),
             ),
-            const SizedBox(height: 12),
-            Text(
-              insightText,
-              style: const TextStyle(fontSize: 14, color: Colors.black87, height: 1.5),
-            )
-          ],
-        ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildMonthSummaryCard(double impact) {
+    String monthName = DateFormat('MMMM').format(DateTime(2026, _selectedMonthIndex + 1));
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: AppTheme.primaryColor.withOpacity(0.3)),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text("$monthName Total", style: const TextStyle(color: Colors.grey, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 4),
+              Text("${impact.toStringAsFixed(1)} kg", style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w900)),
+            ],
+          ),
+          const Icon(Icons.calendar_month, color: AppTheme.primaryColor, size: 32),
+        ],
       ),
     );
   }
