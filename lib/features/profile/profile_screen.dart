@@ -27,7 +27,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
       final userId = Supabase.instance.client.auth.currentUser?.id;
       if (userId == null) return;
 
-      // 👇 ADD THIS LINE HERE to trigger permissions and save the token
       NotificationService().initNotifications();
 
       final profileResponse = await Supabase.instance.client
@@ -42,7 +41,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           .eq('user_id', userId)
           .maybeSingle();
 
-      // THE SMART ONBOARDING CHECK (Checks Location)
+      // THE SMART ONBOARDING CHECK
       if (profileResponse != null) {
         final rawLocation = profileResponse['location'];
         final bool hasLocation = rawLocation != null && rawLocation.toString().trim().isNotEmpty;
@@ -79,43 +78,49 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return Icons.directions_car;
   }
 
-  // 👇 Functional Bottom Sheet for the Settings Menu
+  // Functional Bottom Sheet for the Settings Menu
   void _openSettingsMenu(String title, IconData icon, Widget content) {
     showModalBottomSheet(
       context: context,
+      isScrollControlled: true, 
       backgroundColor: Colors.white,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
       builder: (context) {
-        return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.all(24.0),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Icon(icon, color: AppTheme.primaryColor, size: 28),
-                    const SizedBox(width: 12),
-                    Text(title, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: Colors.black87)),
-                  ],
-                ),
-                const SizedBox(height: 24),
-                content,
-                const SizedBox(height: 16),
-                SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton(
-                    onPressed: () => Navigator.pop(context),
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      side: BorderSide(color: Colors.grey.shade300),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    ),
-                    child: const Text('Close', style: TextStyle(color: Colors.black54, fontWeight: FontWeight.bold)),
+        return Padding(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(context).viewInsets.bottom, 
+          ),
+          child: SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.all(24.0),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(icon, color: AppTheme.primaryColor, size: 28),
+                      const SizedBox(width: 12),
+                      Text(title, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: Colors.black87)),
+                    ],
                   ),
-                )
-              ],
+                  const SizedBox(height: 24),
+                  content,
+                  const SizedBox(height: 16),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.pop(context),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        side: BorderSide(color: Colors.grey.shade300),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                      child: const Text('Cancel', style: TextStyle(color: Colors.black54, fontWeight: FontWeight.bold)),
+                    ),
+                  )
+                ],
+              ),
             ),
           ),
         );
@@ -156,7 +161,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              // 1. CLEAN, SUBTLE AVATAR
               Container(
                 padding: const EdgeInsets.all(4),
                 decoration: BoxDecoration(
@@ -166,10 +170,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 child: CircleAvatar(
                   radius: 46,
                   backgroundColor: AppTheme.primaryColor.withOpacity(0.1),
-                  // 👇 Pulls the image from the database if they uploaded one!
                   backgroundImage: _userProfile?['avatar_url'] != null 
-                      ? NetworkImage(// 👇 Adding this unique string forces the image to reload from the server
-          "${_userProfile!['avatar_url']}?t=${DateTime.now().millisecondsSinceEpoch}") 
+                      ? NetworkImage("${_userProfile!['avatar_url']}?t=${DateTime.now().millisecondsSinceEpoch}") 
                       : null,
                   child: _userProfile?['avatar_url'] == null 
                       ? const Icon(Icons.person, size: 40, color: AppTheme.primaryColor)
@@ -178,7 +180,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
               const SizedBox(height: 16),
               
-              // 2. IDENTITY
               Text(displayName, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w900, letterSpacing: -0.5, color: Colors.black87)),
               const SizedBox(height: 4),
               Row(
@@ -191,7 +192,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
               const SizedBox(height: 20),
 
-              // 3. EDIT PROFILE BUTTON (Moved here for maximum UX)
               SizedBox(
                 width: 160,
                 child: FilledButton.tonal(
@@ -211,10 +211,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
               const SizedBox(height: 40),
 
-              // 4. LIFESTYLE PROFILE GRID
-              Align(
+              const Align(
                 alignment: Alignment.centerLeft,
-                child: const Text("Lifestyle Profile", style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18, color: Colors.black87)),
+                child: Text("Lifestyle Profile", style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18, color: Colors.black87)),
               ),
               const SizedBox(height: 16),
               Row(
@@ -238,13 +237,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
               const SizedBox(height: 40),
 
-              // 5. SETTINGS LIST (Cleaned up and Functional)
-              Align(
+              const Align(
                 alignment: Alignment.centerLeft,
-                child: const Text("Account & Settings", style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18, color: Colors.black87)),
+                child: Text("Account & Settings", style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18, color: Colors.black87)),
               ),
               const SizedBox(height: 16),
-             Container(
+              Container(
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(24),
@@ -253,73 +251,145 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ),
                 child: Column(
                   children: [
-                    // --- 1. NOTIFICATIONS ---
-                    // --- 1. NOTIFICATIONS ---
-_buildListTile(Icons.notifications_none, "Notifications", () {
-  _openSettingsMenu(
-    "Notifications",
-    Icons.notifications_active,
-    StatefulBuilder(
-      builder: (BuildContext context, StateSetter setModalState) {
-        // Read current state from our fetched profile, default to true/false if null
-        bool isPushEnabled = _userProfile?['push_enabled'] ?? true; 
-        bool isEmailEnabled = _userProfile?['email_enabled'] ?? false;
-        bool isSaving = false; // To prevent spamming the database
+                    // --- SECURITY: CHANGE PASSWORD ---
+                    _buildListTile(Icons.lock_outline, "Change Password", () {
+                      // 👇 FIX: Controllers are now safely initialized OUTSIDE the builder
+                      final formKey = GlobalKey<FormState>();
+                      final currentPasswordController = TextEditingController();
+                      final passwordController = TextEditingController();
+                      final confirmController = TextEditingController();
+                      bool isObscured = true;
+                      bool isSaving = false;
 
-        return Column(
-          children: [
-            SwitchListTile(
-              title: const Text("Push Notifications", style: TextStyle(fontWeight: FontWeight.bold)),
-              subtitle: const Text("Daily reminders and AI insight alerts"),
-              value: isPushEnabled,
-              activeColor: AppTheme.primaryColor,
-              onChanged: isSaving ? null : (bool value) async {
-                // 1. Update UI instantly for good UX
-                setModalState(() => isPushEnabled = value);
-                setState(() => _userProfile?['push_enabled'] = value); // Update parent state
-                
-                // 2. Save to Supabase
-                setModalState(() => isSaving = true);
-                try {
-                  final userId = Supabase.instance.client.auth.currentUser?.id;
-                  await Supabase.instance.client
-                      .from('user_profiles')
-                      .update({'push_enabled': value})
-                      .eq('user_id', userId!);
-                } catch (e) {
-                  debugPrint("Error updating push settings: $e");
-                  // Revert UI if it fails
-                  setModalState(() => isPushEnabled = !value);
-                } finally {
-                  setModalState(() => isSaving = false);
-                }
-              },
-            ),
-            SwitchListTile(
-              title: const Text("Email Updates", style: TextStyle(fontWeight: FontWeight.bold)),
-              subtitle: const Text("Weekly carbon footprint summaries"),
-              value: isEmailEnabled,
-              activeColor: AppTheme.primaryColor,
-              onChanged: isSaving ? null : (bool value) async {
-                setModalState(() => isEmailEnabled = value);
-                setState(() => _userProfile?['email_enabled'] = value);
+                      _openSettingsMenu(
+                        "Change Password",
+                        Icons.lock_reset,
+                        StatefulBuilder(
+                          builder: (BuildContext context, StateSetter setModalState) {
+                            return Form(
+                              key: formKey,
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.all(16),
+                                    decoration: BoxDecoration(
+                                      color: AppTheme.primaryColor.withOpacity(0.05),
+                                      borderRadius: BorderRadius.circular(12),
+                                      border: Border.all(color: AppTheme.primaryColor.withOpacity(0.2)),
+                                    ),
+                                    child: const Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text("Password Requirements:", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.black87)),
+                                        SizedBox(height: 8),
+                                        Text("• Minimum of 6 characters", style: TextStyle(fontSize: 13, color: Colors.black54)),
+                                        Text("• At least 1 uppercase letter", style: TextStyle(fontSize: 13, color: Colors.black54)),
+                                        Text("• No special characters allowed", style: TextStyle(fontSize: 13, color: Colors.black54)),
+                                      ],
+                                    ),
+                                  ),
+                                  const SizedBox(height: 24),
+                                  
+                                  TextFormField(
+                                    controller: currentPasswordController,
+                                    obscureText: isObscured,
+                                    decoration: InputDecoration(
+                                      labelText: "Current Password",
+                                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                                      prefixIcon: const Icon(Icons.password),
+                                    ),
+                                    validator: (value) => (value == null || value.isEmpty) ? 'Please enter your current password' : null,
+                                  ),
+                                  const SizedBox(height: 16),
+                                  TextFormField(
+                                    controller: passwordController,
+                                    obscureText: isObscured,
+                                    decoration: InputDecoration(
+                                      labelText: "New Password",
+                                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                                      prefixIcon: const Icon(Icons.lock_outline),
+                                      suffixIcon: IconButton(
+                                        icon: Icon(isObscured ? Icons.visibility_off : Icons.visibility),
+                                        onPressed: () => setModalState(() => isObscured = !isObscured), // Safely updates UI now
+                                      ),
+                                    ),
+                                    validator: (value) {
+                                      if (value == null || value.length < 6) return 'Minimum 6 characters required';
+                                      if (!value.contains(RegExp(r'[A-Z]'))) return 'Must contain at least 1 uppercase letter';
+                                      if (!RegExp(r'^[a-zA-Z0-9]+$').hasMatch(value)) return 'No special characters allowed';
+                                      return null;
+                                    },
+                                  ),
+                                  const SizedBox(height: 16),
+                                  TextFormField(
+                                    controller: confirmController,
+                                    obscureText: isObscured,
+                                    decoration: InputDecoration(
+                                      labelText: "Confirm New Password",
+                                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                                      prefixIcon: const Icon(Icons.check_circle_outline),
+                                    ),
+                                    validator: (value) {
+                                      if (value != passwordController.text) return 'Passwords do not match';
+                                      return null;
+                                    },
+                                  ),
+                                  const SizedBox(height: 24),
+                                  
+                                  SizedBox(
+                                    width: double.infinity,
+                                    child: ElevatedButton(
+                                      onPressed: isSaving ? null : () async {
+                                        if (formKey.currentState!.validate()) {
+                                          setModalState(() => isSaving = true);
+                                          try {
+                                            final user = Supabase.instance.client.auth.currentUser;
+                                            
+                                            await Supabase.instance.client.auth.signInWithPassword(
+                                              email: user!.email!,
+                                              password: currentPasswordController.text,
+                                            );
 
-                setModalState(() => isSaving = true);
-                try {
-                  final userId = Supabase.instance.client.auth.currentUser?.id;
-                  await Supabase.instance.client
-                      .from('user_profiles')
-                      .update({'email_enabled': value})
-                      .eq('user_id', userId!);
-                } catch (e) {
-                  debugPrint("Error updating email settings: $e");
-                  setModalState(() => isEmailEnabled = !value);
-                } finally {
-                  setModalState(() => isSaving = false);
-                }
-              },
-            ),
-          ],
+                                            await Supabase.instance.client.auth.updateUser(
+                                              UserAttributes(password: passwordController.text),
+                                            );
+                                            
+                                            if (context.mounted) {
+                                              Navigator.pop(context);
+                                              ScaffoldMessenger.of(context).showSnackBar(
+                                                const SnackBar(content: Text('Password updated successfully!'), backgroundColor: AppTheme.primaryColor),
+                                              );
+                                            }
+                                          } on AuthException catch (e) {
+                                            if (context.mounted) {
+                                              String errorMsg = e.message;
+                                              if (e.message.toLowerCase().contains("invalid login credentials")) {
+                                                errorMsg = "Incorrect current password.";
+                                              }
+                                              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(errorMsg), backgroundColor: Colors.red));
+                                            }
+                                          } catch (e) {
+                                            if (context.mounted) {
+                                              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: ${e.toString()}'), backgroundColor: Colors.red));
+                                            }
+                                          } finally {
+                                            setModalState(() => isSaving = false);
+                                          }
+                                        }
+                                      },
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: AppTheme.primaryColor,
+                                        padding: const EdgeInsets.symmetric(vertical: 16),
+                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                      ),
+                                      child: isSaving 
+                                          ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                                          : const Text('Update Password', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                                    ),
+                                  ),
+                                ],
+                              ),
                             );
                           },
                         ),
@@ -327,72 +397,92 @@ _buildListTile(Icons.notifications_none, "Notifications", () {
                     }),
                     Divider(height: 1, color: Colors.grey.shade100, indent: 60),
 
-                    // --- 2. DATA & PRIVACY ---
-                    _buildListTile(Icons.security, "Data & Privacy", () {
-                      _openSettingsMenu(
-                        "Data & Privacy",
-                        Icons.security,
-                        Column(
-                          children: [
-                            const Text(
-                              "Your carbon footprint data is encrypted. We never sell your data to third parties.",
-                              style: TextStyle(color: Colors.black54, height: 1.5),
-                            ),
-                            const SizedBox(height: 16),
-                            ListTile(
-                              leading: Icon(Icons.download, color: AppTheme.primaryColor),
-                              title: const Text("Export My Data", style: TextStyle(fontWeight: FontWeight.bold)),
-                              trailing: const Icon(Icons.chevron_right),
-                              onTap: () {
-                                // TODO: Add CSV export logic later
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(content: Text('Data export will be sent to your email.')),
-                                );
-                                Navigator.pop(context);
-                              },
-                            ),
-                            ListTile(
-                              leading: const Icon(Icons.delete_forever, color: Colors.redAccent),
-                              title: const Text("Delete Account", style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold)),
-                              onTap: () {
-                                // TODO: Add Supabase delete user logic
-                                Navigator.pop(context);
-                              },
-                            ),
-                          ],
-                        ),
-                      );
-                    }),
-                    Divider(height: 1, color: Colors.grey.shade100, indent: 60),
+                    // --- DANGER ZONE: DELETE ACCOUNT ---
+                    _buildListTile(Icons.delete_forever, "Delete Account", isDestructive: true, () {
+                      // 👇 FIX: Controller declared outside builder
+                      final confirmDeleteController = TextEditingController();
+                      bool isDeleting = false;
+                      bool isConfirmed = false;
 
-                    // --- 3. HELP & SUPPORT ---
-                    _buildListTile(Icons.help_outline, "Help & Support", () {
                       _openSettingsMenu(
-                        "Help & Support",
-                        Icons.help,
-                        Column(
-                          children: [
-                            ListTile(
-                              leading: Icon(Icons.email, color: AppTheme.primaryColor),
-                              title: const Text("Email Support", style: TextStyle(fontWeight: FontWeight.bold)),
-                              subtitle: const Text("support@carbonsense.com"),
-                              onTap: () async {
-                                // Make sure you import 'package:url_launcher/url_launcher.dart'; at the top of your file
-                                // final Uri emailUri = Uri(scheme: 'mailto', path: 'support@carbonsense.com');
-                                // if (await canLaunchUrl(emailUri)) {
-                                //   await launchUrl(emailUri);
-                                // }
-                              },
-                            ),
-                            ListTile(
-                              leading: Icon(Icons.public, color: AppTheme.primaryColor),
-                              title: const Text("Visit FAQ Page", style: TextStyle(fontWeight: FontWeight.bold)),
-                              trailing: const Icon(Icons.open_in_new, size: 16),
-                              onTap: () {
-                                // Add your website link here
-                              },
-                            ),
-                          ],
+                        "Delete Account",
+                        Icons.warning_amber_rounded,
+                        StatefulBuilder(
+                          builder: (BuildContext context, StateSetter setModalState) {
+                            return Column(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(16),
+                                  decoration: BoxDecoration(
+                                    color: Colors.red.shade50,
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(color: Colors.red.shade200),
+                                  ),
+                                  child: const Text(
+                                    "WARNING: This action is permanent and cannot be undone. All of your activity logs, profile data, and AI prescriptions will be permanently erased.",
+                                    style: TextStyle(color: Colors.red, height: 1.5, fontWeight: FontWeight.bold),
+                                  ),
+                                ),
+                                const SizedBox(height: 24),
+                                
+                                // 👇 THE SAFETY LOCK TEXT FIELD 👇
+                                TextField(
+                                  controller: confirmDeleteController,
+                                  decoration: InputDecoration(
+                                    labelText: 'Type "DELETE" to confirm',
+                                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                                    focusedBorder: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                      borderSide: const BorderSide(color: Colors.red, width: 2),
+                                    ),
+                                  ),
+                                  onChanged: (value) {
+                                    setModalState(() {
+                                      isConfirmed = (value == "DELETE");
+                                    });
+                                  },
+                                ),
+                                const SizedBox(height: 24),
+                                
+                                SizedBox(
+                                  width: double.infinity,
+                                  child: ElevatedButton(
+                                    // Button is entirely disabled until 'isConfirmed' is true
+                                    onPressed: (!isConfirmed || isDeleting) ? null : () async {
+                                      setModalState(() => isDeleting = true);
+                                      try {
+                                        await Supabase.instance.client.rpc('delete_user_account');
+                                        await Supabase.instance.client.auth.signOut();
+                                        
+                                        if (context.mounted) {
+                                          Navigator.pop(context); // Close sheet
+                                          context.go('/welcome'); // Kick to login
+                                        }
+                                      } catch (e) {
+                                        if (context.mounted) {
+                                          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to delete account: $e'), backgroundColor: Colors.red));
+                                        }
+                                      } finally {
+                                        setModalState(() => isDeleting = false);
+                                      }
+                                    },
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: Colors.red.shade600,
+                                      disabledBackgroundColor: Colors.grey.shade300,
+                                      padding: const EdgeInsets.symmetric(vertical: 16),
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                    ),
+                                    child: isDeleting 
+                                        ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                                        : Text(
+                                            'I understand, delete my account', 
+                                            style: TextStyle(color: isConfirmed ? Colors.white : Colors.grey.shade500, fontWeight: FontWeight.bold)
+                                          ),
+                                  ),
+                                ),
+                              ],
+                            );
+                          },
                         ),
                       );
                     }),
@@ -431,18 +521,18 @@ _buildListTile(Icons.notifications_none, "Notifications", () {
     );
   }
 
-  Widget _buildListTile(IconData icon, String title, VoidCallback onTap) {
+  Widget _buildListTile(IconData icon, String title, VoidCallback onTap, {bool isDestructive = false}) {
     return ListTile(
       contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
       leading: Container(
         padding: const EdgeInsets.all(10),
         decoration: BoxDecoration(
-          color: AppTheme.primaryColor.withOpacity(0.1),
+          color: isDestructive ? Colors.red.withOpacity(0.1) : AppTheme.primaryColor.withOpacity(0.1),
           borderRadius: BorderRadius.circular(12),
         ),
-        child: Icon(icon, color: AppTheme.primaryColor, size: 20),
+        child: Icon(icon, color: isDestructive ? Colors.red : AppTheme.primaryColor, size: 20),
       ),
-      title: Text(title, style: const TextStyle(fontWeight: FontWeight.w600, color: Colors.black87, fontSize: 15)),
+      title: Text(title, style: TextStyle(fontWeight: FontWeight.w600, color: isDestructive ? Colors.red : Colors.black87, fontSize: 15)),
       trailing: const Icon(Icons.chevron_right, color: Colors.grey),
       onTap: onTap,
     );

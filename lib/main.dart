@@ -4,6 +4,7 @@ import 'package:carbonsense/features/auth/forgot_password_screen.dart';
 import 'package:carbonsense/features/navigation/home_dashboard.dart';
 import 'package:carbonsense/features/auth/login_screen.dart';
 import 'package:carbonsense/features/navigation/main_navigation.dart'; 
+import 'package:carbonsense/features/navigation/help_support_screen.dart'; 
 import 'package:carbonsense/features/profile/profile_screen.dart';
 import 'package:carbonsense/features/auth/register_screen.dart';
 import 'package:carbonsense/features/activity/score_history_screen.dart';
@@ -49,6 +50,10 @@ final _router = GoRouter(
     GoRoute(
   path: '/profile',
   builder: (context, state) => const ProfileScreen(),
+),
+GoRoute(
+  path: '/help-support',
+  builder: (context, state) => const HelpSupportScreen(),
 ),
 GoRoute(
   path: '/settings',

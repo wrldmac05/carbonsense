@@ -141,12 +141,12 @@ class _CustomDrawerState extends State<CustomDrawer> {
                   ),
                   _buildDrawerTile(
                     context,
-                    icon: Icons.help_outline,
+                    icon: Icons.help_outline,   
                     title: 'Help & Support',
                     subtitle: 'FAQ and contact',
                     onTap: () {
                       Navigator.pop(context);
-                      // Add support routing later
+                      context.push('/help-support');// Add support routing later
                     },
                   ),
                 ],

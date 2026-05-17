@@ -274,6 +274,186 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
     }
   }
 
+ // 📊 FETCH RAW MONTHLY DATA FOR THE MODAL (Upgraded with relational join)
+  Future<Map<String, List<dynamic>>> _fetchMonthlyBreakdownData() async {
+    final now = DateTime.now();
+    final startOfMonth = DateTime(now.year, now.month, 1).toIso8601String();
+    final endOfMonth = DateTime(now.year, now.month + 1, 0, 23, 59, 59).toIso8601String();
+
+    // 🌟 THE FIX: We use a relational join to pull the category and name from emission_factors!
+    final logsResponse = await Supabase.instance.client
+        .from('activity_logs')
+        .select('*, emission_factors(category, activity_name)') 
+        .eq('user_id', _userId)
+        .gte('logged_at', startOfMonth)
+        .lte('logged_at', endOfMonth)
+        .order('logged_at', ascending: false);
+
+    final tasksResponse = await Supabase.instance.client
+        .from('user_tasks')
+        .select('*, tasks_dictionary(*)')
+        .eq('user_id', _userId)
+        .eq('is_completed', true)
+        .gte('completed_at', startOfMonth)
+        .lte('completed_at', endOfMonth)
+        .order('completed_at', ascending: false);
+
+    return {
+      'logs': logsResponse,
+      'tasks': tasksResponse,
+    };
+  }
+
+  // 🎨 DYNAMIC ICON MATCHER FOR ACTIVITIES
+  IconData _getIconForActivity(String category, String activityName) {
+    final lowerName = activityName.toLowerCase();
+    
+    if (category == 'Transport') {
+      if (lowerName.contains('motorcycle') || lowerName.contains('tricycle')) return Icons.two_wheeler;
+      if (lowerName.contains('jeepney') || lowerName.contains('bus')) return Icons.directions_bus;
+      if (lowerName.contains('lrt') || lowerName.contains('mrt') || lowerName.contains('train')) return Icons.train;
+      if (lowerName.contains('bicycle') || lowerName.contains('walk')) return Icons.directions_walk;
+      return Icons.directions_car; // Default for cars
+    } else if (category == 'Energy') {
+      if (lowerName.contains('water')) return Icons.water_drop;
+      if (lowerName.contains('lpg') || lowerName.contains('gas')) return Icons.local_fire_department;
+      return Icons.electric_bolt; // Default for grid electricity
+    } else if (category == 'Diet') {
+      return Icons.restaurant; // Default for all meals
+    } else if (category == 'Lifestyle') {
+      if (lowerName.contains('waste') || lowerName.contains('landfill')) return Icons.delete_outline;
+      return Icons.eco;
+    }
+    
+    return Icons.cloud_upload; // Fallback
+  }
+
+  // 🚀 SHOW THE MODAL (Upgraded parsing logic)
+  void _openMonthlyBreakdownSheet() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (BuildContext sheetContext) {
+        return Container(
+          height: MediaQuery.of(context).size.height * 0.85, 
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
+          ),
+          padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 40, height: 5,
+                  decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(10)),
+                ),
+              ),
+              const SizedBox(height: 20),
+              const Text("Monthly Footprint Breakdown", style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900, letterSpacing: -0.5)),
+              const SizedBox(height: 4),
+              Text("Your emissions vs. savings for this month.", style: TextStyle(fontSize: 14, color: Colors.grey.shade600, fontWeight: FontWeight.w500)),
+              const SizedBox(height: 20),
+              
+              Expanded(
+                child: FutureBuilder<Map<String, List<dynamic>>>(
+                  future: _fetchMonthlyBreakdownData(),
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return const Center(child: CircularProgressIndicator(color: AppTheme.primaryColor));
+                    }
+                    if (snapshot.hasError) {
+                      return const Center(child: Text("Failed to load breakdown.", style: TextStyle(color: Colors.red)));
+                    }
+
+                    final logs = snapshot.data!['logs']!;
+                    final tasks = snapshot.data!['tasks']!;
+
+                    if (logs.isEmpty && tasks.isEmpty) {
+                      return const Center(child: Text("No activity logged this month yet.", style: TextStyle(color: Colors.grey, fontStyle: FontStyle.italic)));
+                    }
+
+                    return SingleChildScrollView(
+                      physics: const BouncingScrollPhysics(),
+                      child: Padding(
+                        padding: const EdgeInsets.only(bottom: 40.0),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // --- EMISSIONS SECTION ---
+                            Row(
+                              children: [
+                                const Icon(Icons.trending_up, color: Colors.redAccent, size: 20),
+                                const SizedBox(width: 8),
+                                Text("Emissions Logged (${logs.length})", style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: Colors.black87)),
+                              ],
+                            ),
+                            const SizedBox(height: 12),
+                            if (logs.isEmpty) const Text("No emissions logged.", style: TextStyle(color: Colors.grey, fontStyle: FontStyle.italic)),
+                            ...logs.map((log) {
+                              
+                              // 🌟 THE FIX: Dig into the joined emission_factors object!
+                              final factorData = log['emission_factors'] ?? {};
+                              final activityName = factorData['activity_name'] ?? 'Custom Logged Activity';
+                              final category = factorData['category'] ?? 'General';
+                              
+                              final co2e = (log['total_co2e'] as num).toStringAsFixed(1);
+                              final dateStr = log['logged_at'] != null ? log['logged_at'].toString().split('T').first : '';
+                              // 👇 Call our new helper function here!
+                              final dynamicIcon = _getIconForActivity(category, activityName);
+                              
+                              return ListTile(
+                                contentPadding: EdgeInsets.zero,
+                                leading: CircleAvatar(
+                                  backgroundColor: Colors.red.shade50, 
+                                  child: Icon(dynamicIcon, color: Colors.redAccent, size: 18)), // 👈 Placed here
+                                title: Text(activityName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14), maxLines: 1, overflow: TextOverflow.ellipsis),
+                                subtitle: Text('$category • $dateStr', style: const TextStyle(fontSize: 12)),
+                                trailing: Text("+$co2e kg", style: const TextStyle(fontWeight: FontWeight.w900, color: Colors.redAccent)),
+                              );
+                            }),
+
+                            const SizedBox(height: 32),
+                            
+                            // --- SAVINGS SECTION ---
+                            Row(
+                              children: [
+                                const Icon(Icons.trending_down, color: Colors.green, size: 20),
+                                const SizedBox(width: 8),
+                                Text("Completed Tasks (${tasks.length})", style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: Colors.black87)),
+                              ],
+                            ),
+                            const SizedBox(height: 12),
+                            if (tasks.isEmpty) const Text("No tasks completed.", style: TextStyle(color: Colors.grey, fontStyle: FontStyle.italic)),
+                            ...tasks.map((task) {
+                              final details = task['tasks_dictionary'] ?? {};
+                              final desc = details['description'] ?? 'Unnamed Task';
+                              final co2Saved = (details['co2_saved_estimate'] as num?)?.toStringAsFixed(1) ?? '0.0';
+                              final dateStr = task['completed_at'] != null ? task['completed_at'].toString().split('T').first : '';
+                              return ListTile(
+                                contentPadding: EdgeInsets.zero,
+                                leading: CircleAvatar(backgroundColor: Colors.green.shade50, child: const Icon(Icons.check_circle, color: Colors.green, size: 18)),
+                                title: Text(desc, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14), maxLines: 1, overflow: TextOverflow.ellipsis),
+                                subtitle: Text(dateStr, style: const TextStyle(fontSize: 12)),
+                                trailing: Text("-$co2Saved kg", style: const TextStyle(fontWeight: FontWeight.w900, color: Colors.green)),
+                              );
+                            }),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   Future<void> _updateTaskStatus(String userTaskId, bool isCompleted) async {
     try {
       final taskIndex = _tasks.indexWhere((t) => t['user_task_id'] == userTaskId);
@@ -649,52 +829,79 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
   }
 
   Widget _buildImpactHeroCard() {
-    return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: AppTheme.primaryColor,
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: _openMonthlyBreakdownSheet, // 👈 Triggers the new modal!
         borderRadius: BorderRadius.circular(32),
-        boxShadow: [BoxShadow(color: AppTheme.primaryColor.withOpacity(0.4), blurRadius: 20, offset: const Offset(0, 10))],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        child: Container(
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: AppTheme.primaryColor,
+            borderRadius: BorderRadius.circular(32),
+            boxShadow: [BoxShadow(color: AppTheme.primaryColor.withOpacity(0.4), blurRadius: 20, offset: const Offset(0, 10))],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text("Net Footprint", style: TextStyle(color: Colors.white70, fontWeight: FontWeight.w600, fontSize: 14)),
-              Icon(Icons.eco, color: Colors.white70),
+              const Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text("Net Footprint", style: TextStyle(color: Colors.white70, fontWeight: FontWeight.w600, fontSize: 14)),
+                  Icon(Icons.eco, color: Colors.white70),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.baseline,
+                textBaseline: TextBaseline.alphabetic,
+                children: [
+                  Text(_netFootprint.toStringAsFixed(1), style: const TextStyle(color: Colors.white, fontSize: 48, fontWeight: FontWeight.w900, letterSpacing: -1)),
+                  const SizedBox(width: 8),
+                  const Text("kg CO₂e", style: TextStyle(color: Colors.white70, fontSize: 18, fontWeight: FontWeight.w500)),
+                ],
+              ),
+              const SizedBox(height: 24),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text("Monthly Target: ${_monthlyTarget.toStringAsFixed(0)} kg", style: const TextStyle(color: Colors.white, fontSize: 12)),
+                  Text("${(_progress * 100).toStringAsFixed(0)}%", style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
+                ],
+              ),
+              const SizedBox(height: 8),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(10),
+                child: LinearProgressIndicator(
+                  value: _progress,
+                  minHeight: 8,
+                  backgroundColor: Colors.white.withOpacity(0.2),
+                  valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
+                ),
+              ),
+              const SizedBox(height: 16),
+              
+              // 👇 NEW: Small indicator to let the user know they can interact with the card
+              Center(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.touch_app, color: Colors.white70, size: 14),
+                      SizedBox(width: 6),
+                      Text("Tap to view breakdown", style: TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.bold)),
+                    ],
+                  ),
+                ),
+              )
             ],
           ),
-          const SizedBox(height: 12),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.baseline,
-            textBaseline: TextBaseline.alphabetic,
-            children: [
-              Text(_netFootprint.toStringAsFixed(1), style: const TextStyle(color: Colors.white, fontSize: 48, fontWeight: FontWeight.w900, letterSpacing: -1)),
-              const SizedBox(width: 8),
-              const Text("kg CO₂e", style: TextStyle(color: Colors.white70, fontSize: 18, fontWeight: FontWeight.w500)),
-            ],
-          ),
-          const SizedBox(height: 24),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text("Monthly Target: ${_monthlyTarget.toStringAsFixed(0)} kg", style: const TextStyle(color: Colors.white, fontSize: 12)),
-              Text("${(_progress * 100).toStringAsFixed(0)}%", style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
-            ],
-          ),
-          const SizedBox(height: 8),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(10),
-            child: LinearProgressIndicator(
-              value: _progress,
-              minHeight: 8,
-              backgroundColor: Colors.white.withOpacity(0.2),
-              valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
