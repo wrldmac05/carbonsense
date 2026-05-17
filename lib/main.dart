@@ -11,15 +11,16 @@ import 'package:carbonsense/features/activity/score_history_screen.dart';
 import 'package:carbonsense/features/profile/settings_screen.dart';
 import 'package:carbonsense/features/profile/edit_profile_screen.dart';
 import 'package:carbonsense/features/auth/welcome_screen.dart';
-import 'package:carbonsense/features/analytics/analytics_screen.dart'; // 👈 Added the new Analytics import!
+import 'package:carbonsense/features/analytics/analytics_screen.dart';
 import 'package:carbonsense/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
+import 'package:carbonsense/features/auth/reset_password_screen.dart';
 
+// Riverpod import removed!
 
 final ValueNotifier<ThemeMode> themeNotifier = ValueNotifier(ThemeMode.light);
 
@@ -44,76 +45,80 @@ final _router = GoRouter(
       builder: (context, state) => const ForgotPasswordScreen(),
     ),
     GoRoute(
+      path: '/reset-password',
+      builder: (context, state) => const ResetPasswordScreen(),
+    ),
+    GoRoute(
       path: '/edit-profile',
       builder: (context, state) => const EditProfileScreen(),
     ),
     GoRoute(
-  path: '/profile',
-  builder: (context, state) => const ProfileScreen(),
-),
-GoRoute(
-  path: '/help-support',
-  builder: (context, state) => const HelpSupportScreen(),
-),
-GoRoute(
-  path: '/settings',
-  builder: (context, state) => const SettingsScreen(), // Ensure your SettingsScreen class name matches this
-),
+      path: '/profile',
+      builder: (context, state) => const ProfileScreen(),
+    ),
+    GoRoute(
+      path: '/help-support',
+      builder: (context, state) => const HelpSupportScreen(),
+    ),
+    GoRoute(
+      path: '/settings',
+      builder: (context, state) => const SettingsScreen(), 
+    ),
 
     // --- SHELL ROUTE (BOTTOM NAVIGATION BAR) ---
-    // --- SHELL ROUTE (BOTTOM NAVIGATION BAR) ---
-StatefulShellRoute.indexedStack(
-  builder: (context, state, navigationShell) {
-    return MainNavigation(navigationShell: navigationShell);
-  },
-  branches: [
-    // BRANCH 0: Activity
-    StatefulShellBranch(
-      routes: [
-        GoRoute(
-          path: '/activity',
-          builder: (context, state) => const ActivityLogScreen(),
+    StatefulShellRoute.indexedStack(
+      builder: (context, state, navigationShell) {
+        return MainNavigation(navigationShell: navigationShell);
+      },
+      branches: [
+        // BRANCH 0: Activity
+        StatefulShellBranch(
           routes: [
             GoRoute(
-              path: 'score-history',
-              builder: (context, state) => const ScoreHistoryScreen(),
+              path: '/activity',
+              builder: (context, state) => const ActivityLogScreen(),
+              routes: [
+                GoRoute(
+                  path: 'score-history',
+                  builder: (context, state) => const ScoreHistoryScreen(),
+                ),
+              ],
             ),
           ],
         ),
-      ],
-    ),
-    // BRANCH 1: Home
-    StatefulShellBranch(
-      routes: [
-        GoRoute(
-          path: '/home',
-          builder: (context, state) => const HomeDashboard(),
+        // BRANCH 1: Home
+        StatefulShellBranch(
           routes: [
             GoRoute(
-              path: 'daily-tasks',
-              builder: (context, state) => const DailyTasksScreen(),
+              path: '/home',
+              builder: (context, state) => const HomeDashboard(),
+              routes: [
+                GoRoute(
+                  path: 'daily-tasks',
+                  builder: (context, state) => const DailyTasksScreen(),
+                ),
+              ],
             ),
           ],
         ),
-      ],
-    ),
-    // BRANCH 2: Analytics
-    StatefulShellBranch(
-      routes: [
-        GoRoute(
-          path: '/analytics',
-          builder: (context, state) => const AnalyticsScreen(),
+        // BRANCH 2: Analytics
+        StatefulShellBranch(
+          routes: [
+            GoRoute(
+              path: '/analytics',
+              builder: (context, state) => const AnalyticsScreen(),
+            ),
+          ],
         ),
+        // 🗑️ BRANCH 3 HAS BEEN REMOVED ENTIRELY FROM HERE
       ],
     ),
-    // 🗑️ BRANCH 3 HAS BEEN REMOVED ENTIRELY FROM HERE
-  ],
-),
   ],
   
   redirect: (context, state) {
     final session = Supabase.instance.client.auth.currentSession;
     
+    // 👇 CRITICAL FIX: Ensuring '/reset-password' is treated correctly
     final isAuthRoute = state.matchedLocation == '/login' ||
         state.matchedLocation == '/register' ||
         state.matchedLocation == '/welcome' ||
@@ -123,7 +128,8 @@ StatefulShellRoute.indexedStack(
       return '/home'; 
     }
 
-    if (session == null && !isAuthRoute) {
+    // Allow unauthenticated users to access auth routes, AND allow anyone to access reset-password
+    if (session == null && !isAuthRoute && state.matchedLocation != '/reset-password') {
       return '/welcome'; 
     }
 
@@ -145,7 +151,8 @@ Future<void> main() async {
         'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdkcmVlZnd4b2Z0bWhla2Noc3pyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM5OTY5MjQsImV4cCI6MjA4OTU3MjkyNH0.uUtp4zOZupEe4ZA3lp2xtOeaCk_ba60XumVlXIgrE9U',
   );
 
-  runApp(const ProviderScope(child: CarbonSense()));
+  // 👇 Riverpod removed: Back to the standard runApp setup!
+  runApp(const CarbonSense());
 }
 
 class CarbonSense extends StatelessWidget {
