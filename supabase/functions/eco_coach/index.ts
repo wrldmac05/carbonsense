@@ -31,14 +31,22 @@ serve(async (req: Request) => {
     // ==========================================
     const { data: latestGeneral } = await supabase
       .from('ai_prescriptions')
-      .select('id, created_at')
+      .select('insight_id, created_at, ai_text') // 🌟 FIXED
       .eq('user_id', user_id)
       .eq('context_type', 'general')
       .order('created_at', { ascending: false })
       .limit(1)
 
-    if (!latestGeneral || latestGeneral.length === 0 || latestGeneral[0].created_at < startOfToday) {
-      // 1. PLACEHOLDER LOCK (Blocks duplicate concurrent requests)
+    const needsGeneralGen = !latestGeneral || 
+                            latestGeneral.length === 0 || 
+                            latestGeneral[0].created_at < startOfToday ||
+                            latestGeneral[0].ai_text.includes('Analyzing');
+
+    if (needsGeneralGen) {
+      if (latestGeneral && latestGeneral.length > 0 && latestGeneral[0].ai_text.includes('Analyzing')) {
+          await supabase.from('ai_prescriptions').delete().eq('insight_id', latestGeneral[0].insight_id); // 🌟 FIXED
+      }
+
       const { data: placeholder, error: insertError } = await supabase
         .from('ai_prescriptions')
         .insert({ user_id, context_type: 'general', ai_text: 'Analyzing your daily impact...' })
@@ -50,22 +58,30 @@ serve(async (req: Request) => {
           const { data: logs } = await supabase.from('activity_logs').select('total_co2e').eq('user_id', user_id)
           const footprint = logs?.reduce((sum, log) => sum + log.total_co2e, 0) || 0
           
-          const prompt = `You are CarbonSense. But do not introduce your self or anything. Act as a companion that gives user's total historical footprint. The total footprint is ${footprint.toFixed(2)} kg CO2e. Write a short, encouraging 2-sentence general insight summarizing their impact, and give one actionable tip for today.`
-          const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`
+          const prompt = `You are CarbonSense. Do not introduce yourself. Act as a companion that gives user's total historical footprint. The total footprint is ${footprint.toFixed(2)} kg CO2e. Write a short, encouraging 2-sentence general insight summarizing their impact, and give one actionable tip for today.`
+          
+          const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent?key=${geminiKey}`
+          
           const geminiResponse = await fetch(geminiUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
           })
+
+          if (!geminiResponse.ok) {
+              const err = await geminiResponse.text();
+              throw new Error(`Gemini API rejected the request: ${err}`);
+          }
+
           const geminiData = await geminiResponse.json()
           const aiResponse = geminiData.candidates[0].content.parts[0].text
 
-          // UPDATE the placeholder instead of inserting a new row
-          await supabase.from('ai_prescriptions').update({ ai_text: aiResponse }).eq('id', placeholder.id)
+          // 🌟 FIXED: Updating using the correct 'insight_id' column
+          await supabase.from('ai_prescriptions').update({ ai_text: aiResponse }).eq('insight_id', placeholder.insight_id)
           generatedCount++;
         } catch (e) {
-          // If Gemini fails, delete the placeholder so it tries again next time
-          await supabase.from('ai_prescriptions').delete().eq('id', placeholder.id)
+          // 🌟 FIXED: Safe cleanup that won't crash the catch block
+          await supabase.from('ai_prescriptions').delete().eq('insight_id', placeholder.insight_id)
           console.error("Gemini General Error:", e)
         }
       }
@@ -75,18 +91,26 @@ serve(async (req: Request) => {
     // TASK 2: THE END-OF-MONTH SUMMARY
     // ==========================================
     const lastMonthDate = new Date(today.getFullYear(), today.getMonth() - 1, 1)
-    const lastMonthIndex = lastMonthDate.getMonth() // 0-11
-    const targetContext = `month_${lastMonthIndex}`
+    const lastMonthIndex = lastMonthDate.getMonth() 
+    
+    const targetContext = `month_${lastMonthIndex}_${lastMonthDate.getFullYear()}`
 
     const { data: lastMonthTip } = await supabase
       .from('ai_prescriptions')
-      .select('id')
+      .select('insight_id, ai_text') // 🌟 FIXED
       .eq('user_id', user_id)
       .eq('context_type', targetContext)
       .limit(1)
 
-    if (!lastMonthTip || lastMonthTip.length === 0) {
-      // 1. PLACEHOLDER LOCK
+    const needsMonthlyGen = !lastMonthTip || 
+                            lastMonthTip.length === 0 || 
+                            lastMonthTip[0].ai_text.includes('Generating');
+
+    if (needsMonthlyGen) {
+      if (lastMonthTip && lastMonthTip.length > 0) {
+          await supabase.from('ai_prescriptions').delete().eq('insight_id', lastMonthTip[0].insight_id); // 🌟 FIXED
+      }
+
       const { data: placeholder, error: insertError } = await supabase
         .from('ai_prescriptions')
         .insert({ user_id, context_type: targetContext, ai_text: 'Generating your monthly summary...' })
@@ -105,21 +129,29 @@ serve(async (req: Request) => {
           const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"]
           
           const prompt = `You are CarbonSense, but do not introduce yourself. Act as a companion or an automated reminder. The month of ${monthNames[lastMonthIndex]} just ended. The user emitted a total of ${monthFootprint.toFixed(2)} kg CO2e. Provide a 2-sentence summary of their performance for that month, and suggest a goal for the new month.`
-          const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`
+          
+          const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent?key=${geminiKey}`
+          
           const geminiResponse = await fetch(geminiUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
           })
+
+          if (!geminiResponse.ok) {
+              const err = await geminiResponse.text();
+              throw new Error(`Gemini API rejected the request: ${err}`);
+          }
+
           const geminiData = await geminiResponse.json()
           const aiResponse = geminiData.candidates[0].content.parts[0].text
 
-          // UPDATE the placeholder
-          await supabase.from('ai_prescriptions').update({ ai_text: aiResponse }).eq('id', placeholder.id)
+          // 🌟 FIXED: Updating using the correct 'insight_id' column
+          await supabase.from('ai_prescriptions').update({ ai_text: aiResponse }).eq('insight_id', placeholder.insight_id) 
           generatedCount++;
         } catch (e) {
-          // Cleanup on failure
-          await supabase.from('ai_prescriptions').delete().eq('id', placeholder.id)
+          // 🌟 FIXED: Safe cleanup
+          await supabase.from('ai_prescriptions').delete().eq('insight_id', placeholder.insight_id) 
           console.error("Gemini Monthly Error:", e)
         }
       }

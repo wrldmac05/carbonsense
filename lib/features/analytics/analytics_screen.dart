@@ -132,6 +132,20 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
         loading: () => const Center(child: CircularProgressIndicator(color: AppTheme.primaryColor)),
         error: (err, _) => Center(child: Text('Error: $err')),
         data: (logs) {
+          if (logs.isEmpty) {
+            return const Center(
+              child: Padding(
+                padding: EdgeInsets.all(32.0),
+                child: Text(
+                  "Welcome to CarbonSense!\n\nLog your first activity today to wake up your personal AI Eco-Coach.",
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 16, color: Colors.grey, height: 1.5),
+                ),
+              ),
+            );
+          }
+
+          // If logs are NOT empty, the rest of the page loads normally!
           final yearlyData = _getYearlyData(logs);
           final totalYearlyImpact = yearlyData.fold(0.0, (sum, item) => sum + item);
           final selectedMonthImpact = yearlyData[_selectedMonthIndex];
@@ -189,7 +203,8 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
                           }
 
                           return _buildAiCard(
-                            "${DateFormat('MMMM').format(DateTime(2026, _selectedMonthIndex + 1)).toUpperCase()} INSIGHT", 
+                            // 🌟 FIX: Uses dynamic current year instead of 2026
+                            "${DateFormat('MMMM').format(DateTime(DateTime.now().year, _selectedMonthIndex + 1)).toUpperCase()} INSIGHT", 
                             text,
                             isGeneral: false,
                           );
@@ -385,7 +400,8 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
   }
 
   Widget _buildMonthSummaryCard(double impact) {
-    String monthName = DateFormat('MMMM').format(DateTime(2026, _selectedMonthIndex + 1));
+   // 🌟 FIX: Uses dynamic current year instead of 2026
+    String monthName = DateFormat('MMMM').format(DateTime(DateTime.now().year, _selectedMonthIndex + 1));
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(20),

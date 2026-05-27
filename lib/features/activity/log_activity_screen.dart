@@ -1,383 +1,397 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:carbonsense/theme/app_theme.dart';
-// 🌟 NEW: Import the universal help guide component
-import 'package:carbonsense/widgets/quick_start_guide_dialog.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:carbonsense/theme/app_theme.dart'; 
+import 'package:carbonsense/features/utils/location_tracker.dart';
+import 'package:go_router/go_router.dart';
+
+// Helper class to store both the factor value and its UUID from the database
+class VehicleData {
+  final String id;
+  final double factor;
+  VehicleData({required this.id, required this.factor});
+}
 
 class LogActivityScreen extends StatefulWidget {
-  final String category;
-  const LogActivityScreen({super.key, required this.category});
+  final String? category; 
+  const LogActivityScreen({super.key, this.category});
 
   @override
   State<LogActivityScreen> createState() => _LogActivityScreenState();
 }
 
-class _LogActivityScreenState extends State<LogActivityScreen> {
-  bool _isLoading = true;
-  List<Map<String, dynamic>> _activities = [];
+class _LogActivityScreenState extends State<LogActivityScreen> with SingleTickerProviderStateMixin, WidgetsBindingObserver {
+  // --- STATE VARIABLES ---
+  
+  // Tracking State
+  bool _isTracking = false;
+  bool _isGettingLocation = false;
+  bool _isSavingLog = false; // 🌟 NEW: Track database insertion state
+  StreamSubscription<Position>? _positionStream;
+  Position? _lastPosition;
+  
+  // Results State
+  double _distanceKm = 0.0;
+  double _co2Emissions = 0.0;
+  
+  // Stopwatch & Animation State
+  Timer? _stopwatchTimer;
+  int _elapsedSeconds = 0;
+  late AnimationController _bounceController;
+
+  // Supabase Database State
+  bool _isLoadingFactors = true;
+  String? _selectedVehicle;
+  
+  // 🌟 UPGRADED: Maps vehicle names to a data object containing the database UUID and the factor
+  Map<String, VehicleData> _vehicleEmissionFactors = {};
+
+  // Notifications State
+  final FlutterLocalNotificationsPlugin _localNotifications = FlutterLocalNotificationsPlugin();
+
+  // --- LIFECYCLE ---
 
   @override
   void initState() {
     super.initState();
-    _fetchCategoryActivities();
+    WidgetsBinding.instance.addObserver(this); 
+    
+    _bounceController = AnimationController(
+      duration: const Duration(milliseconds: 500),
+      vsync: this,
+    );
+
+    _setupNotifications();
+    _fetchEmissionFactors();
   }
 
-  Future<void> _fetchCategoryActivities() async {
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this); 
+    _stopwatchTimer?.cancel();
+    _bounceController.dispose();
+    _positionStream?.cancel(); 
+    super.dispose();
+  }
+
+  // --- SUPABASE DATA RETRIEVAL ---
+
+  Future<void> _fetchEmissionFactors() async {
     try {
-      final data = await Supabase.instance.client
+      // 🌟 Pull the factor_id UUID alongside name and factor values
+      final response = await Supabase.instance.client
           .from('emission_factors')
-          .select()
-          .eq('category', widget.category)
-          .order('activity_name', ascending: true);
+          .select('factor_id, activity_name, co2_per_unit')
+          .eq('category', 'Transport');
+
+      final Map<String, VehicleData> fetchedFactors = {};
+      
+      for (var item in response) {
+         final name = item['activity_name'].toString();
+         final id = item['factor_id'].toString();
+         final factor = double.tryParse(item['co2_per_unit'].toString()) ?? 0.0;
+         
+         // Store both values under the name key
+         fetchedFactors[name] = VehicleData(id: id, factor: factor);
+      }
 
       if (mounted) {
         setState(() {
-          _activities = List<Map<String, dynamic>>.from(data);
-          _isLoading = false;
+          _vehicleEmissionFactors = fetchedFactors;
+          if (_vehicleEmissionFactors.isNotEmpty) {
+            _selectedVehicle = _vehicleEmissionFactors.keys.first;
+          }
+          _isLoadingFactors = false;
         });
       }
     } catch (e) {
+      debugPrint('❌ DB Error: $e');
       if (mounted) {
+        setState(() => _isLoadingFactors = false);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error loading activities: $e')),
+          const SnackBar(content: Text('Failed to load live emission factors.')),
         );
-        setState(() => _isLoading = false);
       }
     }
   }
 
-  IconData _getIconForActivity(String name) {
-    final lower = name.toLowerCase();
-    if (lower.contains('car')) return Icons.directions_car;
-    if (lower.contains('motorcycle')) return Icons.two_wheeler;
-    if (lower.contains('tricycle')) return Icons.electric_rickshaw;
-    if (lower.contains('jeepney')) return Icons.airport_shuttle;
-    if (lower.contains('bus')) return Icons.directions_bus;
-    if (lower.contains('mrt') || lower.contains('lrt')) return Icons.train;
-    if (lower.contains('bicycle') || lower.contains('walk')) return Icons.directions_bike;
-    if (lower.contains('beef') || lower.contains('meal')) return Icons.restaurant;
-    if (lower.contains('electricity') || lower.contains('grid')) return Icons.electrical_services;
-    if (lower.contains('lpg') || lower.contains('gas')) return Icons.local_fire_department;
-    if (lower.contains('water')) return Icons.water_drop;
-    if (lower.contains('waste')) return Icons.delete_outline;
-    return Icons.eco;
+  // --- SUPABASE DATA INSERTION ---
+
+  Future<void> _saveTripToDatabase() async {
+    if (_selectedVehicle == null || _distanceKm <= 0) return;
+
+    setState(() => _isSavingLog = true);
+
+    try {
+      // 1. Get the current user session ID
+      final user = Supabase.instance.client.auth.currentUser;
+      if (user == null) throw Exception("No authenticated user found.");
+
+      // 2. Retrieve the target factor data object
+      final targetVehicleData = _vehicleEmissionFactors[_selectedVehicle!];
+      if (targetVehicleData == null) throw Exception("Invalid vehicle factor tracking identity.");
+
+      // 3. Insert the log directly matching your public.activity_logs schema
+      await Supabase.instance.client.from('activity_logs').insert({
+        'user_id': user.id,
+        'factor_id': targetVehicleData.id,
+        'input_value': double.parse(_distanceKm.toStringAsFixed(2)),
+        'total_co2e': double.parse(_co2Emissions.toStringAsFixed(4)),
+      });
+
+      if (mounted) {
+        setState(() {
+          _isSavingLog = false;
+        });
+        
+        // 🌟 4. Trigger our encouraging celebratory dialog!
+        _showSuccessDialog();
+      }
+
+    } catch (e) {
+      debugPrint('❌ Insertion Error: $e');
+      if (mounted) {
+        setState(() => _isSavingLog = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to record log to database: $e')),
+        );
+      }
+    }
   }
 
-  String _getImpactFact(String name) {
-    final lower = name.toLowerCase();
-    if (lower.contains('car') || lower.contains('motorcycle')) return "Vehicle emissions are a leading cause of urban air pollution. Every km tracked is a step toward awareness.";
-    if (lower.contains('bus') || lower.contains('mrt') || lower.contains('lrt') || lower.contains('jeepney')) return "Awesome choice! Shared transit produces significantly less greenhouse gas emissions per passenger.";
-    if (lower.contains('walk') || lower.contains('bike') || lower.contains('bicycle')) return "Zero emissions! Active transport is the ultimate hack for a carbon-neutral lifestyle.";
-    if (lower.contains('beef') || lower.contains('meat')) return "Livestock accounts for ~14.5% of global greenhouse gases. Small diet shifts make a massive impact over time.";
-    if (lower.contains('electricity')) return "Turning off unused appliances can reduce your home's energy footprint by up to 10% annually.";
-    return "Every activity logged helps CarbonSense's AI build a more accurate mitigation profile just for you.";
-  }
+  // --- CUSTOM SUCCESS DIALOG ---
 
-  void _openModernLoggingSheet(Map<String, dynamic> activity) {
-    final TextEditingController inputController = TextEditingController();
-    final formKey = GlobalKey<FormState>();
-    bool isSubmitting = false;
-    
-    final double co2PerUnit = (activity['co2_per_unit'] as num).toDouble();
-    double livePreviewCo2e = 0.0;
-    final impactFact = _getImpactFact(activity['activity_name']);
-
-    showModalBottomSheet(
+  void _showSuccessDialog() {
+    showDialog(
       context: context,
-      isScrollControlled: true, 
-      backgroundColor: Colors.transparent, 
-      builder: (BuildContext sheetContext) {
-        return StatefulBuilder(
-          builder: (BuildContext innerContext, StateSetter setSheetState) {
-            return Container(
-              padding: EdgeInsets.only(bottom: MediaQuery.of(innerContext).viewInsets.bottom),
-              decoration: const BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
-              ),
-              child: SafeArea(
-                child: SingleChildScrollView(
-                  physics: const BouncingScrollPhysics(),
-                  child: Padding(
-                    padding: const EdgeInsets.all(24.0),
-                    child: Form(
-                      key: formKey,
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Container(
-                            width: 40,
-                            height: 5,
-                            decoration: BoxDecoration(
-                              color: Colors.grey.shade300,
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                          ),
-                          const SizedBox(height: 24),
-                          
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                                decoration: BoxDecoration(
-                                  color: Colors.grey.shade100,
-                                  borderRadius: BorderRadius.circular(20),
-                                ),
-                                child: Text(
-                                  widget.category.toUpperCase(),
-                                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Colors.grey.shade600, letterSpacing: 1),
-                                ),
-                              ),
-                              GestureDetector(
-                                onTap: () => Navigator.pop(sheetContext),
-                                child: Container(
-                                  padding: const EdgeInsets.all(8),
-                                  decoration: BoxDecoration(color: Colors.grey.shade100, shape: BoxShape.circle),
-                                  child: Icon(Icons.close, size: 18, color: Colors.grey.shade700),
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 24),
+      barrierDismissible: false, // Force them to engage with the button to close it
+      builder: (BuildContext context) {
+        return Dialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+          elevation: 0,
+          backgroundColor: Colors.transparent,
+          child: Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              shape: BoxShape.rectangle,
+              borderRadius: BorderRadius.circular(24),
+              boxShadow: const [
+                BoxShadow(color: Colors.black12, blurRadius: 20.0, offset: Offset(0.0, 10.0)),
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min, // Wrap content tightly
+              children: [
+                Container(
+                  height: 80,
+                  width: 80,
+                  decoration: BoxDecoration(
+                    color: AppTheme.primaryColor.withOpacity(0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.eco_rounded, color: AppTheme.primaryColor, size: 48),
+                ),
+                const SizedBox(height: 24),
+                const Text(
+                  "Awesome Journey!",
+                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.black87),
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  "You successfully tracked and logged your travel distance of ${_distanceKm.toStringAsFixed(2)} km.\n\nEvery trip you audit builds a clearer picture of your environmental legacy. Keep up the clean commuting habits!",
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(fontSize: 14, color: Colors.black54, height: 1.4),
+                ),
+                const SizedBox(height: 24),
+                SizedBox(
+                  width: double.infinity,
+                  // 🌟 REMOVED height: 48 here
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.primaryColor,
+                      padding: const EdgeInsets.symmetric(vertical: 16), // 🌟 ADDED natural padding instead
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                      elevation: 0,
+                    ),
+                    onPressed: () {
+  // 1. Safely close the dialog using the root navigator
+  Navigator.of(context, rootNavigator: true).pop();
 
-                          Container(
-                            padding: const EdgeInsets.all(20),
-                            decoration: BoxDecoration(
-                              color: AppTheme.primaryColor.withOpacity(0.1),
-                              shape: BoxShape.circle,
-                            ),
-                            child: Icon(_getIconForActivity(activity['activity_name']), size: 48, color: AppTheme.primaryColor),
-                          ),
-                          const SizedBox(height: 16),
-                          Text(
-                            activity['activity_name'],
-                            textAlign: TextAlign.center,
-                            style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w900, letterSpacing: -0.5),
-                          ),
-                          const SizedBox(height: 8),
-
-                          Container(
-                            margin: const EdgeInsets.symmetric(vertical: 16),
-                            padding: const EdgeInsets.all(16),
-                            decoration: BoxDecoration(
-                              color: Colors.blueGrey.shade50,
-                              borderRadius: BorderRadius.circular(16),
-                              border: Border.all(color: Colors.blueGrey.shade100),
-                            ),
-                            child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Icon(Icons.lightbulb_outline, color: Colors.amber, size: 22),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Text(
-                                    impactFact,
-                                    style: TextStyle(fontSize: 13, color: Colors.blueGrey.shade800, height: 1.4, fontWeight: FontWeight.w500),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-
-                          const SizedBox(height: 8),
-                          Text('Enter amount in ${activity['unit']}', style: const TextStyle(color: Colors.grey, fontWeight: FontWeight.bold)),
-                          const SizedBox(height: 8),
-                          TextFormField(
-                            controller: inputController,
-                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                            autofocus: true,
-                            textAlign: TextAlign.center,
-                            style: const TextStyle(fontSize: 56, fontWeight: FontWeight.w900, color: Colors.black87),
-                            inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,2}'))],
-                            onChanged: (value) {
-                              final parsed = double.tryParse(value) ?? 0.0;
-                              setSheetState(() => livePreviewCo2e = parsed * co2PerUnit);
-                            },
-                            decoration: InputDecoration(
-                              hintText: '0',
-                              hintStyle: TextStyle(color: Colors.grey.shade300),
-                              border: InputBorder.none,
-                              errorStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                            ),
-                            validator: (value) {
-                              if (value == null || value.isEmpty) return 'Enter a value';
-                              final numValue = double.tryParse(value);
-                              if (numValue == null || numValue <= 0) return 'Must be greater than 0';
-                              if (numValue > 10000) return 'Value exceeds limit';
-                              return null;
-                            },
-                          ),
-                          
-                          AnimatedContainer(
-                            duration: const Duration(milliseconds: 200),
-                            padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
-                            decoration: BoxDecoration(
-                              color: livePreviewCo2e > 0 ? AppTheme.primaryColor : Colors.grey.shade100,
-                              borderRadius: BorderRadius.circular(24),
-                              boxShadow: livePreviewCo2e > 0 ? [BoxShadow(color: AppTheme.primaryColor.withOpacity(0.3), blurRadius: 15, offset: const Offset(0, 8))] : [],
-                            ),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Text(
-                                  'Estimated Footprint:',
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.w600,
-                                    color: livePreviewCo2e > 0 ? Colors.white70 : Colors.grey.shade500,
-                                  ),
-                                ),
-                                Text(
-                                  '${livePreviewCo2e.toStringAsFixed(2)} kg CO₂',
-                                  style: TextStyle(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.w900,
-                                    color: livePreviewCo2e > 0 ? Colors.white : Colors.grey.shade400,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(height: 32),
-
-                          SizedBox(
-                            width: double.infinity,
-                            child: FilledButton(
-                              style: FilledButton.styleFrom(
-                                backgroundColor: Colors.black87,
-                                padding: const EdgeInsets.symmetric(vertical: 20),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                              ),
-                              child: isSubmitting
-                                  ? const SizedBox(height: 24, width: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 3))
-                                  : const Text('Confirm Activity Log', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16, letterSpacing: 0.5)),
-                              onPressed: isSubmitting
-                                  ? null
-                                  : () async {
-                                      if (!formKey.currentState!.validate()) return;
-                                      setSheetState(() => isSubmitting = true);
-
-                                      try {
-                                        final userId = Supabase.instance.client.auth.currentUser?.id;
-                                        if (userId == null) throw Exception("User is not logged in!");
-
-                                        final inputValue = double.parse(inputController.text.trim());
-                                        final calculatedCo2e = inputValue * co2PerUnit;
-                                        final factorId = activity['factor_id'] ?? activity['id'];
-
-                                        await Supabase.instance.client.from('activity_logs').insert({
-                                          'user_id': userId,
-                                          'factor_id': factorId,
-                                          'input_value': inputValue,
-                                          'total_co2e': calculatedCo2e,
-                                        });
-
-                                        if (mounted) {
-                                          Navigator.pop(sheetContext); 
-                                          Navigator.pop(context); 
-                                          ScaffoldMessenger.of(context).showSnackBar(
-                                            SnackBar(
-                                              content: Row(
-                                                children: [
-                                                  const Icon(Icons.auto_awesome, color: Colors.white),
-                                                  const SizedBox(width: 12),
-                                                  Text('Awesome! Logged ${calculatedCo2e.toStringAsFixed(2)} kg CO₂e.'),
-                                                ],
-                                              ),
-                                              backgroundColor: Colors.black87,
-                                              behavior: SnackBarBehavior.floating,
-                                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                                              margin: const EdgeInsets.all(16),
-                                            ),
-                                          );
-                                        }
-                                      } catch (e) {
-                                        setSheetState(() => isSubmitting = false);
-                                        ScaffoldMessenger.of(sheetContext).showSnackBar(
-                                          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
-                                        );
-                                      }
-                                    },
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                        ],
-                      ),
+  // 2. Wait for the dialog animation to finish
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    if (mounted) {
+      if (Navigator.canPop(context)) {
+        // 🌟 GOLD STANDARD: If we got here normally, this will step back cleanly 
+        // inside the shell, preserving your bottom navigation bar perfectly!
+        Navigator.of(context).pop(); 
+      } else {
+        // 🌟 SAFETY FALLBACK: If history was cleared (e.g. Hot Restart), 
+        // use pop instead of go to prevent snapping out of the shell layout structure.
+        GoRouter.of(context).pop();
+      }
+    }
+  });
+},
+                    child: const Text(
+                      'Back to Dashboard',
+                      style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
                     ),
                   ),
                 ),
-              ),
-            );
-          },
+              ],
+            ),
+          ),
         );
       },
     );
   }
 
-  Widget _buildModernActivityTile(Map<String, dynamic> activity) {
-    final co2PerUnit = (activity['co2_per_unit'] as num).toDouble();
-    
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppTheme.primaryColor.withOpacity(0.08)),
-        boxShadow: [
-          BoxShadow(color: AppTheme.primaryColor.withOpacity(0.03), blurRadius: 10, offset: const Offset(0, 4))
-        ],
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: () => _openModernLoggingSheet(activity),
-          borderRadius: BorderRadius.circular(20),
-          child: Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(
-                    color: AppTheme.primaryColor.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: Icon(_getIconForActivity(activity['activity_name']), color: AppTheme.primaryColor, size: 26),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        activity['activity_name'],
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.black87, letterSpacing: -0.3),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        '${co2PerUnit.toStringAsFixed(2)} kg CO₂e / ${activity['unit']}',
-                        style: TextStyle(color: Colors.grey.shade500, fontSize: 13, fontWeight: FontWeight.w600),
-                      ),
-                    ],
-                  ),
-                ),
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: Colors.grey.shade50,
-                    shape: BoxShape.circle,
-                    border: Border.all(color: Colors.grey.shade200),
-                  ),
-                  child: const Icon(Icons.add, color: AppTheme.primaryColor, size: 20),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
+  // --- NOTIFICATIONS ENGINE ---
+
+  Future<void> _setupNotifications() async {
+    const AndroidInitializationSettings androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
+    const InitializationSettings initSettings = InitializationSettings(android: androidSettings);
+    await _localNotifications.initialize(initSettings);
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    if (_isTracking && state == AppLifecycleState.paused) {
+      _showBackgroundReminderNotification();
+    }
+  }
+
+  Future<void> _showBackgroundReminderNotification() async {
+    const AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
+      'carbonsense_tracking_channel', 
+      'Active Tracking Reminders', 
+      channelDescription: 'Reminds you when a trip is actively being recorded.',
+      importance: Importance.max,
+      priority: Priority.high,
+      icon: '@mipmap/ic_launcher',
+    );
+    const NotificationDetails platformDetails = NotificationDetails(android: androidDetails);
+
+    await _localNotifications.show(
+      0, 
+      'Trip Tracking in Progress 📍',
+      'CarbonSense is calculating your ${_selectedVehicle ?? 'commute'} distance.',
+      platformDetails,
     );
   }
+
+  // --- TIMER & MATH LOGIC ---
+
+  void _startTimer() {
+    _elapsedSeconds = 0;
+    _stopwatchTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (mounted) {
+        setState(() => _elapsedSeconds++);
+      }
+    });
+  }
+
+  void _stopTimer() {
+    _stopwatchTimer?.cancel();
+  }
+
+  String _formatDuration(int seconds) {
+    final minutes = (seconds / 60).floor();
+    final remainingSeconds = seconds % 60;
+    return '${minutes.toString().padLeft(2, '0')}:${remainingSeconds.toString().padLeft(2, '0')}';
+  }
+
+  // --- TRACKING ENGINE ---
+
+  Future<void> _toggleTracking() async {
+    if (_isTracking) {
+      // 🛑 END THE TRIP
+      _stopTimer();
+      _bounceController.stop();
+      
+      if (_positionStream != null) {
+        await _positionStream!.cancel();
+        _positionStream = null; 
+      }
+      
+      setState(() {
+        _isTracking = false;
+        _lastPosition = null; 
+      });
+
+    } else {
+      // 🟢 START THE TRIP
+      setState(() {
+        _isGettingLocation = true;
+        _distanceKm = 0.0; 
+        _co2Emissions = 0.0;
+        _lastPosition = null;
+      });
+
+      try {
+        final initialPos = await LocationTracker.getCurrentLocation();
+        
+        if (initialPos != null) {
+          setState(() {
+            _lastPosition = initialPos;
+            _isTracking = true;
+            _isGettingLocation = false;
+          });
+          
+          _startTimer();
+          _bounceController.repeat(reverse: true);
+
+          _positionStream = LocationTracker.getContinuousLocationStream().listen(
+            (Position currentPosition) {
+              
+              if (currentPosition.accuracy > 25.0) {
+                debugPrint('⚠️ Ignored: Bad GPS Signal');
+                return; 
+              }
+
+              if (_lastPosition != null) {
+                final addedDistance = LocationTracker.calculateDistanceInKm(_lastPosition!, currentPosition);
+                
+                if (addedDistance > 0.2) {
+                  debugPrint('⚠️ Ignored: Speed teleportation detected');
+                  _lastPosition = currentPosition; 
+                  return;
+                }
+
+                if (addedDistance < 0.01) {
+                  return;
+                }
+                
+                if (mounted) {
+                  setState(() {
+                    _distanceKm += addedDistance; 
+                    
+                    // Retrieve structural data mapping safely
+                    final targetData = _vehicleEmissionFactors[_selectedVehicle!];
+                    final factor = targetData?.factor ?? 0.0;
+                    
+                    _co2Emissions = _distanceKm * factor;
+                    _lastPosition = currentPosition; 
+                  });
+                }
+              }
+            },
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          setState(() => _isGettingLocation = false);
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+        }
+      }
+    }
+  }
+
+  // --- UI BUILDERS ---
 
   @override
   Widget build(BuildContext context) {
@@ -387,54 +401,238 @@ class _LogActivityScreenState extends State<LogActivityScreen> {
         backgroundColor: Colors.transparent,
         elevation: 0,
         iconTheme: const IconThemeData(color: Colors.black87),
+        title: const Text(
+          'Commute Tracker',
+          style: TextStyle(color: Colors.black87, fontWeight: FontWeight.bold),
+        ),
         centerTitle: true,
-        // 🌟 NEW: Added the anytime-accessible Quick Start Guide button here as well!
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.help_outline, color: AppTheme.primaryColor),
-            tooltip: 'Quick Start Guide',
-            onPressed: () => showQuickStartGuideDialog(context),
+      ),
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              _buildVehicleSelector(),
+              
+              const Spacer(),
+
+              _buildAnimatedVehicleIcon(),
+              const SizedBox(height: 12),
+
+              Text(
+                _isTracking ? _formatDuration(_elapsedSeconds) : '00:00',
+                style: TextStyle(
+                  fontSize: 64,
+                  fontWeight: FontWeight.w900,
+                  color: _isTracking ? AppTheme.primaryColor : Colors.grey.shade300,
+                  fontFeatures: const [FontFeature.tabularFigures()],
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                _isTracking ? 'Tracking active...' : 'Ready to depart',
+                style: TextStyle(
+                  fontSize: 16,
+                  color: _isTracking ? AppTheme.primaryColor : Colors.grey,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+
+              const Spacer(),
+              _buildHeroButton(),
+              const Spacer(),
+              if (!_isTracking && _distanceKm > 0) _buildResultsCard(),
+            ],
           ),
-          const SizedBox(width: 12),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAnimatedVehicleIcon() {
+    return AnimatedBuilder(
+      animation: _bounceController,
+      builder: (context, child) {
+        final double bounceOffset = -15 * _bounceController.value;
+        return Transform.translate(
+          offset: Offset(0, bounceOffset),
+          child: Icon(
+            _getIconForVehicle(_selectedVehicle ?? ''),
+            size: 56, 
+            color: _isTracking ? AppTheme.primaryColor : Colors.grey.shade300,
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildVehicleSelector() {
+    if (_isLoadingFactors) {
+      return Container(
+        height: 56,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.grey.shade300),
+        ),
+        child: const Center(child: SizedBox(height: 24, width: 24, child: CircularProgressIndicator(strokeWidth: 2))),
+      );
+    }
+
+    if (_vehicleEmissionFactors.isEmpty) {
+       return const Text("No vehicles found in database.", style: TextStyle(color: Colors.red));
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.grey.shade300),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.03),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          )
         ],
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator(color: AppTheme.primaryColor))
-          : Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 8.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        widget.category,
-                        style: const TextStyle(fontSize: 32, fontWeight: FontWeight.w900, color: AppTheme.primaryColor, letterSpacing: -1.0),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'Select an activity below to calculate your footprint.',
-                        style: TextStyle(fontSize: 15, color: Colors.grey.shade600, height: 1.4),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Expanded(
-                  child: _activities.isEmpty
-                      ? Center(child: Text('No activities found.', style: TextStyle(color: Colors.grey.shade500, fontSize: 16)))
-                      : ListView.builder(
-                          physics: const BouncingScrollPhysics(),
-                          padding: const EdgeInsets.only(left: 24, right: 24, bottom: 40),
-                          itemCount: _activities.length,
-                          itemBuilder: (context, index) {
-                            return _buildModernActivityTile(_activities[index]);
-                          },
-                        ),
-                ),
-              ],
-            ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<String>(
+          value: _selectedVehicle,
+          isExpanded: true,
+          icon: const Icon(Icons.keyboard_arrow_down, color: AppTheme.primaryColor),
+          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.black87),
+          onChanged: _isTracking ? null : (String? newValue) {
+            if (newValue != null) {
+              setState(() => _selectedVehicle = newValue);
+            }
+          },
+          items: _vehicleEmissionFactors.keys.map<DropdownMenuItem<String>>((String value) {
+            return DropdownMenuItem<String>(
+              value: value,
+              child: Row(
+                children: [
+                  Icon(_getIconForVehicle(value), color: AppTheme.primaryColor, size: 20),
+                  const SizedBox(width: 12),
+                  Expanded(child: Text(value, overflow: TextOverflow.ellipsis)),
+                ],
+              ),
+            );
+          }).toList(),
+        ),
+      ),
     );
+  }
+
+  Widget _buildHeroButton() {
+    return GestureDetector(
+      onTap: _isGettingLocation ? null : _toggleTracking,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 300),
+        height: 180,
+        width: 180,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: _isTracking ? Colors.redAccent : AppTheme.primaryColor,
+          boxShadow: [
+            BoxShadow(
+              color: (_isTracking ? Colors.redAccent : AppTheme.primaryColor).withOpacity(0.3),
+              blurRadius: 30,
+              spreadRadius: 10,
+              offset: const Offset(0, 10),
+            )
+          ],
+        ),
+        child: Center(
+          child: _isGettingLocation
+              ? const CircularProgressIndicator(color: Colors.white)
+              : Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      _isTracking ? Icons.stop_rounded : Icons.play_arrow_rounded,
+                      color: Colors.white,
+                      size: 64,
+                    ),
+                    Text(
+                      _isTracking ? 'END TRIP' : 'START',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 2.0,
+                      ),
+                    ),
+                  ],
+                ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildResultsCard() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: AppTheme.primaryColor.withOpacity(0.3)),
+      ),
+      child: Column(
+        children: [
+          const Text("TRIP SUMMARY", style: TextStyle(fontWeight: FontWeight.w900, fontSize: 12, letterSpacing: 1.5, color: Colors.grey)),
+          const SizedBox(height: 16),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              _buildStatMetric(Icons.route, _distanceKm.toStringAsFixed(2), 'Kilometers'),
+              Container(width: 1, height: 40, color: Colors.grey.shade300),
+              _buildStatMetric(Icons.co2, '+${_co2Emissions.toStringAsFixed(2)}', 'kg CO₂e', color: Colors.redAccent),
+            ],
+          ),
+          const SizedBox(height: 16),
+          SizedBox(
+            width: double.infinity,
+            // 🌟 REMOVED height: 48 here
+            child: ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.primaryColor,
+                padding: const EdgeInsets.symmetric(vertical: 16), // 🌟 ADDED natural padding instead
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+              onPressed: _isSavingLog ? null : _saveTripToDatabase,
+              child: _isSavingLog 
+                  ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                  : const Text('Save Log', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+            ),
+          )
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatMetric(IconData icon, String value, String label, {Color color = Colors.black87}) {
+    return Column(
+      children: [
+        Icon(icon, color: Colors.grey.shade400, size: 24),
+        const SizedBox(height: 4),
+        Text(value, style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900, color: color)),
+        Text(label, style: const TextStyle(fontSize: 12, color: Colors.grey)),
+      ],
+    );
+  }
+
+  IconData _getIconForVehicle(String vehicle) {
+    final lower = vehicle.toLowerCase();
+    if (lower.contains('walk') || lower.contains('bicycle')) return Icons.directions_walk;
+    if (lower.contains('train') || lower.contains('mrt') || lower.contains('lrt')) return Icons.train;
+    if (lower.contains('jeepney')) return Icons.directions_bus_filled_outlined;
+    if (lower.contains('bus')) return Icons.directions_bus;
+    if (lower.contains('motorcycle') || lower.contains('tricycle')) return Icons.two_wheeler;
+    if (lower.contains('car')) return Icons.directions_car;
+    return Icons.commute;
   }
 }

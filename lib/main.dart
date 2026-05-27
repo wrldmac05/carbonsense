@@ -8,7 +8,6 @@ import 'package:carbonsense/features/navigation/help_support_screen.dart';
 import 'package:carbonsense/features/profile/profile_screen.dart';
 import 'package:carbonsense/features/auth/register_screen.dart';
 import 'package:carbonsense/features/activity/score_history_screen.dart';
-import 'package:carbonsense/features/profile/settings_screen.dart';
 import 'package:carbonsense/features/profile/edit_profile_screen.dart';
 import 'package:carbonsense/features/auth/welcome_screen.dart';
 import 'package:carbonsense/features/analytics/analytics_screen.dart';
@@ -20,7 +19,8 @@ import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
 import 'package:carbonsense/features/auth/reset_password_screen.dart';
 
-// Riverpod import removed!
+// 🌟 CRITICAL FIX 1: Brought Riverpod import back!
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 final ValueNotifier<ThemeMode> themeNotifier = ValueNotifier(ThemeMode.light);
 
@@ -59,10 +59,6 @@ final _router = GoRouter(
     GoRoute(
       path: '/help-support',
       builder: (context, state) => const HelpSupportScreen(),
-    ),
-    GoRoute(
-      path: '/settings',
-      builder: (context, state) => const SettingsScreen(), 
     ),
 
     // --- SHELL ROUTE (BOTTOM NAVIGATION BAR) ---
@@ -110,7 +106,6 @@ final _router = GoRouter(
             ),
           ],
         ),
-        // 🗑️ BRANCH 3 HAS BEEN REMOVED ENTIRELY FROM HERE
       ],
     ),
   ],
@@ -118,22 +113,46 @@ final _router = GoRouter(
   redirect: (context, state) {
     final session = Supabase.instance.client.auth.currentSession;
     
-    // 👇 CRITICAL FIX: Ensuring '/reset-password' is treated correctly
-    final isAuthRoute = state.matchedLocation == '/login' ||
-        state.matchedLocation == '/register' ||
-        state.matchedLocation == '/welcome' ||
-        state.matchedLocation == '/forgot-password';
+    // 🌟 ULTIMATE CATCH-ALL: Checks the entire URL string (scheme, host, path, and fragments)
+    final urlString = state.uri.toString();
+    final isResetRoute = urlString.contains('reset-password');
 
+    final path = state.uri.path;
+    final isAuthRoute = path == '/login' ||
+        path == '/register' ||
+        path == '/welcome' ||
+        path == '/forgot-password';
+
+    // 1. If the URL has "reset-password" anywhere in it, rescue them!
+    if (isResetRoute) {
+      // If GoRouter hasn't officially placed them on the exact path yet, force it:
+      if (state.matchedLocation != '/reset-password') {
+        return '/reset-password';
+      }
+      return null; // They are safely on the screen, let them stay!
+    }
+
+    // 2. 🌟 NEW: Detect if this is the email confirmation link from a new registration
+    // Supabase appends 'type=signup' into the link hash after validation
+    final isEmailConfirmation = urlString.contains('type=signup');
+    if (isEmailConfirmation) {
+      // Intentionally sign out to destroy the auto-login session
+      Supabase.instance.client.auth.signOut();
+      // Force them to the login page
+      return '/login';
+    }
+
+    // 2. Logged in but trying to see auth screens -> Home
     if (session != null && isAuthRoute) {
       return '/home'; 
     }
 
-    // Allow unauthenticated users to access auth routes, AND allow anyone to access reset-password
-    if (session == null && !isAuthRoute && state.matchedLocation != '/reset-password') {
-      return '/welcome'; 
+    // 3. NOT logged in but trying to see private screens -> Login
+    if (session == null && !isAuthRoute) {
+      return '/login'; 
     }
 
-    return null;
+    return null; // Otherwise, let them go where they requested
   },
 );
 
@@ -151,8 +170,12 @@ Future<void> main() async {
         'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdkcmVlZnd4b2Z0bWhla2Noc3pyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM5OTY5MjQsImV4cCI6MjA4OTU3MjkyNH0.uUtp4zOZupEe4ZA3lp2xtOeaCk_ba60XumVlXIgrE9U',
   );
 
-  // 👇 Riverpod removed: Back to the standard runApp setup!
-  runApp(const CarbonSense());
+  // 🌟 CRITICAL FIX 2: Wrapped the app in ProviderScope!
+  runApp(
+    const ProviderScope(
+      child: CarbonSense(),
+    ),
+  );
 }
 
 class CarbonSense extends StatelessWidget {

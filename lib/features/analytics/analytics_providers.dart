@@ -10,7 +10,7 @@ final generalAiInsightProvider = StreamProvider.autoDispose<String>((ref) {
 
   return Supabase.instance.client
       .from('ai_prescriptions')
-      .stream(primaryKey: ['id']) 
+      .stream(primaryKey: ['insight_id']) 
       .map((events) {
         // 1. Filter for this user and the 'general' context
         final userEvents = events.where((e) => 
@@ -36,25 +36,23 @@ final monthlyAiInsightProvider = StreamProvider.family.autoDispose<String, int>(
   final userId = Supabase.instance.client.auth.currentUser?.id;
   if (userId == null) return Stream.value("No user logged in.");
 
-  // Dynamically creates the target label, e.g., 'month_0' for Jan, 'month_1' for Feb
-  final targetContext = 'month_$monthIndex';
+  // 🌟 FIX: Automatically fetch the current year to match our new Edge Function format!
+  final currentYear = DateTime.now().year;
+  final targetContext = 'month_${monthIndex}_$currentYear'; // e.g., "month_3_2026"
 
   return Supabase.instance.client
       .from('ai_prescriptions')
-      .stream(primaryKey: ['id'])
+      .stream(primaryKey: ['insight_id'])
       .map((events) {
-        // 1. Filter for this user and the specific month
         final userEvents = events.where((e) => 
             e['user_id'] == userId && 
             e['context_type'] == targetContext
         ).toList();
 
-        // 2. Sort to get the newest one first
         userEvents.sort((a, b) => 
             DateTime.parse(b['created_at']).compareTo(DateTime.parse(a['created_at']))
         );
 
-        // 3. Return the text if it exists
         if (userEvents.isNotEmpty) {
           return userEvents.first['ai_text'] as String;
         }

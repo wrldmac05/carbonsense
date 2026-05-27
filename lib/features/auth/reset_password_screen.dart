@@ -14,6 +14,7 @@ class ResetPasswordScreen extends StatefulWidget {
 
 class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
   final _passwordController = TextEditingController();
+  final _confirmPasswordController = TextEditingController(); // 🌟 ADDED: Confirm Password Controller
   bool _isLoading = false;
 
   // Reusing your password validation criteria
@@ -38,11 +39,42 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
 
   Future<void> _updatePassword() async {
     final newPassword = _passwordController.text.trim();
+    final confirmPassword = _confirmPasswordController.text.trim(); // 🌟 ADDED: Get confirm text
+
+    // 🌟 ADDED: Validate that the fields are not empty
+    if (newPassword.isEmpty || confirmPassword.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please fill out both password fields.')),
+      );
+      return;
+    }
+
+    // 🌟 ADDED: Validate that both passwords match
+    if (newPassword != confirmPassword) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Passwords do not match.')),
+      );
+      return;
+    }
 
     if (!_hasMinLength || !_hasUppercase || !_hasNumber) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Password does not meet requirements.')),
       );
+      return;
+    }
+
+    // 🌟 THE FIX: Check if Supabase actually established a session from the link
+    final session = Supabase.instance.client.auth.currentSession;
+    if (session == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('This reset link has expired or is invalid. Please request a new one.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      // Kick them back to the forgot password screen to try again
+      context.go('/forgot-password');
       return;
     }
 
@@ -85,6 +117,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
   void dispose() {
     _passwordController.removeListener(_validatePassword);
     _passwordController.dispose();
+    _confirmPasswordController.dispose(); // 🌟 ADDED: Dispose to prevent memory leaks
     super.dispose();
   }
 
@@ -138,7 +171,16 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                   obscureText: true,
                   decoration: const InputDecoration(hintText: 'New Password'),
                 ),
+                const SizedBox(height: 16), // 🌟 ADDED SPACING
+                
+                // 🌟 NEW: Confirm Password Field
+                TextField(
+                  controller: _confirmPasswordController,
+                  obscureText: true,
+                  decoration: const InputDecoration(hintText: 'Confirm New Password'),
+                ),
                 const SizedBox(height: 12),
+                
                 _buildRequirement('At least 6 characters', _hasMinLength),
                 _buildRequirement('At least 1 uppercase letter', _hasUppercase),
                 _buildRequirement('At least 1 number', _hasNumber),

@@ -131,16 +131,6 @@ class _CustomDrawerState extends State<CustomDrawer> {
                   ),
                   _buildDrawerTile(
                     context,
-                    icon: Icons.settings_outlined,
-                    title: 'Account Settings',
-                    subtitle: 'Notifications & privacy',
-                    onTap: () {
-                      Navigator.pop(context);
-                      context.push('/settings'); // Route to settings
-                    },
-                  ),
-                  _buildDrawerTile(
-                    context,
                     icon: Icons.help_outline,   
                     title: 'Help & Support',
                     subtitle: 'FAQ and contact',

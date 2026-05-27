@@ -8,6 +8,8 @@ import 'package:carbonsense/features/analytics/analytics_providers.dart';
 import 'package:carbonsense/widgets/quick_start_guide_dialog.dart';
 import 'package:carbonsense/features/activity/log_activity_screen.dart'; // 👈 Add your log form import
 import 'dart:async'; // 👈 CRITICAL: Add this at the top for the live ticking timer!
+import 'package:carbonsense/features/utils/location_tracker.dart';
+import 'package:geolocator/geolocator.dart';
 
 class HomeDashboard extends ConsumerStatefulWidget {
   const HomeDashboard({super.key});
@@ -637,6 +639,40 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
                         const SizedBox(height: 16),
                         _buildActionStrip(),
                         const SizedBox(height: 32),
+
+                        ElevatedButton.icon(
+  icon: const Icon(Icons.satellite_alt),
+  label: const Text('TEST GPS ENGINE'),
+  style: ElevatedButton.styleFrom(backgroundColor: Colors.blue),
+  onPressed: () async {
+    debugPrint('🛰️ Waking up GPS and asking for permissions...');
+    try {
+      // 1. Test grabbing the location
+      final position = await LocationTracker.getCurrentLocation();
+      
+      if (position != null) {
+        debugPrint('✅ GPS SUCCESS!');
+        debugPrint('📍 Lat: ${position.latitude}, Lng: ${position.longitude}');
+        
+        // 2. Test the Math Engine (Fake a second coordinate slightly away)
+        // We will fake an endpoint that is roughly 1 kilometer away
+        debugPrint('🧮 Testing Distance Math...');
+        final mockEndPosition = Position(
+          latitude: position.latitude + 0.009, 
+          longitude: position.longitude,
+          timestamp: DateTime.now(),
+          accuracy: 1, altitude: 1, heading: 1, speed: 1, speedAccuracy: 1,
+          altitudeAccuracy: 1, headingAccuracy: 1,
+        );
+
+        final distance = LocationTracker.calculateDistanceInKm(position, mockEndPosition);
+        debugPrint('📏 Calculated Distance: ${distance.toStringAsFixed(2)} km');
+      }
+    } catch (e) {
+      debugPrint('❌ GPS ERROR: $e');
+    }
+  },
+),
                         
                         Column(
                           crossAxisAlignment: CrossAxisAlignment.start,

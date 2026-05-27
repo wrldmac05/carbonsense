@@ -43,7 +43,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
       // THE SMART ONBOARDING CHECK
       if (profileResponse != null) {
-        final rawLocation = profileResponse['location'];
+        final rawLocation = profileResponse['avatar_url'];
         final bool hasLocation = rawLocation != null && rawLocation.toString().trim().isNotEmpty;
         final bool isObProfileDone = profileResponse['ob_profile'] == true;
 
@@ -451,13 +451,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                     onPressed: (!isConfirmed || isDeleting) ? null : () async {
                                       setModalState(() => isDeleting = true);
                                       try {
-                                        await Supabase.instance.client.rpc('delete_user_account');
-                                        await Supabase.instance.client.auth.signOut();
-                                        
-                                        if (context.mounted) {
-                                          Navigator.pop(context); // Close sheet
-                                          context.go('/welcome'); // Kick to login
-                                        }
+  // 1. Get the current user's ID
+  final myUserId = Supabase.instance.client.auth.currentUser!.id;
+
+  // 🌟 2. Pass it into the RPC function to match your SQL setup
+  await Supabase.instance.client.rpc(
+    'delete_user_account', 
+    params: {'target_user_id': myUserId},
+  );
+  
+  // 3. Sign them out locally
+  await Supabase.instance.client.auth.signOut();
+  
+  if (context.mounted) {
+    Navigator.pop(context); // Close sheet
+    context.go('/welcome'); // Kick to login
+  }
                                       } catch (e) {
                                         if (context.mounted) {
                                           ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to delete account: $e'), backgroundColor: Colors.red));

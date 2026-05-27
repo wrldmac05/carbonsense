@@ -31,7 +31,11 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
     try {
       // Calls Supabase to trigger the SMTP reset email
       // Note: If testing on web, you can add a redirectTo here later if needed!
-      await Supabase.instance.client.auth.resetPasswordForEmail(email);
+      // 🌟 Notice the underscore on _emailController and the explicit redirectTo: label
+      await Supabase.instance.client.auth.resetPasswordForEmail(
+        _emailController.text.trim(),
+        redirectTo: 'io.supabase.carbonsense://reset-password', 
+      );
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
