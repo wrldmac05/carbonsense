@@ -3,11 +3,12 @@ import 'package:carbonsense/features/tasks/daily_tasks_screen.dart';
 import 'package:carbonsense/features/auth/forgot_password_screen.dart';
 import 'package:carbonsense/features/navigation/home_dashboard.dart';
 import 'package:carbonsense/features/auth/login_screen.dart';
-import 'package:carbonsense/features/navigation/main_navigation.dart'; 
-import 'package:carbonsense/features/navigation/help_support_screen.dart'; 
+import 'package:carbonsense/features/navigation/main_navigation.dart';
+import 'package:carbonsense/features/navigation/help_support_screen.dart';
 import 'package:carbonsense/features/profile/profile_screen.dart';
 import 'package:carbonsense/features/auth/register_screen.dart';
 import 'package:carbonsense/features/activity/score_history_screen.dart';
+import 'package:carbonsense/features/activity/food_camera_screen.dart';
 import 'package:carbonsense/features/profile/edit_profile_screen.dart';
 import 'package:carbonsense/features/auth/welcome_screen.dart';
 import 'package:carbonsense/features/analytics/analytics_screen.dart';
@@ -29,15 +30,12 @@ final _router = GoRouter(
   routes: [
     // --- AUTH ROUTES (FULL SCREEN) ---
     GoRoute(
-      path: '/welcome', 
+      path: '/welcome',
       builder: (context, state) => const WelcomeScreen(),
     ),
+    GoRoute(path: '/login', builder: (context, state) => const LoginScreen()),
     GoRoute(
-      path: '/login', 
-      builder: (context, state) => const LoginScreen(),
-    ),
-    GoRoute(
-      path: '/register', 
+      path: '/register',
       builder: (context, state) => const RegisterScreen(),
     ),
     GoRoute(
@@ -78,6 +76,12 @@ final _router = GoRouter(
                   path: 'score-history',
                   builder: (context, state) => const ScoreHistoryScreen(),
                 ),
+                // 🌟 ADD THIS SUB-ROUTE INSIDE THE ACTIVITY LOG BRANCH
+                GoRoute(
+                  path: 'food-scanner',
+                  name: 'food-scanner',
+                  builder: (context, state) => const FoodCameraScreen(),
+                ),
               ],
             ),
           ],
@@ -109,16 +113,17 @@ final _router = GoRouter(
       ],
     ),
   ],
-  
+
   redirect: (context, state) {
     final session = Supabase.instance.client.auth.currentSession;
-    
+
     // 🌟 ULTIMATE CATCH-ALL: Checks the entire URL string (scheme, host, path, and fragments)
     final urlString = state.uri.toString();
     final isResetRoute = urlString.contains('reset-password');
 
     final path = state.uri.path;
-    final isAuthRoute = path == '/login' ||
+    final isAuthRoute =
+        path == '/login' ||
         path == '/register' ||
         path == '/welcome' ||
         path == '/forgot-password';
@@ -144,12 +149,12 @@ final _router = GoRouter(
 
     // 2. Logged in but trying to see auth screens -> Home
     if (session != null && isAuthRoute) {
-      return '/home'; 
+      return '/home';
     }
 
     // 3. NOT logged in but trying to see private screens -> Login
     if (session == null && !isAuthRoute) {
-      return '/login'; 
+      return '/login';
     }
 
     return null; // Otherwise, let them go where they requested
@@ -160,9 +165,7 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   // Initialize Firebase
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
   await Supabase.initialize(
     url: 'https://gdreefwxoftmhekchszr.supabase.co',
@@ -171,11 +174,7 @@ Future<void> main() async {
   );
 
   // 🌟 CRITICAL FIX 2: Wrapped the app in ProviderScope!
-  runApp(
-    const ProviderScope(
-      child: CarbonSense(),
-    ),
-  );
+  runApp(const ProviderScope(child: CarbonSense()));
 }
 
 class CarbonSense extends StatelessWidget {
