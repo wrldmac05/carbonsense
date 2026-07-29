@@ -9,6 +9,7 @@ import 'package:carbonsense/features/profile/profile_screen.dart';
 import 'package:carbonsense/features/auth/register_screen.dart';
 import 'package:carbonsense/features/activity/score_history_screen.dart';
 import 'package:carbonsense/features/activity/food_camera_screen.dart';
+import 'package:carbonsense/features/activity/bill_scanner_screen.dart';
 import 'package:carbonsense/features/profile/edit_profile_screen.dart';
 import 'package:carbonsense/features/auth/welcome_screen.dart';
 import 'package:carbonsense/features/analytics/analytics_screen.dart';
@@ -19,6 +20,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
 import 'package:carbonsense/features/auth/reset_password_screen.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:flutter/material.dart';
 
 // 🌟 CRITICAL FIX 1: Brought Riverpod import back!
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -81,6 +84,11 @@ final _router = GoRouter(
                   path: 'food-scanner',
                   name: 'food-scanner',
                   builder: (context, state) => const FoodCameraScreen(),
+                ),
+                GoRoute(
+                  path: 'bill-scanner',
+                  name: 'bill-scanner',
+                  builder: (context, state) => const BillScannerScreen(),
                 ),
               ],
             ),

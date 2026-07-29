@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart'; // 🌟 ADDED: Required for making text interactive
 import 'package:go_router/go_router.dart';
 import 'package:carbonsense/theme/app_theme.dart';
+import 'package:flutter/services.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -14,8 +15,9 @@ class RegisterScreen extends StatefulWidget {
 class _RegisterScreenState extends State<RegisterScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
-  final _confirmPasswordController = TextEditingController(); 
+  final _confirmPasswordController = TextEditingController();
   final _fullNameController = TextEditingController();
+  final _formKey = GlobalKey<FormState>();
   bool _isLoading = false;
 
   // Password validation states
@@ -27,8 +29,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
   late final TapGestureRecognizer _termsRecognizer;
   late final TapGestureRecognizer _privacyRecognizer;
 
-// Place this variable inside your _RegisterScreenState class, right above initState
-final String _rawTermsContent = '''
+  // Place this variable inside your _RegisterScreenState class, right above initState
+  final String _rawTermsContent = '''
 TERMS AND CONDITIONS
 Last updated: May 18, 2026
 
@@ -115,7 +117,7 @@ carbonsense@gmail.com
   void initState() {
     super.initState();
     _passwordController.addListener(_validatePassword);
-    
+
     // 🌟 ADDED: Initialize the recognizers to open our custom dialogs
     _termsRecognizer = TapGestureRecognizer()..onTap = _showTermsDialog;
     _privacyRecognizer = TapGestureRecognizer()..onTap = _showPrivacyDialog;
@@ -133,26 +135,31 @@ carbonsense@gmail.com
   Future<void> _register() async {
     final email = _emailController.text.trim();
     final password = _passwordController.text.trim();
-    final confirmPassword = _confirmPasswordController.text.trim(); 
+    final confirmPassword = _confirmPasswordController.text.trim();
     final fullName = _fullNameController.text.trim();
 
-    if (email.isEmpty || password.isEmpty || confirmPassword.isEmpty || fullName.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please fill all fields')),
-      );
+    if (email.isEmpty ||
+        password.isEmpty ||
+        confirmPassword.isEmpty ||
+        fullName.isEmpty) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Please fill all fields')));
       return;
     }
 
     if (password != confirmPassword) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Passwords do not match')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Passwords do not match')));
       return;
     }
 
     if (!_hasMinLength || !_hasUppercase || !_hasNumber) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please ensure your password meets all requirements.')),
+        const SnackBar(
+          content: Text('Please ensure your password meets all requirements.'),
+        ),
       );
       return;
     }
@@ -166,7 +173,7 @@ carbonsense@gmail.com
         email: email,
         password: password,
         data: {'full_name': fullName},
-        emailRedirectTo: 'io.supabase.carbonsense://login', 
+        emailRedirectTo: 'io.supabase.carbonsense://login',
       );
 
       if (mounted) {
@@ -195,9 +202,9 @@ carbonsense@gmail.com
     _passwordController.removeListener(_validatePassword);
     _emailController.dispose();
     _passwordController.dispose();
-    _confirmPasswordController.dispose(); 
+    _confirmPasswordController.dispose();
     _fullNameController.dispose();
-    
+
     // 🌟 ADDED: Dispose recognizers to prevent memory leaks
     _termsRecognizer.dispose();
     _privacyRecognizer.dispose();
@@ -208,11 +215,14 @@ carbonsense@gmail.com
   void _showTermsDialog() {
     showModalBottomSheet(
       context: context,
-      isScrollControlled: true, // Allows the sheet to take up the full target height
+      isScrollControlled:
+          true, // Allows the sheet to take up the full target height
       backgroundColor: Colors.transparent,
       builder: (BuildContext sheetContext) {
         return Container(
-          height: MediaQuery.of(context).size.height * 0.85, // Takes up 85% of screen
+          height:
+              MediaQuery.of(context).size.height *
+              0.85, // Takes up 85% of screen
           decoration: const BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
@@ -224,30 +234,39 @@ carbonsense@gmail.com
               // Visual handle line at the top
               Center(
                 child: Container(
-                  width: 40, height: 5,
+                  width: 40,
+                  height: 5,
                   decoration: BoxDecoration(
-                    color: Colors.grey.shade300, 
+                    color: Colors.grey.shade300,
                     borderRadius: BorderRadius.circular(10),
                   ),
                 ),
               ),
               const SizedBox(height: 20),
-              
+
               // Top Sticky Header Section
               const Row(
                 children: [
-                  Icon(Icons.description_outlined, color: AppTheme.primaryColor, size: 26),
+                  Icon(
+                    Icons.description_outlined,
+                    color: AppTheme.primaryColor,
+                    size: 26,
+                  ),
                   SizedBox(width: 10),
                   Text(
-                    "Terms & Conditions", 
-                    style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900, letterSpacing: -0.5),
+                    "Terms & Conditions",
+                    style: TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: -0.5,
+                    ),
                   ),
                 ],
               ),
               const SizedBox(height: 16),
               const Divider(height: 1),
               const SizedBox(height: 16),
-              
+
               // Infinite Scroll Window for your text content
               Expanded(
                 child: SingleChildScrollView(
@@ -257,8 +276,8 @@ carbonsense@gmail.com
                     child: Text(
                       _rawTermsContent,
                       style: TextStyle(
-                        height: 1.6, 
-                        color: Colors.grey.shade700, 
+                        height: 1.6,
+                        color: Colors.grey.shade700,
                         fontSize: 14,
                         fontWeight: FontWeight.w500,
                       ),
@@ -266,7 +285,7 @@ carbonsense@gmail.com
                   ),
                 ),
               ),
-              
+
               // Bottom Action Button Sticky Anchor
               Container(
                 padding: const EdgeInsets.symmetric(vertical: 16),
@@ -274,13 +293,19 @@ carbonsense@gmail.com
                 child: ElevatedButton(
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppTheme.primaryColor,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
                     padding: const EdgeInsets.symmetric(vertical: 16),
                   ),
                   onPressed: () => Navigator.of(sheetContext).pop(),
                   child: const Text(
-                    "I Accept & Understand", 
-                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15),
+                    "I Accept & Understand",
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 15,
+                    ),
                   ),
                 ),
               ),
@@ -297,12 +322,19 @@ carbonsense@gmail.com
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
           title: const Row(
             children: [
               Icon(Icons.security, color: AppTheme.primaryColor),
               SizedBox(width: 8),
-              Expanded(child: Text("Data Privacy Act of 2012", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18))),
+              Expanded(
+                child: Text(
+                  "Data Privacy Act of 2012",
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                ),
+              ),
             ],
           ),
           content: const SingleChildScrollView(
@@ -319,7 +351,13 @@ carbonsense@gmail.com
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(),
-              child: const Text("Close", style: TextStyle(color: AppTheme.primaryColor, fontWeight: FontWeight.bold)),
+              child: const Text(
+                "Close",
+                style: TextStyle(
+                  color: AppTheme.primaryColor,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
             ),
           ],
         );
@@ -354,7 +392,7 @@ carbonsense@gmail.com
   void _showSuccessDialog(String email) {
     showDialog(
       context: context,
-      barrierDismissible: false, 
+      barrierDismissible: false,
       builder: (BuildContext context) {
         return Dialog(
           shape: RoundedRectangleBorder(
@@ -377,7 +415,7 @@ carbonsense@gmail.com
               ],
             ),
             child: Column(
-              mainAxisSize: MainAxisSize.min, 
+              mainAxisSize: MainAxisSize.min,
               children: [
                 Container(
                   padding: const EdgeInsets.all(16),
@@ -392,37 +430,42 @@ carbonsense@gmail.com
                   ),
                 ),
                 const SizedBox(height: 24),
-                
+
                 Text(
                   'Almost There!',
                   style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: const Color(0xFF1A202C), 
-                      ),
+                    fontWeight: FontWeight.bold,
+                    color: const Color(0xFF1A202C),
+                  ),
                 ),
                 const SizedBox(height: 12),
-                
+
                 RichText(
                   textAlign: TextAlign.center,
                   text: TextSpan(
-                    style: const TextStyle(color: Colors.grey, fontSize: 14, height: 1.5),
+                    style: const TextStyle(
+                      color: Colors.grey,
+                      fontSize: 14,
+                      height: 1.5,
+                    ),
                     children: [
                       const TextSpan(text: 'We sent a verification link to\n'),
                       TextSpan(
                         text: email,
                         style: const TextStyle(
-                          color: AppTheme.primaryColor, 
-                          fontWeight: FontWeight.bold
+                          color: AppTheme.primaryColor,
+                          fontWeight: FontWeight.bold,
                         ),
                       ),
                       const TextSpan(
-                        text: '.\n\nPlease confirm your email to activate your account and access the Eco-Coach dashboard.',
+                        text:
+                            '.\n\nPlease confirm your email to activate your account and access the Eco-Coach dashboard.',
                       ),
                     ],
                   ),
                 ),
                 const SizedBox(height: 32),
-                
+
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
@@ -434,15 +477,15 @@ carbonsense@gmail.com
                       padding: const EdgeInsets.symmetric(vertical: 14),
                     ),
                     onPressed: () {
-                      Navigator.of(context).pop(); 
-                      context.go('/login'); 
+                      Navigator.of(context).pop();
+                      context.go('/login');
                     },
                     child: const Text(
                       'Continue to Login',
                       style: TextStyle(
-                        color: Colors.white, 
-                        fontWeight: FontWeight.bold, 
-                        fontSize: 15
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 15,
                       ),
                     ),
                   ),
@@ -457,6 +500,9 @@ carbonsense@gmail.com
 
   @override
   Widget build(BuildContext context) {
+    // 🌟 Make sure to define this in your StatefulWidget's State class:
+    // final _formKey = GlobalKey<FormState>();
+
     return Scaffold(
       body: SafeArea(
         child: Center(
@@ -465,123 +511,214 @@ carbonsense@gmail.com
               constraints: const BoxConstraints(maxWidth: 600),
               child: Padding(
                 padding: const EdgeInsets.all(24.0),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Center(
-                      child: Icon(
-                        Icons.eco,
-                        size: 80,
-                        color: AppTheme.primaryColor,
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    Center(
-                      child: Text(
-                        'Create Account',
-                        style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                              color: AppTheme.primaryColor,
-                              fontWeight: FontWeight.bold,
-                            ),
-                      ),
-                    ),
-                    const SizedBox(height: 32),
-                    TextField(
-                      controller: _fullNameController,
-                      decoration: const InputDecoration(
-                        hintText: 'Full Name',
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    TextField(
-                      controller: _emailController,
-                      decoration: const InputDecoration(
-                        hintText: 'Email',
-                      ),
-                      keyboardType: TextInputType.emailAddress,
-                    ),
-                    const SizedBox(height: 16),
-                    TextField(
-                      controller: _passwordController,
-                      obscureText: true,
-                      decoration: const InputDecoration(
-                        hintText: 'Password',
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    
-                    TextField(
-                      controller: _confirmPasswordController,
-                      obscureText: true,
-                      decoration: const InputDecoration(
-                        hintText: 'Confirm Password',
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    
-                    _buildRequirement('At least 6 characters', _hasMinLength),
-                    _buildRequirement('At least 1 uppercase letter', _hasUppercase),
-                    _buildRequirement('At least 1 number', _hasNumber),
-                    const SizedBox(height: 24), 
-
-                    // 🌟 UPDATED: Interactive Text Block
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 8.0),
-                      child: RichText(
-                        textAlign: TextAlign.center,
-                        text: TextSpan(
-                          style: TextStyle(fontSize: 12, color: Colors.grey.shade600, height: 1.5),
-                          children: [
-                            const TextSpan(text: 'By signing up, you agree to our '),
-                            TextSpan(
-                              text: 'Terms and Conditions',
-                              style: const TextStyle(color: AppTheme.primaryColor, fontWeight: FontWeight.bold),
-                              recognizer: _termsRecognizer, // 🌟 ADDED ACTION
-                            ),
-                            const TextSpan(text: '.\n\n'),
-                            const TextSpan(
-                              text: '🔒 Your data is secured and encrypted in compliance with the ',
-                            ),
-                            TextSpan(
-                              text: 'Data Privacy Act',
-                              style: const TextStyle(color: AppTheme.primaryColor, fontWeight: FontWeight.bold),
-                              recognizer: _privacyRecognizer, // 🌟 ADDED ACTION
-                            ),
-                            const TextSpan(text: '.'),
-                          ],
+                // 🌟 Wrap the Column in a Form to enable validation
+                child: Form(
+                  key: _formKey, // 🌟 Assign the form key here
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Center(
+                        child: Icon(
+                          Icons.eco,
+                          size: 80,
+                          color: AppTheme.primaryColor,
                         ),
                       ),
-                    ),
-                    const SizedBox(height: 24),
+                      const SizedBox(height: 16),
+                      Center(
+                        child: Text(
+                          'Create Account',
+                          style: Theme.of(context).textTheme.headlineSmall
+                              ?.copyWith(
+                                color: AppTheme.primaryColor,
+                                fontWeight: FontWeight.bold,
+                              ),
+                        ),
+                      ),
+                      const SizedBox(height: 32),
 
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton(
-                        onPressed: _isLoading ? null : _register,
-                        child: _isLoading
-                            ? const SizedBox(
-                                height: 20,
-                                width: 20,
-                                child: CircularProgressIndicator(
-                                  color: Colors.white,
-                                  strokeWidth: 2,
+                      TextFormField(
+                        controller: _fullNameController,
+                        autovalidateMode: AutovalidateMode.onUserInteraction,
+                        decoration: const InputDecoration(
+                          hintText: 'Full Name',
+                        ),
+                        // 🌟 ADD THIS BLOCK:
+                        inputFormatters: [
+                          // 1. Only allow letters and spaces (rejects numbers/special chars)
+                          FilteringTextInputFormatter.allow(
+                            RegExp(r'[a-zA-Z ]'),
+                          ),
+                          // 2. Reject double spaces (two or more spaces in a row)
+                          FilteringTextInputFormatter.deny(RegExp(r' {2,}')),
+                          // 3. Reject a space as the very first character
+                          FilteringTextInputFormatter.deny(RegExp(r'^ ')),
+                        ],
+                        validator: (value) {
+                          if (value == null || value.isEmpty) {
+                            return 'Please enter your full name';
+                          }
+                          // You can still keep a basic validator to ensure they didn't just type one letter
+                          if (value.trim().length < 2) {
+                            return 'Name is too short';
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 16),
+
+                      // --- EMAIL FIELD ---
+                      TextFormField(
+                        controller: _emailController,
+                        autovalidateMode: AutovalidateMode.onUserInteraction,
+                        decoration: const InputDecoration(hintText: 'Email'),
+                        keyboardType: TextInputType.emailAddress,
+                        validator: (value) {
+                          if (value == null || value.isEmpty) {
+                            return 'Please enter your email';
+                          }
+                          // Standard email format validation
+                          final emailRegExp = RegExp(
+                            r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
+                          );
+                          if (!emailRegExp.hasMatch(value)) {
+                            return 'Please enter a valid email address';
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 16),
+
+                      // --- PASSWORD FIELD ---
+                      TextFormField(
+                        controller: _passwordController,
+                        autovalidateMode: AutovalidateMode.onUserInteraction,
+                        obscureText: true,
+                        decoration: const InputDecoration(hintText: 'Password'),
+                        validator: (value) {
+                          if (value == null || value.isEmpty) {
+                            return 'Please enter a password';
+                          }
+                          if (value.length < 6) {
+                            return 'Password must be at least 6 characters';
+                          }
+                          if (!value.contains(RegExp(r'[A-Z]'))) {
+                            return 'Must contain at least 1 uppercase letter';
+                          }
+                          if (!value.contains(RegExp(r'[0-9]'))) {
+                            return 'Must contain at least 1 number';
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 16),
+
+                      // --- CONFIRM PASSWORD FIELD ---
+                      TextFormField(
+                        controller: _confirmPasswordController,
+                        autovalidateMode: AutovalidateMode.onUserInteraction,
+                        obscureText: true,
+                        decoration: const InputDecoration(
+                          hintText: 'Confirm Password',
+                        ),
+                        validator: (value) {
+                          if (value == null || value.isEmpty) {
+                            return 'Please confirm your password';
+                          }
+                          if (value != _passwordController.text) {
+                            return 'Passwords do not match';
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 12),
+
+                      _buildRequirement('At least 6 characters', _hasMinLength),
+                      _buildRequirement(
+                        'At least 1 uppercase letter',
+                        _hasUppercase,
+                      ),
+                      _buildRequirement('At least 1 number', _hasNumber),
+                      const SizedBox(height: 24),
+
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                        child: RichText(
+                          textAlign: TextAlign.center,
+                          text: TextSpan(
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey.shade600,
+                              height: 1.5,
+                            ),
+                            children: [
+                              const TextSpan(
+                                text: 'By signing up, you agree to our ',
+                              ),
+                              TextSpan(
+                                text: 'Terms and Conditions',
+                                style: const TextStyle(
+                                  color: AppTheme.primaryColor,
+                                  fontWeight: FontWeight.bold,
                                 ),
-                              )
-                            : const Text('Register'),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    Center(
-                      child: TextButton(
-                        onPressed: () => context.go('/login'),
-                        child: const Text(
-                          'Already have an account? Login here',
-                          style: TextStyle(color: AppTheme.primaryColor),
+                                recognizer: _termsRecognizer,
+                              ),
+                              const TextSpan(text: '.\n\n'),
+                              const TextSpan(
+                                text:
+                                    '🔒 Your data is secured and encrypted in compliance with the ',
+                              ),
+                              TextSpan(
+                                text: 'Data Privacy Act',
+                                style: const TextStyle(
+                                  color: AppTheme.primaryColor,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                                recognizer: _privacyRecognizer,
+                              ),
+                              const TextSpan(text: '.'),
+                            ],
+                          ),
                         ),
                       ),
-                    ),
-                  ],
+                      const SizedBox(height: 24),
+
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton(
+                          // 🌟 UPDATED: You can now validate the form before submitting
+                          onPressed: _isLoading
+                              ? null
+                              : () {
+                                  if (_formKey.currentState!.validate()) {
+                                    _register();
+                                  }
+                                },
+                          child: _isLoading
+                              ? const SizedBox(
+                                  height: 20,
+                                  width: 20,
+                                  child: CircularProgressIndicator(
+                                    color: Colors.white,
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : const Text('Register'),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      Center(
+                        child: TextButton(
+                          onPressed: () => context.go('/login'),
+                          child: const Text(
+                            'Already have an account? Login here',
+                            style: TextStyle(color: AppTheme.primaryColor),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),

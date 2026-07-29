@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:carbonsense/theme/app_theme.dart';
+import 'package:carbonsense/features/utils/mission_engine.dart';
 
 class FoodCameraScreen extends StatefulWidget {
   const FoodCameraScreen({super.key});
@@ -17,31 +18,34 @@ class _FoodCameraScreenState extends State<FoodCameraScreen> {
   File? _selectedImage;
   bool _isAnalyzing = false;
   final ImagePicker _picker = ImagePicker();
+  List<String> _ingredients = [];
 
   // Result variables from Gemini AI
   String? _foodName;
+  String? _foodCategory; // 🌟 NEW: Separated category for cleaner UI
   double? _weightG;
+  bool _isMeatless = false;
   double? _co2e;
-
-  String? _factorId; // 🌟 ADD THIS
+  String? _factorId;
 
   // --- CAPTURE IMAGE FUNCTION ---
   Future<void> _getImage(ImageSource source) async {
     final XFile? pickedFile = await _picker.pickImage(
       source: source,
-      imageQuality: 80, // Compress slightly to optimize network upload speeds
+      imageQuality: 80,
     );
 
     if (pickedFile != null) {
       setState(() {
         _selectedImage = File(pickedFile.path);
-        // Clear previous results when a new photo is taken
         _foodName = null;
+        _foodCategory = null;
+        _isMeatless = false;
         _weightG = null;
         _co2e = null;
+        _factorId = null;
       });
 
-      // Trigger the AI processing directly
       _analyzeImageWithGemini();
     }
   }
@@ -53,39 +57,37 @@ class _FoodCameraScreenState extends State<FoodCameraScreen> {
     setState(() => _isAnalyzing = true);
 
     try {
-      // 1. Read image bytes and convert to base64 string
       final bytes = await _selectedImage!.readAsBytes();
       final base64Image = base64Encode(bytes);
 
-      // 2. Invoke secure Supabase Edge Function
       final response = await Supabase.instance.client.functions.invoke(
         'analyze-food-image',
         body: {'image': base64Image},
       );
 
-      // 3. Parse the clean JSON structural response
       if (response.status == 200) {
-        // 🌟 THE FIX: Supabase already parsed the JSON into a Map for us!
-        // We just need to cast it safely.
         final data = response.data as Map<String, dynamic>;
-
-        // 🌟 ADD THIS LINE to see exactly what Gemini returns in your terminal!
         debugPrint('🧠 GEMINI RESPONSE: $data');
 
+        // 2. Inside _analyzeImageWithGemini(), update the setState block:
         setState(() {
-          // If Gemini appends the category, we can show it nicely in the UI
-          final aiFoodName = data['food_name']?.toString() ?? 'Unknown Food';
-          final aiCategory = data['db_category']?.toString() ?? '';
+          _foodName = data['food_name']?.toString() ?? 'Unknown Food';
+          _foodCategory = data['db_category']?.toString() ?? '';
+          _factorId = data['factor_id']?.toString();
 
-          // 🌟 THE FIX: Only show parentheses if a category was actually returned
-          if (aiCategory.isNotEmpty) {
-            _foodName = '$aiFoodName\n($aiCategory)';
+          // 👇 NEW: Safely parse the ingredients array
+          if (data['ingredients'] != null) {
+            _ingredients = List<String>.from(data['ingredients']);
           } else {
-            _foodName = aiFoodName;
+            _ingredients = [];
           }
 
-          // 🌟 Capture the database UUID
-          _factorId = data['factor_id']?.toString();
+          final bool aiIsMeatless = data['is_meatless'] ?? false;
+          final bool categoryImpliesMeatless =
+              _foodCategory!.toLowerCase().contains('plant-based') ||
+              _foodCategory!.toLowerCase().contains('gulay');
+
+          _isMeatless = aiIsMeatless || categoryImpliesMeatless;
           _weightG = double.tryParse(data['weight_g']?.toString() ?? '0');
           _co2e = double.tryParse(data['estimated_co2e']?.toString() ?? '0');
           _isAnalyzing = false;
@@ -114,17 +116,26 @@ class _FoodCameraScreenState extends State<FoodCameraScreen> {
       final user = Supabase.instance.client.auth.currentUser;
       if (user == null) throw Exception("No authenticated user found.");
 
+      // 3. Inside _saveFoodLog(), update the Supabase insert call:
       await Supabase.instance.client.from('activity_logs').insert({
         'user_id': user.id,
-        'factor_id':
-            _factorId, // 🌟 THE FIX: Now perfectly linked to your Diet table!
+        'factor_id': _factorId,
         'input_value': double.parse(_weightG!.toStringAsFixed(2)),
         'total_co2e': double.parse(_co2e!.toStringAsFixed(4)),
+        'ingredients': _ingredients, // 👇 NEW: Send the array to Supabase
       });
+
+      // 🚀 Run the Mission Engine silently
+      final completedMissions = await MissionEngine.evaluateTelemetry(
+        userId: user.id,
+        category: 'Diet',
+        activityName: _foodName!,
+        isMeatless: _isMeatless,
+      );
 
       if (mounted) {
         setState(() => _isAnalyzing = false);
-        _showSuccessDialog();
+        _showSuccessDialog(completedMissions);
       }
     } catch (e) {
       debugPrint('❌ DB Save Error: $e');
@@ -138,7 +149,7 @@ class _FoodCameraScreenState extends State<FoodCameraScreen> {
   }
 
   // --- CUSTOM SUCCESS DIALOG ---
-  void _showSuccessDialog() {
+  void _showSuccessDialog(List<String> completedMissions) {
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -169,19 +180,19 @@ class _FoodCameraScreenState extends State<FoodCameraScreen> {
                   height: 80,
                   width: 80,
                   decoration: BoxDecoration(
-                    color: AppTheme.primaryColor.withOpacity(0.1),
+                    color: Colors.orange.shade50,
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(
+                  child: Icon(
                     Icons.restaurant_menu_rounded,
-                    color: AppTheme.primaryColor,
+                    color: Colors.orange.shade600,
                     size: 48,
                   ),
                 ),
                 const SizedBox(height: 20),
-                Text(
+                const Text(
                   "Meal Logged!",
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 22,
                     fontWeight: FontWeight.bold,
                     color: Colors.black87,
@@ -210,18 +221,18 @@ class _FoodCameraScreenState extends State<FoodCameraScreen> {
                       elevation: 0,
                     ),
                     onPressed: () {
-                      // 1. Close the dialog first (using rootNavigator to be safe)
+                      // Close the current "Meal Logged!" dialog
                       Navigator.of(context, rootNavigator: true).pop();
 
-                      // 2. Close the Food Camera Screen
-                      // Since we pushed this screen, popping it will naturally reveal
-                      // the ActivityLogScreen that is sitting right behind it.
-                      WidgetsBinding.instance.addPostFrameCallback((_) {
-                        if (mounted) {
-                          // GoRouter's pop is the cleanest way to retreat
-                          context.pop();
-                        }
-                      });
+                      // 🚀 CHECK: Did they complete missions?
+                      if (completedMissions.isNotEmpty) {
+                        _showMissionUnlockedPopup(completedMissions);
+                      } else {
+                        // Original routing back
+                        WidgetsBinding.instance.addPostFrameCallback((_) {
+                          if (mounted) context.pop();
+                        });
+                      }
                     },
                     child: const Text(
                       'Back to Activity Log',
@@ -241,6 +252,91 @@ class _FoodCameraScreenState extends State<FoodCameraScreen> {
     );
   }
 
+  void _showMissionUnlockedPopup(List<String> missions) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(24),
+          ),
+          title: const Column(
+            children: [
+              Icon(Icons.emoji_events, color: Colors.amber, size: 56),
+              SizedBox(height: 12),
+              Text(
+                "Quest Completed!",
+                style: TextStyle(fontWeight: FontWeight.w900, fontSize: 22),
+              ),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                "Your meal automatically unlocked:",
+                textAlign: TextAlign.center,
+                style: TextStyle(color: Colors.grey, fontSize: 13),
+              ),
+              const SizedBox(height: 16),
+              ...missions.map(
+                (mission) => Padding(
+                  padding: const EdgeInsets.only(bottom: 12.0),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Icon(
+                        Icons.check_circle,
+                        color: Colors.green,
+                        size: 22,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          mission,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.primaryColor,
+                minimumSize: const Size.fromHeight(50),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
+              ),
+              onPressed: () {
+                Navigator.of(context, rootNavigator: true).pop();
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (mounted) context.pop();
+                });
+              },
+              child: const Text(
+                "Awesome",
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   // --- UI BUILDER ---
   @override
   Widget build(BuildContext context) {
@@ -255,63 +351,245 @@ class _FoodCameraScreenState extends State<FoodCameraScreen> {
         backgroundColor: Colors.transparent,
         elevation: 0,
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          children: [
-            // Image Preview Window Area
-            Expanded(
-              flex: 3,
-              child: Container(
-                width: double.infinity,
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade100,
-                  borderRadius: BorderRadius.circular(24),
-                  border: Border.all(color: Colors.grey.shade300),
-                ),
-                child: _selectedImage != null
-                    ? ClipRRect(
-                        borderRadius: BorderRadius.circular(23),
-                        child: Image.file(_selectedImage!, fit: BoxFit.cover),
-                      )
-                    : const Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              Icons.fastfood_rounded,
-                              size: 64,
-                              color: Colors.grey,
-                            ),
-                            SizedBox(height: 12),
-                            Text(
-                              'Snap a picture of your meal to calculate footprint',
-                              style: TextStyle(color: Colors.grey),
-                            ),
-                          ],
+      body: SafeArea(
+        child: SingleChildScrollView(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                minHeight:
+                    MediaQuery.of(context).size.height -
+                    kToolbarHeight -
+                    MediaQuery.of(context).padding.top,
+              ),
+              child: IntrinsicHeight(
+                child: Column(
+                  children: [
+                    // TOP: Clean Image Preview or Placeholder
+                    SizedBox(
+                      height: MediaQuery.of(context).size.height * 0.35,
+                      child: Container(
+                        width: double.infinity,
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(24),
+                          border: Border.all(
+                            color: Colors.grey.shade300,
+                            width: 2,
+                          ),
                         ),
+                        child: _selectedImage != null
+                            ? ClipRRect(
+                                borderRadius: BorderRadius.circular(22),
+                                child: Image.file(
+                                  _selectedImage!,
+                                  fit: BoxFit.cover,
+                                ),
+                              )
+                            : _buildScannerPlaceholder(),
                       ),
+                    ),
+                    const SizedBox(height: 24),
+
+                    // BOTTOM: Dynamic Content
+                    if (_isAnalyzing) ...[
+                      const CircularProgressIndicator(
+                        color: AppTheme.primaryColor,
+                      ),
+                      const SizedBox(height: 12),
+                      const Text(
+                        "Analyzing ingredients and portion size...",
+                        style: TextStyle(fontWeight: FontWeight.w500),
+                      ),
+                      const Spacer(),
+                    ] else if (_foodName != null) ...[
+                      _buildResultsCard(),
+                    ] else ...[
+                      // 🌟 NEW: Separated Instructions aligned with Bill Scanner design
+                      _buildPhotoInstructions(),
+                      const SizedBox(height: 20),
+                      _buildCaptureButtons(),
+                    ],
+                  ],
+                ),
               ),
             ),
-            const SizedBox(height: 24),
-
-            // Conditional Loading or Results Display Pane
-            if (_isAnalyzing) ...[
-              const CircularProgressIndicator(color: AppTheme.primaryColor),
-              const SizedBox(height: 12),
-              const Text(
-                "Gemini Vision Engine analyzing plate composition...",
-                style: TextStyle(fontWeight: FontWeight.w500),
-              ),
-            ] else if (_foodName != null) ...[
-              _buildResultsCard(),
-            ] else ...[
-              _buildCaptureButtons(),
-            ],
-            const Spacer(),
-          ],
+          ),
         ),
       ),
+    );
+  }
+
+  Widget _buildScannerPlaceholder() {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isSmallScreen = constraints.maxHeight < 600;
+
+        final iconSize = isSmallScreen ? 42.0 : 56.0;
+        final padding = isSmallScreen ? 18.0 : 24.0;
+        final titleSize = isSmallScreen ? 18.0 : 20.0;
+        final subtitleSize = isSmallScreen ? 13.0 : 14.0;
+
+        return Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: EdgeInsets.all(padding),
+                decoration: BoxDecoration(
+                  color: Colors.orange.shade50,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.lunch_dining_rounded,
+                  size: iconSize,
+                  color: Colors.orange.shade400,
+                ),
+              ),
+              SizedBox(height: isSmallScreen ? 18 : 24),
+              Text(
+                'Ready to Scan',
+                style: TextStyle(
+                  fontSize: titleSize,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Upload or capture your meal below',
+                style: TextStyle(fontSize: subtitleSize, color: Colors.black54),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  // 🌟 Themed Photo Instructions + Visual Aid
+  Widget _buildPhotoInstructions() {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: AppTheme.primaryColor.withOpacity(0.3)),
+        boxShadow: [
+          BoxShadow(
+            color: AppTheme.primaryColor.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Icon(
+                Icons.center_focus_strong,
+                color: AppTheme.primaryColor,
+                size: 22,
+              ),
+              SizedBox(width: 8),
+              Text(
+                "Photo Best Practices",
+                style: TextStyle(
+                  fontWeight: FontWeight.w900,
+                  color: Colors.black87,
+                  fontSize: 16,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+
+          // --- 📸 VISUAL AID ---
+          Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.grey.shade200),
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(11),
+              // Use a photo of a plate taken from directly above
+              child: Image.asset(
+                'assets/images/food_sample_guide.png',
+                height: 100,
+                width: double.infinity,
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) {
+                  return Container(
+                    height: 100,
+                    color: AppTheme.primaryColor.withOpacity(0.05),
+                    alignment: Alignment.center,
+                    child: Text(
+                      "[ Top-Down Food Sample Here ]",
+                      style: TextStyle(
+                        color: AppTheme.primaryColor.withOpacity(0.6),
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // --- THE CHECKLIST ---
+          _buildInstructionRow(
+            icon: Icons.camera_alt_outlined,
+            color: AppTheme.primaryColor,
+            text:
+                'Take a direct top-down photo to help the AI estimate portion sizes.',
+          ),
+          const SizedBox(height: 10),
+          _buildInstructionRow(
+            icon: Icons.fullscreen_exit,
+            color: Colors.orange.shade700,
+            text:
+                'Ensure the entire plate or bowl is visible within the frame.',
+          ),
+          const SizedBox(height: 10),
+          _buildInstructionRow(
+            icon: Icons.lightbulb_outline,
+            color: Colors.amber.shade600,
+            text:
+                'Use good lighting so all ingredients can be accurately identified.',
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Helper widget
+  Widget _buildInstructionRow({
+    required IconData icon,
+    required Color color,
+    required String text,
+  }) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, color: color, size: 18),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Text(
+            text,
+            style: const TextStyle(
+              color: Colors.black87,
+              fontSize: 13,
+              height: 1.4,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -378,12 +656,27 @@ class _FoodCameraScreenState extends State<FoodCameraScreen> {
         children: [
           Text(
             _foodName!.toUpperCase(),
+            textAlign: TextAlign.center,
             style: const TextStyle(
               fontWeight: FontWeight.w900,
               fontSize: 18,
               color: Colors.black87,
             ),
           ),
+          // 🌟 UPGRADED: Display the database category distinctly as a subtitle
+          if (_foodCategory != null && _foodCategory!.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 4.0),
+              child: Text(
+                _foodCategory!,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 13,
+                  color: Colors.grey.shade600,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
           const SizedBox(height: 16),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
@@ -422,6 +715,49 @@ class _FoodCameraScreenState extends State<FoodCameraScreen> {
               ),
             ],
           ),
+
+          // 👇 NEW: Display ingredients if any were found
+          if (_ingredients.isNotEmpty) ...[
+            const SizedBox(height: 16),
+            const Text(
+              "Detected Ingredients",
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.grey,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              alignment: WrapAlignment.center,
+              children: _ingredients
+                  .map(
+                    (item) => Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade100,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.grey.shade300),
+                      ),
+                      child: Text(
+                        item,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey.shade800,
+                        ),
+                      ),
+                    ),
+                  )
+                  .toList(),
+            ),
+            const SizedBox(height: 20), // Spacing before the Confirm button
+          ],
+
           const SizedBox(height: 20),
           SizedBox(
             width: double.infinity,
@@ -441,6 +777,16 @@ class _FoodCameraScreenState extends State<FoodCameraScreen> {
                   fontWeight: FontWeight.bold,
                 ),
               ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          // 🌟 NEW: The Retake Button
+          TextButton.icon(
+            onPressed: () => _getImage(ImageSource.camera),
+            icon: const Icon(Icons.refresh, size: 16, color: Colors.grey),
+            label: const Text(
+              "Not quite right? Retake photo",
+              style: TextStyle(color: Colors.grey, fontSize: 12),
             ),
           ),
         ],

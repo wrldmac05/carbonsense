@@ -1,131 +1,325 @@
 import 'package:carbonsense/features/activity/log_activity_screen.dart';
 import 'package:carbonsense/theme/app_theme.dart';
 import 'package:flutter/material.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:carbonsense/widgets/custom_drawer.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
-import 'package:carbonsense/widgets/quick_start_guide_dialog.dart';
-import 'package:go_router/go_router.dart'; // 🌟 ADD THIS
+import 'package:go_router/go_router.dart';
+import 'package:carbonsense/features/utils/global_provider.dart'; // 🌟 Import your global providers file
 
-class ActivityLogScreen extends StatefulWidget {
+class ActivityLogScreen extends ConsumerStatefulWidget {
   const ActivityLogScreen({super.key});
 
   @override
-  State<ActivityLogScreen> createState() => _ActivityLogScreenState();
+  ConsumerState<ActivityLogScreen> createState() => _ActivityLogScreenState();
 }
 
-class _ActivityLogScreenState extends State<ActivityLogScreen> {
+class _ActivityLogScreenState extends ConsumerState<ActivityLogScreen> {
   DateTime _selectedDate = DateTime.now();
+
   DateTime _focusedMonth = DateTime(
     DateTime.now().year,
     DateTime.now().month,
     1,
   );
-  Set<int> _daysWithData = {};
-  bool _isLoadingLogs = true;
-  List<Map<String, dynamic>> _recentLogs = [];
 
-  @override
-  void initState() {
-    super.initState();
-    _fetchRecentLogs();
-    _fetchMonthDataOverview();
+  // 📝 Helper to show detailed information when a log is tapped
+  void _showLogDetails(
+    Map<String, dynamic> log,
+    Map<String, dynamic>? factorData,
+  ) {
+    final activityName = factorData?['activity_name'] ?? 'Unknown Activity';
+    final category = factorData?['category'] ?? 'General';
+    final unit = factorData?['unit'] ?? '';
+    final inputValue = log['input_value']?.toString() ?? '0';
+
+    // 🌟 Dynamic precision helper: preserves up to 4 decimal places without trailing zeros
+    String formatCo2(num? rawCo2) {
+      if (rawCo2 == null || rawCo2 == 0) return '0.00';
+      final double value = rawCo2.toDouble();
+
+      // For small decimals, keep up to 4 decimal places and remove extra trailing zeros
+      if (value.abs() < 0.1) {
+        return value
+            .toStringAsFixed(4)
+            .replaceAll(RegExp(r"([.]*0+)(?!.*\d)"), "");
+      }
+
+      // For standard values, display 2 decimal places
+      return value.toStringAsFixed(2);
+    }
+
+    final totalCo2 = formatCo2(log['total_co2e'] as num?);
+
+    final String? startLocation = log['start_location'];
+    final String? endLocation = log['end_location'];
+
+    final loggedAt = DateTime.parse(log['logged_at']).toLocal();
+    final formattedTime = DateFormat('h:mm a, MMMM d, yyyy').format(loggedAt);
+
+    final List<dynamic>? rawIngredients = log['ingredients'];
+    final List<String> ingredients =
+        rawIngredients?.map((e) => e.toString()).toList() ?? [];
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return Container(
+          padding: const EdgeInsets.all(24),
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          child: SafeArea(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: AppTheme.primaryColor.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Icon(
+                        _getIconForCategory(category),
+                        color: AppTheme.primaryColor,
+                        size: 32,
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            activityName,
+                            style: const TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.w900,
+                              color: Colors.black87,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            category,
+                            style: TextStyle(
+                              color: Colors.grey.shade600,
+                              fontWeight: FontWeight.w600,
+                              fontSize: 14,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 24),
+                Divider(color: Colors.grey.shade200),
+                const SizedBox(height: 16),
+                _buildDetailRow('Input Amount', '$inputValue $unit'),
+                const SizedBox(height: 16),
+                _buildDetailRow('Time Logged', formattedTime),
+                const SizedBox(height: 24),
+                if (category == 'Transport' &&
+                    startLocation != null &&
+                    endLocation != null) ...[
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.blue.shade50.withOpacity(0.5),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: Colors.blue.shade100),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'TRIP ROUTE',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w900,
+                            color: Colors.blue,
+                            letterSpacing: 1.0,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        Row(
+                          children: [
+                            const Icon(
+                              Icons.trip_origin,
+                              size: 16,
+                              color: Colors.blue,
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                startLocation,
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.black87,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.only(left: 7.0),
+                          child: Container(
+                            height: 16,
+                            width: 2,
+                            color: Colors.blue.shade300,
+                          ),
+                        ),
+                        Row(
+                          children: [
+                            const Icon(
+                              Icons.place,
+                              size: 16,
+                              color: Colors.redAccent,
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                endLocation,
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.black87,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                ],
+                if (ingredients.isNotEmpty) ...[
+                  const Text(
+                    'Detected Ingredients',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.black54,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: ingredients
+                        .map(
+                          (ingredient) => Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 8,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.grey.shade50,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: Colors.grey.shade200),
+                            ),
+                            child: Text(
+                              ingredient,
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: Colors.grey.shade800,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                        )
+                        .toList(),
+                  ),
+                  const SizedBox(height: 24),
+                ],
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: AppTheme.primaryColor.withOpacity(0.05),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: AppTheme.primaryColor.withOpacity(0.2),
+                    ),
+                  ),
+                  child: _buildDetailRow(
+                    'Carbon Footprint',
+                    '$totalCo2 kg CO₂',
+                    isHighlight: true,
+                  ),
+                ),
+                const SizedBox(height: 32),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () => Navigator.pop(context),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.primaryColor,
+                      foregroundColor: Colors.white,
+                      elevation: 0,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                    ),
+                    child: const Text(
+                      'Close',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
   }
 
-  Future<void> _fetchRecentLogs() async {
-    if (!mounted) return;
-    setState(() => _isLoadingLogs = true);
-
-    try {
-      final userId = Supabase.instance.client.auth.currentUser?.id;
-      if (userId == null) return;
-
-      // Calculate the start and end of the selected day
-      final startOfDay = DateTime(
-        _selectedDate.year,
-        _selectedDate.month,
-        _selectedDate.day,
-      );
-      final endOfDay = startOfDay.add(const Duration(days: 1));
-
-      final response = await Supabase.instance.client
-          .from('activity_logs')
-          .select('*, emission_factors(activity_name, unit, category)')
-          .eq('user_id', userId)
-          .gte(
-            'logged_at',
-            startOfDay.toIso8601String(),
-          ) // Greater than or equal to start of day
-          .lt(
-            'logged_at',
-            endOfDay.toIso8601String(),
-          ) // Less than start of NEXT day
-          .order('logged_at', ascending: false);
-
-      if (mounted) {
-        setState(() {
-          _recentLogs = List<Map<String, dynamic>>.from(response);
-          _isLoadingLogs = false;
-        });
-      }
-    } catch (e) {
-      debugPrint('Error fetching logs: $e');
-      if (mounted) {
-        setState(() => _isLoadingLogs = false);
-      }
-    }
-  }
-
-  // 🌟 NEW: Scans the month for active days
-  Future<void> _fetchMonthDataOverview() async {
-    try {
-      final userId = Supabase.instance.client.auth.currentUser?.id;
-      if (userId == null) return;
-
-      // Start and end bounds for the currently viewed month
-      final startOfMonth = DateTime(_focusedMonth.year, _focusedMonth.month, 1);
-      final endOfMonth = DateTime(
-        _focusedMonth.year,
-        _focusedMonth.month + 1,
-        0,
-        23,
-        59,
-        59,
-      );
-
-      // Lightweight query: We ONLY ask for the 'logged_at' column, nothing else!
-      final response = await Supabase.instance.client
-          .from('activity_logs')
-          .select('logged_at')
-          .eq('user_id', userId)
-          .gte('logged_at', startOfMonth.toIso8601String())
-          .lte('logged_at', endOfMonth.toIso8601String());
-
-      final Set<int> activeDays = {};
-      for (var log in response) {
-        // Parse the date and grab just the day number
-        final date = DateTime.parse(log['logged_at']).toLocal();
-        activeDays.add(date.day);
-      }
-
-      if (mounted) {
-        setState(() {
-          _daysWithData = activeDays;
-        });
-      }
-    } catch (e) {
-      debugPrint('Error fetching month overview: $e');
-    }
+  Widget _buildDetailRow(
+    String label,
+    String value, {
+    bool isHighlight = false,
+  }) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            color: Colors.grey.shade600,
+            fontSize: 15,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        Text(
+          value,
+          style: TextStyle(
+            color: isHighlight ? AppTheme.primaryColor : Colors.black87,
+            fontSize: isHighlight ? 18 : 16,
+            fontWeight: isHighlight ? FontWeight.w900 : FontWeight.bold,
+          ),
+        ),
+      ],
+    );
   }
 
   void _openCategory(String categoryName) async {
     if (categoryName == 'Diet') {
-      // 🌟 Route 'Diet' directly to our new Gemini Vision AI scanner
       await context.pushNamed('food-scanner');
-      // 🔥 After the scanner closes, this line runs and refreshes your data!
-      _fetchRecentLogs();
+    } else if (categoryName == 'Energy') {
+      await context.pushNamed('bill-scanner');
     } else {
-      // Keep standard tracking for Transport and Energy
       await Navigator.push(
         context,
         MaterialPageRoute(
@@ -133,13 +327,8 @@ class _ActivityLogScreenState extends State<ActivityLogScreen> {
         ),
       );
     }
-
-    // 🔥 Because we use 'await' above, this line perfectly waits until the user
-    // closes the camera/tracker, then instantly refreshes the timeline with the new data!
-    _fetchRecentLogs();
   }
 
-  // Smart Icon Mapper for the Recent Logs list
   IconData _getIconForCategory(String? category) {
     if (category == 'Transport') return Icons.directions_car;
     if (category == 'Diet') return Icons.restaurant;
@@ -149,256 +338,257 @@ class _ActivityLogScreenState extends State<ActivityLogScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final logsAsync = ref.watch(activityLogsStreamProvider);
+
     return Scaffold(
-      backgroundColor: const Color(
-        0xFFF9FFF9,
-      ), // Clean, off-white eco background
-      drawer: const CustomDrawer(),
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        centerTitle: true, // Centers your logo beautifully in the middle
-
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.help_outline, color: AppTheme.primaryColor),
-            tooltip: 'Quick Start Guide',
-            onPressed: () =>
-                showQuickStartGuideDialog(context), // Works instantly!
-          ),
-          const SizedBox(width: 12),
-        ],
-
-        // Custom branding layout inside the title
-        title: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.eco, color: AppTheme.primaryColor, size: 24),
-            const SizedBox(width: 8),
-            Text(
-              'CarbonSense',
-              style: TextStyle(
-                color: Colors.grey.shade900,
-                fontWeight: FontWeight.w900,
-                fontSize: 20,
-                letterSpacing: -0.5,
-              ),
-            ),
-          ],
-        ),
-
-        // Optional: Add a subtle notification or profile trigger on the right side to balance out the layout
-
-        // NOTE: You do not need to add a leading IconButton for the hamburger menu!
-        // Flutter automatically detects the 'drawer' property above and generates
-        // a perfect, theme-matched hamburger button for you right here.
-      ),
+      backgroundColor: const Color(0xFFF9FFF9),
       body: SafeArea(
-        child: RefreshIndicator(
-          color: AppTheme.primaryColor,
-          onRefresh: _fetchRecentLogs,
-          child: CustomScrollView(
-            physics: const AlwaysScrollableScrollPhysics(
-              parent: BouncingScrollPhysics(),
+        child: logsAsync.when(
+          loading: () => const Center(
+            child: CircularProgressIndicator(color: AppTheme.primaryColor),
+          ),
+          error: (err, stack) => Center(
+            child: Text(
+              'Error loading logs: $err',
+              style: const TextStyle(color: Colors.red),
             ),
-            slivers: [
-              SliverPadding(
-                padding: const EdgeInsets.all(24.0),
-                sliver: SliverList(
-                  delegate: SliverChildListDelegate([
-                    // --- HEADER SECTION ---
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+          ),
+          data: (allLogs) {
+            // 🌟 1. Filter logs for the currently selected calendar day timeline
+            final selectedDayLogs =
+                allLogs.where((log) {
+                    if (log['logged_at'] == null) return false;
+                    final logDate = DateTime.parse(log['logged_at']).toLocal();
+                    return logDate.year == _selectedDate.year &&
+                        logDate.month == _selectedDate.month &&
+                        logDate.day == _selectedDate.day;
+                  }).toList()
+                  ..sort((a, b) => b['logged_at'].compareTo(a['logged_at']));
+
+            // 🌟 2. Extract active days for the calendar overview dots
+            final Set<int> daysWithData = {};
+            final startOfMonth = DateTime(
+              _focusedMonth.year,
+              _focusedMonth.month,
+              1,
+            );
+            final endOfMonth = DateTime(
+              _focusedMonth.year,
+              _focusedMonth.month + 1,
+              0,
+              23,
+              59,
+              59,
+            );
+
+            for (var log in allLogs) {
+              if (log['logged_at'] == null) continue;
+              final logDate = DateTime.parse(log['logged_at']).toLocal();
+              if (logDate.isAfter(
+                    startOfMonth.subtract(const Duration(seconds: 1)),
+                  ) &&
+                  logDate.isBefore(
+                    endOfMonth.add(const Duration(seconds: 1)),
+                  )) {
+                daysWithData.add(logDate.day);
+              }
+            }
+
+            // 🌟 CRITICAL FIX: Make sure to explicitly return the widget tree here!
+            return RefreshIndicator(
+              color: AppTheme.primaryColor,
+              onRefresh: () async {
+                ref.invalidate(activityLogsStreamProvider);
+              },
+              child: CustomScrollView(
+                physics: const AlwaysScrollableScrollPhysics(
+                  parent: BouncingScrollPhysics(),
+                ),
+                slivers: [
+                  SliverPadding(
+                    padding: const EdgeInsets.all(24.0),
+                    sliver: SliverList(
+                      delegate: SliverChildListDelegate([
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Track Activity',
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .headlineSmall
+                                      ?.copyWith(
+                                        color: Colors.black87,
+                                        fontWeight: FontWeight.w900,
+                                        letterSpacing: -0.5,
+                                      ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  'What did you do today?',
+                                  style: TextStyle(
+                                    color: Colors.grey.shade600,
+                                    fontSize: 14,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            Container(
+                              padding: const EdgeInsets.all(10),
+                              decoration: BoxDecoration(
+                                color: AppTheme.primaryColor.withOpacity(0.1),
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(
+                                Icons.add_chart,
+                                color: AppTheme.primaryColor,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 32),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: _buildModernCategoryCard(
+                                Icons.directions_car,
+                                'Transport',
+                                Colors.blue,
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: _buildModernCategoryCard(
+                                Icons.restaurant,
+                                'Diet',
+                                Colors.orange,
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: _buildModernCategoryCard(
+                                Icons.bolt,
+                                'Energy',
+                                Colors.amber,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 48),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          crossAxisAlignment: CrossAxisAlignment.end,
                           children: [
                             Text(
-                              'Track Activity',
-                              style: Theme.of(context).textTheme.headlineSmall
+                              'Daily Timeline',
+                              style: Theme.of(context).textTheme.titleLarge
                                   ?.copyWith(
                                     color: Colors.black87,
                                     fontWeight: FontWeight.w900,
                                     letterSpacing: -0.5,
                                   ),
                             ),
-                            const SizedBox(height: 4),
                             Text(
-                              'What did you do today?',
+                              DateFormat('MMM d, yyyy').format(_selectedDate),
                               style: TextStyle(
-                                color: Colors.grey.shade600,
-                                fontSize: 14,
+                                color: Colors.grey.shade500,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13,
                               ),
                             ),
                           ],
                         ),
-                        Container(
-                          padding: const EdgeInsets.all(10),
-                          decoration: BoxDecoration(
-                            color: AppTheme.primaryColor.withOpacity(0.1),
-                            shape: BoxShape.circle,
-                          ),
-                          child: const Icon(
-                            Icons.add_chart,
-                            color: AppTheme.primaryColor,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 32),
-
-                    // --- MODERN CATEGORY GRID ---
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _buildModernCategoryCard(
-                            Icons.directions_car,
-                            'Transport',
-                            Colors.blue,
-                          ),
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: _buildModernCategoryCard(
-                            Icons.restaurant,
-                            'Diet',
-                            Colors.orange,
-                          ),
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: _buildModernCategoryCard(
-                            Icons.bolt,
-                            'Energy',
-                            Colors.amber,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 48),
-
-                    // --- RECENT LOGS SECTION ---
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        Text(
-                          'Daily Timeline',
-                          style: Theme.of(context).textTheme.titleLarge
-                              ?.copyWith(
-                                color: Colors.black87,
-                                fontWeight: FontWeight.w900,
-                                letterSpacing: -0.5,
-                              ),
-                        ),
-                        // Shows the full date dynamically (e.g., "Oct 14, 2026")
-                        Text(
-                          DateFormat('MMM d, yyyy').format(_selectedDate),
-                          style: TextStyle(
-                            color: Colors.grey.shade500,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 13,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-
-                    // 🌟 INSERT THE DATE SELECTOR HERE
-                    _buildDateSelector(),
-
-                    const SizedBox(height: 24),
-
-                    // LIVE RECENT LOGS FROM DATABASE
-                    _isLoadingLogs
-                        ? const Padding(
-                            padding: EdgeInsets.only(top: 40),
-                            child: Center(
-                              child: CircularProgressIndicator(
-                                color: AppTheme.primaryColor,
-                              ),
-                            ),
-                          )
-                        : _recentLogs.isEmpty
-                        ? _buildEmptyState()
-                        : Container(
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(24),
-                              border: Border.all(
-                                color: AppTheme.primaryColor.withOpacity(0.1),
-                              ),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: AppTheme.primaryColor.withOpacity(
-                                    0.03,
+                        const SizedBox(height: 16),
+                        _buildDateSelector(daysWithData),
+                        const SizedBox(height: 24),
+                        selectedDayLogs.isEmpty
+                            ? _buildEmptyState()
+                            : Container(
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(24),
+                                  border: Border.all(
+                                    color: AppTheme.primaryColor.withOpacity(
+                                      0.1,
+                                    ),
                                   ),
-                                  blurRadius: 10,
-                                  offset: const Offset(0, 4),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: AppTheme.primaryColor.withOpacity(
+                                        0.03,
+                                      ),
+                                      blurRadius: 10,
+                                      offset: const Offset(0, 4),
+                                    ),
+                                  ],
                                 ),
-                              ],
-                            ),
-                            child: ListView.separated(
-                              shrinkWrap: true,
-                              physics: const NeverScrollableScrollPhysics(),
-                              padding: EdgeInsets.zero,
-                              itemCount: _recentLogs.length,
-                              separatorBuilder: (context, index) => Divider(
-                                height: 1,
-                                color: Colors.grey.shade100,
-                                indent: 70,
+                                child: ListView.separated(
+                                  shrinkWrap: true,
+                                  physics: const NeverScrollableScrollPhysics(),
+                                  padding: EdgeInsets.zero,
+                                  itemCount: selectedDayLogs.length,
+                                  separatorBuilder: (context, index) => Divider(
+                                    height: 1,
+                                    color: Colors.grey.shade100,
+                                    indent: 70,
+                                  ),
+                                  itemBuilder: (context, index) {
+                                    final log = selectedDayLogs[index];
+                                    final factorData =
+                                        log['emission_factors']
+                                            as Map<String, dynamic>?;
+
+                                    final activityName =
+                                        factorData?['activity_name'] ??
+                                        'Unknown';
+                                    final category =
+                                        factorData?['category'] ?? 'General';
+                                    final unit = factorData?['unit'] ?? '';
+                                    final inputValue =
+                                        log['input_value']?.toString() ?? '0';
+                                    final totalCo2 =
+                                        (log['total_co2e'] as num?)
+                                            ?.toStringAsFixed(2) ??
+                                        '0.00';
+
+                                    return _buildModernListTile(
+                                      title: activityName,
+                                      category: category,
+                                      subtitle: '$inputValue $unit',
+                                      co2Value: totalCo2,
+                                      onTap: () =>
+                                          _showLogDetails(log, factorData),
+                                    );
+                                  },
+                                ),
                               ),
-                              itemBuilder: (context, index) {
-                                final log = _recentLogs[index];
-                                final factorData =
-                                    log['emission_factors']
-                                        as Map<String, dynamic>?;
-
-                                final activityName =
-                                    factorData?['activity_name'] ?? 'Unknown';
-                                final category =
-                                    factorData?['category'] ?? 'General';
-                                final unit = factorData?['unit'] ?? '';
-                                final inputValue =
-                                    log['input_value']?.toString() ?? '0';
-                                final totalCo2 =
-                                    (log['total_co2e'] as num?)
-                                        ?.toStringAsFixed(2) ??
-                                    '0.00';
-
-                                return _buildModernListTile(
-                                  title: activityName,
-                                  category: category,
-                                  subtitle: '$inputValue $unit',
-                                  co2Value: totalCo2,
-                                );
-                              },
-                            ),
-                          ),
-                  ]),
-                ),
+                      ]),
+                    ),
+                  ),
+                ],
               ),
-            ],
-          ),
+            );
+          },
         ),
       ),
     );
   }
 
-  // 🗓️ THE ULTIMATE TIMELINE & MONTH SELECTOR
-  Widget _buildDateSelector() {
-    // 1. Calculate how many days are in the currently focused month
+  Widget _buildDateSelector(Set<int> daysWithData) {
     final int daysInMonth = DateTime(
       _focusedMonth.year,
       _focusedMonth.month + 1,
       0,
     ).day;
+
     final now = DateTime.now();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // --- 📅 MONTH NAVIGATOR ROW ---
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
@@ -412,7 +602,6 @@ class _ActivityLogScreenState extends State<ActivityLogScreen> {
                     1,
                   );
                 });
-                _fetchMonthDataOverview();
               },
             ),
             Text(
@@ -425,7 +614,6 @@ class _ActivityLogScreenState extends State<ActivityLogScreen> {
             ),
             IconButton(
               icon: Icon(Icons.chevron_right, color: Colors.grey.shade700),
-              // Disable the right arrow if we are already in the current month!
               onPressed:
                   (_focusedMonth.month == now.month &&
                       _focusedMonth.year == now.year)
@@ -438,14 +626,11 @@ class _ActivityLogScreenState extends State<ActivityLogScreen> {
                           1,
                         );
                       });
-                      _fetchMonthDataOverview();
                     },
             ),
           ],
         ),
         const SizedBox(height: 8),
-
-        // --- 🔢 HORIZONTAL DAY SCROLLER ---
         SizedBox(
           height: 75,
           child: ListView.builder(
@@ -465,29 +650,25 @@ class _ActivityLogScreenState extends State<ActivityLogScreen> {
                   date.month == _selectedDate.month &&
                   date.day == _selectedDate.day;
 
-              // Check if the date is in the future
               final isFuture = date.isAfter(now);
               final isToday =
                   date.year == now.year &&
                   date.month == now.month &&
                   date.day == now.day;
 
-              // 🌟 Check if this specific day is in our active data set!
-              final hasData = _daysWithData.contains(dayNumber);
-
+              final hasData = daysWithData.contains(dayNumber);
               String dayLabel = isToday
                   ? "Today"
-                  : DateFormat('EEE').format(date); // Mon, Tue, etc.
+                  : DateFormat('EEE').format(date);
 
               return GestureDetector(
                 onTap: isFuture
-                    ? null // Prevent clicking future dates
+                    ? null
                     : () {
                         setState(() => _selectedDate = date);
-                        _fetchRecentLogs(); // 🔥 Refetch logs for the clicked day
                       },
                 child: Opacity(
-                  opacity: isFuture ? 0.3 : 1.0, // Dim future dates visually
+                  opacity: isFuture ? 0.3 : 1.0,
                   child: AnimatedContainer(
                     duration: const Duration(milliseconds: 200),
                     width: 65,
@@ -532,13 +713,11 @@ class _ActivityLogScreenState extends State<ActivityLogScreen> {
                             color: isSelected ? Colors.white : Colors.black87,
                           ),
                         ),
-                        // 🌟 THE MAGIC DOT INDICATOR
                         const SizedBox(height: 4),
                         Container(
                           width: 5,
                           height: 5,
                           decoration: BoxDecoration(
-                            // Make it white if the pill is selected, otherwise make it your primary theme color (or invisible if no data)
                             color: hasData
                                 ? (isSelected
                                       ? Colors.white
@@ -559,7 +738,6 @@ class _ActivityLogScreenState extends State<ActivityLogScreen> {
     );
   }
 
-  // 🎨 Sleek, tappable category cards
   Widget _buildModernCategoryCard(
     IconData icon,
     String title,
@@ -611,85 +789,90 @@ class _ActivityLogScreenState extends State<ActivityLogScreen> {
     );
   }
 
-  // 📝 Clean transaction-style list tile
   Widget _buildModernListTile({
     required String title,
     required String category,
     required String subtitle,
     required String co2Value,
+    required VoidCallback onTap,
   }) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: AppTheme.primaryColor.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Icon(
-              _getIconForCategory(category),
-              color: AppTheme.primaryColor,
-              size: 24,
-            ),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 15,
-                    color: Colors.black87,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  subtitle,
-                  style: TextStyle(
-                    color: Colors.grey.shade500,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 12),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+          child: Row(
             children: [
-              Text(
-                '+$co2Value',
-                style: const TextStyle(
-                  fontWeight: FontWeight.w900,
-                  fontSize: 16,
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: AppTheme.primaryColor.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Icon(
+                  _getIconForCategory(category),
                   color: AppTheme.primaryColor,
+                  size: 24,
                 ),
               ),
-              const SizedBox(height: 2),
-              Text(
-                'kg CO₂',
-                style: TextStyle(
-                  color: Colors.grey.shade500,
-                  fontSize: 11,
-                  fontWeight: FontWeight.bold,
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 15,
+                        color: Colors.black87,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      subtitle,
+                      style: TextStyle(
+                        color: Colors.grey.shade500,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
                 ),
+              ),
+              const SizedBox(width: 12),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    '+$co2Value',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w900,
+                      fontSize: 16,
+                      color: AppTheme.primaryColor,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    'kg CO₂',
+                    style: TextStyle(
+                      color: Colors.grey.shade500,
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
-        ],
+        ),
       ),
     );
   }
 
-  // 📭 Nice empty state for new users
   Widget _buildEmptyState() {
     return Container(
       width: double.infinity,

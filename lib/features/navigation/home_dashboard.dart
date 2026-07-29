@@ -3,11 +3,15 @@ import 'package:carbonsense/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:carbonsense/widgets/custom_drawer.dart';
 import 'package:carbonsense/widgets/quick_start_guide_dialog.dart';
-import 'package:carbonsense/features/activity/log_activity_screen.dart'; // 👈 Add your log form import
+import 'package:carbonsense/features/activity/log_activity_screen.dart';
 import 'package:carbonsense/features/activity/food_camera_screen.dart';
-import 'dart:async'; // 👈 CRITICAL: Add this at the top for the live ticking timer!
+import 'package:carbonsense/features/activity/mission_camera_screen.dart';
+import 'package:carbonsense/features/activity/bill_scanner_screen.dart';
+import 'package:carbonsense/services/notification_service.dart';
+import 'package:carbonsense/features/utils/global_provider.dart';
+import 'package:carbonsense/features/utils/formatters.dart'; // 🌟 Using global precision formatters
+import 'dart:async';
 
 class HomeDashboard extends ConsumerStatefulWidget {
   const HomeDashboard({super.key});
@@ -18,31 +22,27 @@ class HomeDashboard extends ConsumerStatefulWidget {
 
 class _HomeDashboardState extends ConsumerState<HomeDashboard> {
   bool _isLoading = true;
-  List<Map<String, dynamic>> _tasks = [];
   double _netFootprint = 0.0;
-  double _monthlyTarget = 1.0;
-  double _progress = 0.0;
-  bool _obProfile = false;
-  bool _obGuide = false;
-  bool _obFirstLog = false;
-  String _username = 'Eco Warrior';
-  // 🌟 NEW: Live-tracking properties for the weekly timer
+
+  // 🌟 Live-tracking properties for the weekly timer
   Timer? _weeklyCountdownTimer;
   String _timeLeftString = 'Loading timer...';
-  // 🌟 NEW: Active lifestyle preference filter preset
-  String _selectedPreset = 'All';
 
-  bool get _showOnboarding => !(_obProfile && _obGuide && _obFirstLog);
+  // 🌟 Active lifestyle preference filter preset
+  String _selectedPreset = 'All';
   late final String _userId;
 
   @override
   void initState() {
     super.initState();
-    _loadUserGreetingName();
     _startWeeklyResetTimer();
     if (Supabase.instance.client.auth.currentUser != null) {
       _userId = Supabase.instance.client.auth.currentUser!.id;
-      _initializeDashboard();
+
+      // Initialize notifications immediately on login/app open
+      NotificationService().initNotifications();
+
+      _initializeDashboard(showLoader: true);
     } else {
       setState(() => _isLoading = false);
     }
@@ -50,16 +50,14 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
 
   @override
   void dispose() {
-    _weeklyCountdownTimer
-        ?.cancel(); // ✂️ Stop the background clock when page closes
+    _weeklyCountdownTimer?.cancel();
     super.dispose();
   }
 
   // ⏰ THE WEEKLY LIVE TIMER MOTOR
   void _startWeeklyResetTimer() {
-    _updateCountdownString(); // Run once immediately on load
+    _updateCountdownString();
 
-    // Refresh the string every single second
     _weeklyCountdownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (mounted) {
         _updateCountdownString();
@@ -70,14 +68,11 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
   void _updateCountdownString() {
     final now = DateTime.now();
 
-    // Find how many days until the upcoming Monday
     int daysUntilMonday = DateTime.monday - now.weekday;
     if (daysUntilMonday <= 0) {
-      daysUntilMonday +=
-          7; // If it's Monday today, the next reset is exactly 7 days away
+      daysUntilMonday += 7;
     }
 
-    // Pinpoint next Monday at exactly 12:00 AM Midnight
     final nextResetDate = DateTime(
       now.year,
       now.month,
@@ -97,45 +92,23 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
     });
   }
 
-  Future<void> _loadUserGreetingName() async {
-    try {
-      final user = Supabase.instance.client.auth.currentUser;
-      if (user != null) {
-        final response = await Supabase.instance.client
-            .from('user_profiles')
-            .select('display_name')
-            .eq('user_id', user.id)
-            .maybeSingle();
-
-        if (response != null && response['display_name'] != null && mounted) {
-          setState(() {
-            _username = response['display_name'];
-          });
-        }
-      }
-    } catch (e) {
-      debugPrint('Silent error grabbing dashboard profile name: $e');
+  Future<void> _initializeDashboard({bool showLoader = true}) async {
+    if (showLoader && mounted) {
+      setState(() => _isLoading = true);
     }
-  }
 
-  Future<void> _initializeDashboard() async {
-    if (!mounted) return;
-    setState(() => _isLoading = true);
     try {
-      await _fetchUserProfile();
-      await _fetchOrGenerateTasks();
-      await _calculateNetFootprint();
-
-      // 🌟 NEW: Validate onboarding data criteria automatically
-      await _validateAutomatedOnboardingSteps();
-    } catch (error) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $error'), backgroundColor: Colors.red),
-        );
-      }
+      await Future.wait([
+        _fetchOrGenerateTasks(),
+        _calculateNetFootprint(),
+        _validateAutomatedOnboardingSteps(),
+      ]);
+    } catch (e) {
+      debugPrint('Error initializing dashboard: $e');
     } finally {
-      if (mounted) setState(() => _isLoading = false);
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
 
@@ -152,14 +125,11 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
         final bool currentObProfile = profileRes['ob_profile'] ?? false;
         final bool currentObFirstLog = profileRes['ob_first_log'] ?? false;
 
-        // 1. Check Profile Picture Validation
         if (avatarUrl != null && avatarUrl.isNotEmpty && !currentObProfile) {
-          await _updateOnboardingTask('ob_profile', false);
+          await _updateOnboardingTask('ob_profile', currentObProfile);
         }
 
-        // 2. 🌟 FIXED: Check First Activity Log Validation directly
         if (!currentObFirstLog) {
-          // Look inside the activity_logs table to see if they have at least 1 entry
           final logsCount = await Supabase.instance.client
               .from('activity_logs')
               .select('logged_at')
@@ -167,8 +137,7 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
               .limit(1);
 
           if (logsCount.isNotEmpty) {
-            // It found a log! Mark the onboarding step as completed.
-            await _updateOnboardingTask('ob_first_log', false);
+            await _updateOnboardingTask('ob_first_log', currentObFirstLog);
           }
         }
       }
@@ -177,26 +146,9 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
     }
   }
 
-  Future<void> _fetchUserProfile() async {
-    final response = await Supabase.instance.client
-        .from('user_profiles')
-        .select('monthly_co2_target, ob_profile, ob_guide, ob_first_log')
-        .eq('user_id', _userId)
-        .maybeSingle();
-
-    if (mounted && response != null) {
-      final target = (response['monthly_co2_target'] as num?)?.toDouble();
-      _monthlyTarget = (target != null && target > 0) ? target : 1.0;
-      _obProfile = response['ob_profile'] as bool? ?? false;
-      _obGuide = response['ob_guide'] as bool? ?? false;
-      _obFirstLog = response['ob_first_log'] as bool? ?? false;
-    }
-  }
-
   Future<void> _fetchOrGenerateTasks() async {
     final now = DateTime.now();
 
-    // 1. Find the exact start of the current week (Most recent Monday at 12:00 AM)
     int daysSinceMonday = now.weekday - DateTime.monday;
     if (daysSinceMonday < 0) daysSinceMonday += 7;
     final startOfThisWeek = DateTime(
@@ -208,7 +160,6 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
       0,
     );
 
-    // 2. Fetch the user's tasks from the database
     var response = await Supabase.instance.client
         .from('user_tasks')
         .select('*, tasks_dictionary(*)')
@@ -217,21 +168,42 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
     bool needsRegeneration = false;
 
     if (response.isEmpty) {
-      // User is brand new and has no tasks at all
-      needsRegeneration = true;
+      final user = Supabase.instance.client.auth.currentUser;
+
+      int accountAgeDays = 0;
+      if (user?.createdAt != null) {
+        final createdAt = DateTime.parse(user!.createdAt);
+        accountAgeDays = DateTime.now().toUtc().difference(createdAt).inDays;
+      }
+
+      int logCount = 0;
+      try {
+        final logs = await Supabase.instance.client
+            .from('activity_logs')
+            .select('logged_at')
+            .eq('user_id', _userId);
+        logCount = logs.length;
+      } catch (e) {
+        debugPrint('Activity logs fetch notice: $e');
+      }
+
+      final int requiredLogs = 10;
+
+      if (accountAgeDays >= 7 || logCount >= requiredLogs) {
+        needsRegeneration = true;
+      } else {
+        debugPrint(
+          '⏳ User not yet eligible for missions. Age: $accountAgeDays days, Logs: $logCount/$requiredLogs',
+        );
+      }
     } else {
-      // Check the first task's timestamp to see if it belongs to an old week
-      final firstTaskTimestamp =
-          response.first['created_at']; // or 'assigned_at'
+      final firstTaskTimestamp = response.first['created_at'];
       if (firstTaskTimestamp != null) {
         final taskCreationDate = DateTime.parse(firstTaskTimestamp).toLocal();
 
         if (taskCreationDate.isBefore(startOfThisWeek)) {
-          // 🚨 THE WEEK HAS TRIPPED! These tasks are stale.
           needsRegeneration = true;
-
           debugPrint("📆 Stale weekly tasks detected. Clearing old records...");
-          // Clean out the old week's tasks so they don't pile up in the DB
           await Supabase.instance.client
               .from('user_tasks')
               .delete()
@@ -240,24 +212,15 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
       }
     }
 
-    // 3. Trigger the generator if the user is new OR the week has rolled over
     if (needsRegeneration) {
       debugPrint("⚡ Running generate_smart_tasks RPC for the new week...");
       await Supabase.instance.client.rpc(
         'generate_smart_tasks',
         params: {'current_user_id': _userId},
       );
-
-      // Re-fetch the freshly minted weekly tasks
-      response = await Supabase.instance.client
-          .from('user_tasks')
-          .select('*, tasks_dictionary(*)')
-          .eq('user_id', _userId);
     }
 
-    if (mounted) {
-      setState(() => _tasks = List<Map<String, dynamic>>.from(response));
-    }
+    debugPrint("✅ Weekly task validation complete.");
   }
 
   Future<void> _calculateNetFootprint() async {
@@ -287,20 +250,19 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
 
     final totalSaved = savedResponse.fold<double>(0.0, (sum, item) {
       final taskData = item['tasks_dictionary'];
-      if (taskData != null)
+      if (taskData != null) {
         return sum + double.parse(taskData['co2_saved_estimate'].toString());
+      }
       return sum;
     });
 
     if (mounted) {
       setState(() {
         _netFootprint = max(0, totalEmissions - totalSaved);
-        _progress = min(1.0, max(0.0, _netFootprint / _monthlyTarget));
       });
     }
   }
 
-  // 📊 FETCH RAW MONTHLY DATA FOR THE MODAL (Upgraded with relational join)
   Future<Map<String, List<dynamic>>> _fetchMonthlyBreakdownData() async {
     final now = DateTime.now();
     final startOfMonth = DateTime(now.year, now.month, 1).toIso8601String();
@@ -313,7 +275,6 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
       59,
     ).toIso8601String();
 
-    // 🌟 THE FIX: We use a relational join to pull the category and name from emission_factors!
     final logsResponse = await Supabase.instance.client
         .from('activity_logs')
         .select('*, emission_factors(category, activity_name)')
@@ -334,39 +295,43 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
     return {'logs': logsResponse, 'tasks': tasksResponse};
   }
 
-  // 🎨 DYNAMIC ICON MATCHER FOR ACTIVITIES
   IconData _getIconForActivity(String category, String activityName) {
     final lowerName = activityName.toLowerCase();
 
     if (category == 'Transport') {
-      if (lowerName.contains('motorcycle') || lowerName.contains('tricycle'))
+      if (lowerName.contains('motorcycle') || lowerName.contains('tricycle')) {
         return Icons.two_wheeler;
-      if (lowerName.contains('jeepney') || lowerName.contains('bus'))
+      }
+      if (lowerName.contains('jeepney') || lowerName.contains('bus')) {
         return Icons.directions_bus;
+      }
       if (lowerName.contains('lrt') ||
           lowerName.contains('mrt') ||
-          lowerName.contains('train'))
+          lowerName.contains('train')) {
         return Icons.train;
-      if (lowerName.contains('bicycle') || lowerName.contains('walk'))
+      }
+      if (lowerName.contains('bicycle') || lowerName.contains('walk')) {
         return Icons.directions_walk;
-      return Icons.directions_car; // Default for cars
+      }
+      return Icons.directions_car;
     } else if (category == 'Energy') {
       if (lowerName.contains('water')) return Icons.water_drop;
-      if (lowerName.contains('lpg') || lowerName.contains('gas'))
+      if (lowerName.contains('lpg') || lowerName.contains('gas')) {
         return Icons.local_fire_department;
-      return Icons.electric_bolt; // Default for grid electricity
+      }
+      return Icons.electric_bolt;
     } else if (category == 'Diet') {
-      return Icons.restaurant; // Default for all meals
+      return Icons.restaurant;
     } else if (category == 'Lifestyle') {
-      if (lowerName.contains('waste') || lowerName.contains('landfill'))
+      if (lowerName.contains('waste') || lowerName.contains('landfill')) {
         return Icons.delete_outline;
+      }
       return Icons.eco;
     }
 
-    return Icons.cloud_upload; // Fallback
+    return Icons.cloud_upload;
   }
 
-  // 🚀 SHOW THE MODAL (Upgraded parsing logic)
   void _openMonthlyBreakdownSheet() {
     showModalBottomSheet(
       context: context,
@@ -412,7 +377,6 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
                 ),
               ),
               const SizedBox(height: 20),
-
               Expanded(
                 child: FutureBuilder<Map<String, List<dynamic>>>(
                   future: _fetchMonthlyBreakdownData(),
@@ -455,7 +419,6 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            // --- EMISSIONS SECTION ---
                             Row(
                               children: [
                                 const Icon(
@@ -484,7 +447,6 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
                                 ),
                               ),
                             ...logs.map((log) {
-                              // 🌟 THE FIX: Dig into the joined emission_factors object!
                               final factorData = log['emission_factors'] ?? {};
                               final activityName =
                                   factorData['activity_name'] ??
@@ -492,12 +454,13 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
                               final category =
                                   factorData['category'] ?? 'General';
 
-                              final co2e = (log['total_co2e'] as num)
-                                  .toStringAsFixed(1);
+                              // 🌟 Updated to use global precision formatter
+                              final co2e = formatFootprint(
+                                log['total_co2e'] as num?,
+                              );
                               final dateStr = log['logged_at'] != null
                                   ? log['logged_at'].toString().split('T').first
                                   : '';
-                              // 👇 Call our new helper function here!
                               final dynamicIcon = _getIconForActivity(
                                 category,
                                 activityName,
@@ -512,7 +475,7 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
                                     color: Colors.redAccent,
                                     size: 18,
                                   ),
-                                ), // 👈 Placed here
+                                ),
                                 title: Text(
                                   activityName,
                                   style: const TextStyle(
@@ -535,10 +498,7 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
                                 ),
                               );
                             }),
-
                             const SizedBox(height: 32),
-
-                            // --- SAVINGS SECTION ---
                             Row(
                               children: [
                                 const Icon(
@@ -570,10 +530,11 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
                               final details = task['tasks_dictionary'] ?? {};
                               final desc =
                                   details['description'] ?? 'Unnamed Task';
-                              final co2Saved =
-                                  (details['co2_saved_estimate'] as num?)
-                                      ?.toStringAsFixed(1) ??
-                                  '0.0';
+
+                              // 🌟 Updated to use global precision formatter
+                              final co2Saved = formatFootprint(
+                                details['co2_saved_estimate'] as num?,
+                              );
                               final dateStr = task['completed_at'] != null
                                   ? task['completed_at']
                                         .toString()
@@ -626,71 +587,26 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
     );
   }
 
-  Future<void> _updateTaskStatus(String userTaskId, bool isCompleted) async {
-    try {
-      final taskIndex = _tasks.indexWhere(
-        (t) => t['user_task_id'] == userTaskId,
-      );
-      if (taskIndex == -1) return;
-
-      setState(() => _tasks[taskIndex]['is_completed'] = isCompleted);
-
-      await Supabase.instance.client
-          .from('user_tasks')
-          .update({
-            'is_completed': isCompleted,
-            'completed_at': isCompleted
-                ? DateTime.now().toIso8601String()
-                : null,
-          })
-          .eq('user_task_id', userTaskId);
-
-      await _calculateNetFootprint();
-    } catch (error) {
-      final taskIndex = _tasks.indexWhere(
-        (t) => t['user_task_id'] == userTaskId,
-      );
-      if (taskIndex != -1)
-        setState(() => _tasks[taskIndex]['is_completed'] = !isCompleted);
-      if (mounted)
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Failed: $error')));
-    }
-  }
-
   Future<void> _updateOnboardingTask(String column, bool currentValue) async {
     final newValue = !currentValue;
-    setState(() {
-      if (column == 'ob_profile') _obProfile = newValue;
-      if (column == 'ob_guide') _obGuide = newValue;
-      if (column == 'ob_first_log') _obFirstLog = newValue;
-    });
-
     try {
       await Supabase.instance.client
           .from('user_profiles')
           .update({column: newValue})
           .eq('user_id', _userId);
     } catch (e) {
-      setState(() {
-        if (column == 'ob_profile') _obProfile = currentValue;
-        if (column == 'ob_guide') _obGuide = currentValue;
-        if (column == 'ob_first_log') _obFirstLog = currentValue;
-      });
-      if (mounted)
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Failed to save progress.')));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Failed to save progress.')),
+        );
+      }
     }
   }
 
-  // 🚀 LIFESTYLE SELECTION SHEET (FIXED FOR OVERFLOW)
   void _openLifestyleCustomizationSheet() {
     showModalBottomSheet(
       context: context,
-      isScrollControlled:
-          true, // 👈 1. Allows the sheet to expand dynamically beyond default limits
+      isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (BuildContext sheetContext) {
         return Container(
@@ -701,7 +617,6 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
           padding: const EdgeInsets.all(24.0),
           child: SafeArea(
             child: SingleChildScrollView(
-              // 👈 2. Makes the layout scrollable on smaller mobile displays
               physics: const BouncingScrollPhysics(),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -736,7 +651,6 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
                     ),
                   ),
                   const SizedBox(height: 20),
-
                   _buildPresetTile(
                     sheetContext,
                     'All',
@@ -830,189 +744,168 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF9FFF9),
-      drawer: const CustomDrawer(),
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        centerTitle: true,
-        title: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.eco, color: AppTheme.primaryColor, size: 24),
-            const SizedBox(width: 8),
-            Text(
-              'CarbonSense',
-              style: TextStyle(
-                color: Colors.grey.shade900,
-                fontWeight: FontWeight.w900,
-                fontSize: 20,
-                letterSpacing: -0.5,
-              ),
-            ),
-          ],
+    final profileAsync = ref.watch(userProfileStreamProvider);
+    if (_isLoading || profileAsync.isLoading) {
+      return const Scaffold(
+        backgroundColor: Color(0xFFF9FFF9),
+        body: Center(
+          child: CircularProgressIndicator(color: AppTheme.primaryColor),
         ),
-        // 🌟 NEW: Permanent help button in the top right corner!
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.help_outline, color: AppTheme.primaryColor),
-            tooltip: 'Quick Start Guide',
-            onPressed: () => showQuickStartGuideDialog(
-              context,
-            ), // 🔓 Opens instantly as reference tool!
-          ),
-          const SizedBox(width: 12), // Elegant spacing padding
-        ],
-      ),
+      );
+    }
+
+    return Scaffold(
+      backgroundColor: Colors.transparent,
       body: SafeArea(
-        child: _isLoading
-            ? const Center(
-                child: CircularProgressIndicator(color: AppTheme.primaryColor),
-              )
-            : RefreshIndicator(
-                color: AppTheme.primaryColor,
-                onRefresh: _initializeDashboard,
-                child: SingleChildScrollView(
-                  physics: const BouncingScrollPhysics(),
-                  child: Padding(
-                    padding: const EdgeInsets.all(24.0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _buildHeader(),
-                        const SizedBox(height: 24),
-                        _buildOnboardingCard(),
-                        _buildImpactHeroCard(),
-                        const SizedBox(height: 32),
-
-                        const Text(
-                          "Quick Log",
-                          style: TextStyle(
-                            fontWeight: FontWeight.w900,
-                            fontSize: 18,
-                            color: Colors.black87,
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        _buildActionStrip(),
-                        const SizedBox(height: 32),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                const Text(
-                                  "Weekly Missions",
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.w900,
-                                    fontSize: 18,
-                                    color: Colors.black87,
-                                  ),
-                                ),
-
-                                // ⏳ THE MODERN COUNTDOWN BADGE
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 10,
-                                    vertical: 6,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: Colors.amber.shade50,
-                                    borderRadius: BorderRadius.circular(12),
-                                    border: Border.all(
-                                      color: Colors.amber.shade200,
-                                    ),
-                                  ),
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Icon(
-                                        Icons.hourglass_top_rounded,
-                                        size: 13,
-                                        color: Colors.amber.shade800,
-                                      ),
-                                      const SizedBox(width: 4),
-                                      Text(
-                                        _timeLeftString,
-                                        style: TextStyle(
-                                          color: Colors.amber.shade900,
-                                          fontSize: 11,
-                                          fontWeight: FontWeight.bold,
-                                          letterSpacing: -0.2,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 12),
-
-                            // FILTER CHIP SELECTION ACCESSBAR
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Text(
-                                  'Focus: $_selectedPreset Layout',
-                                  style: TextStyle(
-                                    color: Colors.grey.shade500,
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                                TextButton.icon(
-                                  onPressed: _openLifestyleCustomizationSheet,
-                                  icon: const Icon(
-                                    Icons.tune,
-                                    size: 16,
-                                    color: AppTheme.primaryColor,
-                                  ),
-                                  label: Text(
-                                    _selectedPreset == 'All'
-                                        ? 'Customize'
-                                        : _selectedPreset,
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 13,
-                                      color: AppTheme.primaryColor,
-                                    ),
-                                  ),
-                                  style: TextButton.styleFrom(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 14,
-                                      vertical: 8,
-                                    ),
-                                    backgroundColor: AppTheme.primaryColor
-                                        .withOpacity(0.1),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 16),
-                        _buildModernTasksList(),
-                      ],
+        child: RefreshIndicator(
+          color: AppTheme.primaryColor,
+          onRefresh: () => _initializeDashboard(showLoader: false),
+          child: SingleChildScrollView(
+            physics: const BouncingScrollPhysics(),
+            child: Padding(
+              padding: const EdgeInsets.all(24.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildHeader(),
+                  const SizedBox(height: 24),
+                  _buildOnboardingCard(),
+                  _buildImpactHeroCard(),
+                  const SizedBox(height: 32),
+                  const Text(
+                    "Quick Log",
+                    style: TextStyle(
+                      fontWeight: FontWeight.w900,
+                      fontSize: 18,
+                      color: Colors.black87,
                     ),
                   ),
-                ),
+                  const SizedBox(height: 16),
+                  _buildActionStrip(),
+                  const SizedBox(height: 32),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text(
+                            "Weekly Missions",
+                            style: TextStyle(
+                              fontWeight: FontWeight.w900,
+                              fontSize: 18,
+                              color: Colors.black87,
+                            ),
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 6,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.amber.shade50,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: Colors.amber.shade200),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  Icons.hourglass_top_rounded,
+                                  size: 13,
+                                  color: Colors.amber.shade800,
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  _timeLeftString,
+                                  style: TextStyle(
+                                    color: Colors.amber.shade900,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold,
+                                    letterSpacing: -0.2,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            'Focus: $_selectedPreset Layout',
+                            style: TextStyle(
+                              color: Colors.grey.shade500,
+                              fontSize: 13,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          TextButton.icon(
+                            onPressed: _openLifestyleCustomizationSheet,
+                            icon: const Icon(
+                              Icons.tune,
+                              size: 16,
+                              color: AppTheme.primaryColor,
+                            ),
+                            label: Text(
+                              _selectedPreset == 'All'
+                                  ? 'Customize'
+                                  : _selectedPreset,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13,
+                                color: AppTheme.primaryColor,
+                              ),
+                            ),
+                            style: TextButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 14,
+                                vertical: 8,
+                              ),
+                              backgroundColor: AppTheme.primaryColor
+                                  .withOpacity(0.1),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  _buildModernTasksList(),
+                ],
               ),
+            ),
+          ),
+        ),
       ),
     );
   }
 
   Widget _buildHeader() {
+    final profile = ref.watch(userProfileStreamProvider).value;
+    final username = profile?['display_name'] ?? 'Eco Warrior';
+
+    final hour = DateTime.now().hour;
+    String greeting;
+    if (hour < 12) {
+      greeting = "GOOD MORNING";
+    } else if (hour < 17) {
+      greeting = "GOOD AFTERNOON";
+    } else {
+      greeting = "GOOD EVENING";
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          "WELCOME BACK",
-          style: TextStyle(
+        Text(
+          greeting,
+          style: const TextStyle(
             color: AppTheme.primaryColor,
             fontWeight: FontWeight.w900,
             fontSize: 12,
@@ -1021,7 +914,7 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
         ),
         const SizedBox(height: 6),
         Text(
-          "Hello, $_username 👋",
+          "Hello, $username 👋",
           style: TextStyle(
             fontSize: 34,
             fontWeight: FontWeight.w900,
@@ -1043,7 +936,14 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
   }
 
   Widget _buildOnboardingCard() {
-    if (!_showOnboarding) return const SizedBox.shrink();
+    final profile = ref.watch(userProfileStreamProvider).value;
+    final obProfile = profile?['ob_profile'] ?? false;
+    final obGuide = profile?['ob_guide'] ?? false;
+    final obFirstLog = profile?['ob_first_log'] ?? false;
+
+    final showOnboarding = !(obProfile && obGuide && obFirstLog);
+
+    if (!showOnboarding) return const SizedBox.shrink();
 
     return Container(
       padding: const EdgeInsets.all(20),
@@ -1079,11 +979,9 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
             ],
           ),
           const SizedBox(height: 16),
-
-          // 👤 STEP 1: Complete Profile (Guides them to wherever they upload an avatar)
           _buildOnboardingTile(
             "Complete your profile (Upload a picture)",
-            _obProfile,
+            obProfile,
             () => ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
                 content: Text(
@@ -1092,26 +990,22 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
               ),
             ),
           ),
-
-          // 📖 STEP 2: Open the Quick Start Guide Modal Popup
           _buildOnboardingTile(
             "Read the Quick Start Guide",
-            _obGuide,
+            obGuide,
             () => showQuickStartGuideDialog(
               context,
-              isOnboarding: !_obGuide, // 🔒 Lock it if onboarding is incomplete
+              isOnboarding: !obGuide,
               onComplete: () async {
-                if (!_obGuide) {
-                  await _updateOnboardingTask('ob_guide', _obGuide);
+                if (!obGuide) {
+                  await _updateOnboardingTask('ob_guide', obGuide);
                 }
               },
             ),
           ),
-
-          // 🚗 STEP 3: Log First Activity Shortcut
           _buildOnboardingTile(
             "Log your first activity",
-            _obFirstLog,
+            obFirstLog,
             () => ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
                 content: Text(
@@ -1127,9 +1021,7 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
 
   Widget _buildOnboardingTile(String title, bool isDone, VoidCallback onTap) {
     return InkWell(
-      onTap: isDone
-          ? null
-          : onTap, // If it's already completed, make it static and unclickable
+      onTap: isDone ? null : onTap,
       borderRadius: BorderRadius.circular(12),
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 8.0),
@@ -1157,11 +1049,20 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
     );
   }
 
+  // 🌟 Dynamic progress and global precision formatter integrated
   Widget _buildImpactHeroCard() {
+    final profile = ref.watch(userProfileStreamProvider).value;
+    final targetRaw = profile?['monthly_co2_target'];
+    final monthlyTarget = (targetRaw != null && targetRaw > 0)
+        ? (targetRaw as num).toDouble()
+        : 1.0;
+
+    final progress = min(1.0, max(0.0, _netFootprint / monthlyTarget));
+
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        onTap: _openMonthlyBreakdownSheet, // 👈 Triggers the new modal!
+        onTap: _openMonthlyBreakdownSheet,
         borderRadius: BorderRadius.circular(32),
         child: Container(
           padding: const EdgeInsets.all(24),
@@ -1199,7 +1100,9 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
                 textBaseline: TextBaseline.alphabetic,
                 children: [
                   Text(
-                    _netFootprint.toStringAsFixed(1),
+                    formatFootprint(
+                      _netFootprint,
+                    ), // 🌟 Global precision formatter
                     style: const TextStyle(
                       color: Colors.white,
                       fontSize: 48,
@@ -1223,11 +1126,11 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    "Monthly Target: ${_monthlyTarget.toStringAsFixed(0)} kg",
+                    "Monthly Target: ${monthlyTarget.toStringAsFixed(0)} kg",
                     style: const TextStyle(color: Colors.white, fontSize: 12),
                   ),
                   Text(
-                    "${(_progress * 100).toStringAsFixed(0)}%",
+                    "${(progress * 100).toStringAsFixed(0)}%",
                     style: const TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.bold,
@@ -1240,15 +1143,13 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
               ClipRRect(
                 borderRadius: BorderRadius.circular(10),
                 child: LinearProgressIndicator(
-                  value: _progress,
+                  value: progress,
                   minHeight: 8,
                   backgroundColor: Colors.white.withOpacity(0.2),
                   valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
                 ),
               ),
               const SizedBox(height: 16),
-
-              // 👇 NEW: Small indicator to let the user know they can interact with the card
               Center(
                 child: Container(
                   padding: const EdgeInsets.symmetric(
@@ -1287,8 +1188,6 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
       children: [
-        // 💡 CRITICAL: Ensure 'Energy', 'Transportation', and 'Diet' match the exact
-        // spelling and casing of the 'category' column values inside your Supabase table!
         _buildModernActionButton(Icons.lightbulb_outline, 'Energy', 'Energy'),
         _buildModernActionButton(Icons.commute, 'Transport', 'Transport'),
         _buildModernActionButton(Icons.restaurant, 'Diet', 'Diet'),
@@ -1308,7 +1207,14 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
             context,
             MaterialPageRoute(builder: (context) => const FoodCameraScreen()),
           ).then((_) {
-            _initializeDashboard();
+            _initializeDashboard(showLoader: false);
+          });
+        } else if (categoryKey == 'Energy') {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const BillScannerScreen()),
+          ).then((_) {
+            _initializeDashboard(showLoader: false);
           });
         } else {
           Navigator.push(
@@ -1317,7 +1223,7 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
               builder: (context) => LogActivityScreen(category: categoryKey),
             ),
           ).then((_) {
-            _initializeDashboard();
+            _initializeDashboard(showLoader: false);
           });
         }
       },
@@ -1353,122 +1259,239 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
     );
   }
 
-  // 🎨 UPGRADED DYNAMIC RE-FILTERING TASKS ENGINE
   Widget _buildModernTasksList() {
-    if (_tasks.isEmpty) {
-      return const Center(
-        child: Padding(
-          padding: EdgeInsets.all(24.0),
-          child: Text(
-            "All tasks completed or none generated! Tap refresh.",
-            style: TextStyle(color: Colors.grey, fontStyle: FontStyle.italic),
-          ),
-        ),
-      );
-    }
+    final tasksAsync = ref.watch(userTasksStreamProvider);
 
-    // 🔥 SMART FILTER PIPELINE: Filters database models cleanly based on active layout presets
-    final filteredTasks = _tasks.where((task) {
-      final taskDetails =
-          task['tasks_dictionary'] as Map<String, dynamic>? ?? {};
-      final tag = taskDetails['target_lifestyle_tag'] ?? 'General';
-
-      if (_selectedPreset == 'All') return true;
-      if (_selectedPreset == 'Energy' && tag == 'Energy') return true;
-      if (_selectedPreset == 'Commute' && tag == 'Commute') return true;
-      if (_selectedPreset == 'Diet' && tag == 'Diet') return true;
-
-      // Always include 'General' tier checklist prompts as global foundations!
-      return tag == 'General';
-    }).toList();
-
-    if (filteredTasks.isEmpty) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24.0),
-          child: Text(
-            'No ongoing tasks under the "$_selectedPreset" focus.',
-            style: const TextStyle(
-              color: Colors.grey,
-              fontStyle: FontStyle.italic,
-              fontSize: 13,
-            ),
-          ),
-        ),
-      );
-    }
-
-    return ListView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      itemCount: filteredTasks.length,
-      itemBuilder: (context, index) {
-        final task = filteredTasks[index];
-        final taskDetails =
-            task['tasks_dictionary'] as Map<String, dynamic>? ?? {};
-        final userTaskId = task['user_task_id'] as String;
-        final isCompleted = task['is_completed'] as bool? ?? false;
-        final description = taskDetails['description'] ?? 'Unnamed Task';
-        final tier = taskDetails['tier'] ?? 'Standard';
-
-        return AnimatedContainer(
-          duration: const Duration(milliseconds: 300),
-          margin: const EdgeInsets.only(bottom: 12),
-          decoration: BoxDecoration(
-            color: isCompleted
-                ? AppTheme.primaryColor.withOpacity(0.05)
-                : Colors.white,
-            borderRadius: BorderRadius.circular(24),
-            border: Border.all(
-              color: isCompleted
-                  ? AppTheme.primaryColor.withOpacity(0.3)
-                  : Colors.transparent,
-            ),
-            boxShadow: isCompleted
-                ? []
-                : [
-                    BoxShadow(
-                      color: AppTheme.primaryColor.withOpacity(0.06),
-                      blurRadius: 15,
-                      offset: const Offset(0, 8),
-                    ),
-                  ],
-          ),
-          child: CheckboxListTile(
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 20,
-              vertical: 8,
-            ),
-            title: Text(
-              description,
-              style: TextStyle(
-                fontWeight: FontWeight.w600,
-                fontSize: 14,
-                color: isCompleted ? Colors.grey : Colors.black87,
-                decoration: isCompleted ? TextDecoration.lineThrough : null,
-              ),
-            ),
-            subtitle: Padding(
-              padding: const EdgeInsets.only(top: 4.0),
+    return tasksAsync.when(
+      loading: () => const Center(
+        child: CircularProgressIndicator(color: AppTheme.primaryColor),
+      ),
+      error: (error, stack) => Text(
+        'Error loading tasks: $error',
+        style: const TextStyle(color: Colors.red),
+      ),
+      data: (tasks) {
+        if (tasks.isEmpty) {
+          return const Center(
+            child: Padding(
+              padding: EdgeInsets.all(24.0),
               child: Text(
-                'TIER: ${tier.toUpperCase()}',
+                "Establishing your activity baseline. Log some activities or wait 7 days to unlock your personalized weekly missions!",
+                textAlign: TextAlign.center,
                 style: TextStyle(
-                  color: AppTheme.primaryColor.withOpacity(0.8),
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 1,
+                  color: Colors.grey,
+                  fontStyle: FontStyle.italic,
+                  fontSize: 13,
+                  height: 1.4,
                 ),
               ),
             ),
-            value: isCompleted,
-            activeColor: AppTheme.primaryColor,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
+          );
+        }
+
+        final filteredTasks = tasks.where((task) {
+          final taskDetails =
+              task['tasks_dictionary'] as Map<String, dynamic>? ?? {};
+          final tag = taskDetails['target_lifestyle_tag'] ?? 'General';
+
+          if (_selectedPreset == 'All') return true;
+          if (_selectedPreset == 'Energy' && tag == 'Energy') return true;
+          if (_selectedPreset == 'Commute' && tag == 'Commute') return true;
+          if (_selectedPreset == 'Diet' && tag == 'Diet') return true;
+
+          return tag == 'General';
+        }).toList();
+
+        if (filteredTasks.isEmpty) {
+          return Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24.0),
+              child: Text(
+                'No ongoing tasks under the "$_selectedPreset" focus.',
+                style: const TextStyle(
+                  color: Colors.grey,
+                  fontStyle: FontStyle.italic,
+                  fontSize: 13,
+                ),
+              ),
             ),
-            onChanged: (bool? value) {
-              if (value != null) _updateTaskStatus(userTaskId, value);
-            },
-          ),
+          );
+        }
+
+        return ListView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          itemCount: filteredTasks.length,
+          itemBuilder: (context, index) {
+            final task = filteredTasks[index];
+            final taskDetails =
+                task['tasks_dictionary'] as Map<String, dynamic>? ?? {};
+            final userTaskId = task['user_task_id'] as String;
+            final isCompleted = task['is_completed'] as bool? ?? false;
+            final description = taskDetails['description'] ?? 'Unnamed Task';
+            final tier = taskDetails['tier'] ?? 'Standard';
+            // 👇 ADD THIS LINE to extract it from your database payload
+            final visionCriteria = taskDetails['vision_criteria'] ?? '';
+
+            // 🌟 1. Pull the tag up here so we can use it for visuals
+            final tag =
+                taskDetails['target_lifestyle_tag']?.toString() ?? 'General';
+
+            // 🌟 2. Determine the icon and colors based on the task category
+            IconData taskIcon;
+            Color iconBgColor;
+            Color iconColor;
+
+            switch (tag.toLowerCase()) {
+              case 'energy':
+                taskIcon = Icons.electric_bolt;
+                iconBgColor = Colors.orange.shade50;
+                iconColor = Colors.orange;
+                break;
+              case 'commute':
+              case 'transport':
+                taskIcon = Icons.directions_bus;
+                iconBgColor = Colors.blue.shade50;
+                iconColor = Colors.blue;
+                break;
+              case 'diet':
+              case 'food':
+                taskIcon = Icons.restaurant;
+                iconBgColor = Colors.red.shade50;
+                iconColor = Colors.redAccent;
+                break;
+              default:
+                taskIcon = Icons.eco;
+                iconBgColor = Colors.green.shade50;
+                iconColor = Colors.green;
+            }
+
+            return AnimatedContainer(
+              duration: const Duration(milliseconds: 300),
+              margin: const EdgeInsets.only(bottom: 12),
+              decoration: BoxDecoration(
+                color: isCompleted
+                    ? AppTheme.primaryColor.withOpacity(0.05)
+                    : Colors.white,
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(
+                  color: isCompleted
+                      ? AppTheme.primaryColor.withOpacity(0.3)
+                      : Colors.transparent,
+                ),
+                boxShadow: isCompleted
+                    ? []
+                    : [
+                        BoxShadow(
+                          color: AppTheme.primaryColor.withOpacity(0.06),
+                          blurRadius: 15,
+                          offset: const Offset(0, 8),
+                        ),
+                      ],
+              ),
+              child: CheckboxListTile(
+                // 🌟 3. Move checkbox to the left for a better UI flow
+                controlAffinity: ListTileControlAffinity.leading,
+                contentPadding: const EdgeInsets.only(
+                  left: 12, // Slightly tighter left padding for the checkbox
+                  right: 20,
+                  top: 8,
+                  bottom: 8,
+                ),
+
+                // 🌟 4. Add the graphic/icon on the right side
+                secondary: Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: isCompleted ? Colors.grey.shade100 : iconBgColor,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    taskIcon,
+                    color: isCompleted ? Colors.grey.shade400 : iconColor,
+                    size: 22,
+                  ),
+                ),
+
+                title: Text(
+                  description,
+                  style: TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 14,
+                    color: isCompleted ? Colors.grey : Colors.black87,
+                    decoration: isCompleted ? TextDecoration.lineThrough : null,
+                  ),
+                ),
+
+                // 🌟 5. Upgrade the subtitle into a modern Badge/Chip
+                subtitle: Padding(
+                  padding: const EdgeInsets.only(top: 8.0),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: isCompleted
+                              ? Colors.grey.shade200
+                              : AppTheme.primaryColor.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          'TIER: ${tier.toUpperCase()}',
+                          style: TextStyle(
+                            color: isCompleted
+                                ? Colors.grey.shade600
+                                : AppTheme.primaryColor.withOpacity(0.9),
+                            fontSize: 9,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: 1.2,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                value: isCompleted,
+                activeColor: AppTheme.primaryColor,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                onChanged: (bool? value) async {
+                  if (!isCompleted) {
+                    final validationMethod =
+                        taskDetails['validation_method']?.toString() ??
+                        'telemetry';
+
+                    if (validationMethod == 'vision') {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => MissionCameraScreen(
+                            taskDescription: description,
+                            visionCriteria:
+                                visionCriteria, // 👈 Now this variable exists!
+                            userTaskId: userTaskId,
+                          ),
+                        ),
+                      );
+                    } else {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            'Log an activity under "$tag" to complete this mission!',
+                          ),
+                          backgroundColor: AppTheme.primaryColor,
+                        ),
+                      );
+                    }
+                  }
+                },
+              ),
+            );
+          },
         );
       },
     );
