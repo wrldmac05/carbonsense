@@ -125,14 +125,21 @@ class HelpSupportScreen extends StatelessWidget {
                   child: const Icon(Icons.email_outlined, color: AppTheme.primaryColor),
                 ),
                 title: const Text("Email Support", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-                subtitle: const Text("support@carbonsense.ph"),
-                onTap: () {
-                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Opening email client...')));
+                subtitle: const Text("ph.carbonsense@gmail.com"),
+                onTap: () async {
+                  final Uri emailUri = Uri(scheme: 'mailto', path: 'ph.carbonsense@gmail.com', queryParameters: {'subject': 'Support Request - CarbonSense'});
+
+                  if (await canLaunchUrl(emailUri)) {
+                    await launchUrl(emailUri, mode: LaunchMode.externalApplication);
+                  } else {
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Could not open email client.')));
+                    }
+                  }
                 },
               ),
             ),
             const SizedBox(height: 48),
-
             // --- 4. CREDITS FOOTER ---
             Center(
               child: Column(

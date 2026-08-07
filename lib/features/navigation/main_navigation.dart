@@ -60,7 +60,7 @@ class MainNavigation extends StatelessWidget {
               top: false, // Ensures top inset isn't calculated here
               child: Padding(
                 // 👈 Changed bottom from 16.0 to 4.0 to lower the pill
-                padding: const EdgeInsets.only(left: 24.0, right: 24.0, bottom: 16.0),
+                padding: const EdgeInsets.only(left: 24.0, right: 24.0, bottom: 4.0),
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(30),
                   child: BackdropFilter(

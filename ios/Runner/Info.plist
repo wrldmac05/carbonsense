@@ -47,6 +47,11 @@
         <key>NSPhotoLibraryUsageDescription</key>
         <string>This app requires access to your photo library to let you upload existing photos.</string>
 
+        <key>LSApplicationQueriesSchemes</key>
+          <array>
+             <string>mailto</string>
+          </array>
+
         <key>UIApplicationSceneManifest</key>
         <dict>
             <key>UIApplicationSupportsMultipleScenes</key>
