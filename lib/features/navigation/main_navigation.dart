@@ -28,16 +28,11 @@ class MainNavigation extends StatelessWidget {
         title: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.eco, color: AppTheme.primaryColor, size: 24),
-            const SizedBox(width: 8),
+            const Icon(Icons.eco, color: AppTheme.primaryColor, size: 30),
+            const SizedBox(width: 1),
             Text(
               'CarbonSense',
-              style: TextStyle(
-                color: Colors.grey.shade900,
-                fontWeight: FontWeight.w900,
-                fontSize: 20,
-                letterSpacing: -0.5,
-              ),
+              style: TextStyle(color: Colors.grey.shade900, fontWeight: FontWeight.w900, fontSize: 20, letterSpacing: -0.5),
             ),
           ],
         ),
@@ -62,42 +57,18 @@ class MainNavigation extends StatelessWidget {
             child: BackdropFilter(
               filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
               child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 12,
-                ),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 decoration: BoxDecoration(
-                  color: isDark
-                      ? Colors.black.withOpacity(0.4)
-                      : Colors.white.withOpacity(0.6),
+                  color: isDark ? Colors.black.withOpacity(0.4) : Colors.white.withOpacity(0.6),
                   borderRadius: BorderRadius.circular(30),
-                  border: Border.all(
-                    color: isDark
-                        ? Colors.white.withOpacity(0.1)
-                        : Colors.black.withOpacity(0.05),
-                  ),
+                  border: Border.all(color: isDark ? Colors.white.withOpacity(0.1) : Colors.black.withOpacity(0.05)),
                 ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    _NavItem(
-                      icon: Icons.list_alt,
-                      label: 'Activity',
-                      isSelected: navigationShell.currentIndex == 0,
-                      onTap: () => _goTo(0),
-                    ),
-                    _NavItem(
-                      icon: Icons.home,
-                      label: 'Home',
-                      isSelected: navigationShell.currentIndex == 1,
-                      onTap: () => _goTo(1),
-                    ),
-                    _NavItem(
-                      icon: Icons.analytics,
-                      label: 'Analytics',
-                      isSelected: navigationShell.currentIndex == 2,
-                      onTap: () => _goTo(2),
-                    ),
+                    _NavItem(icon: Icons.list_alt, label: 'Activity', isSelected: navigationShell.currentIndex == 0, onTap: () => _goTo(0)),
+                    _NavItem(icon: Icons.home, label: 'Home', isSelected: navigationShell.currentIndex == 1, onTap: () => _goTo(1)),
+                    _NavItem(icon: Icons.analytics, label: 'Analytics', isSelected: navigationShell.currentIndex == 2, onTap: () => _goTo(2)),
                   ],
                 ),
               ),
@@ -109,10 +80,7 @@ class MainNavigation extends StatelessWidget {
   }
 
   void _goTo(int index) {
-    navigationShell.goBranch(
-      index,
-      initialLocation: index == navigationShell.currentIndex,
-    );
+    navigationShell.goBranch(index, initialLocation: index == navigationShell.currentIndex);
   }
 }
 
@@ -122,12 +90,7 @@ class _NavItem extends StatelessWidget {
   final bool isSelected;
   final VoidCallback onTap;
 
-  const _NavItem({
-    required this.icon,
-    required this.label,
-    required this.isSelected,
-    required this.onTap,
-  });
+  const _NavItem({required this.icon, required this.label, required this.isSelected, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -139,23 +102,12 @@ class _NavItem extends StatelessWidget {
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 300),
         curve: Curves.easeOutQuint,
-        padding: EdgeInsets.symmetric(
-          horizontal: isSelected ? 20 : 16,
-          vertical: 12,
-        ),
-        decoration: BoxDecoration(
-          color: isSelected ? AppTheme.primaryColor : Colors.transparent,
-          borderRadius: BorderRadius.circular(24),
-        ),
+        padding: EdgeInsets.symmetric(horizontal: isSelected ? 20 : 16, vertical: 12),
+        decoration: BoxDecoration(color: isSelected ? AppTheme.primaryColor : Colors.transparent, borderRadius: BorderRadius.circular(24)),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
-              icon,
-              color: isSelected
-                  ? Colors.white
-                  : (isDark ? Colors.white70 : Colors.black54),
-            ),
+            Icon(icon, color: isSelected ? Colors.white : (isDark ? Colors.white70 : Colors.black54)),
             // ClipRect and AnimatedSize work together to smoothly reveal the text
             ClipRect(
               child: AnimatedSize(
@@ -167,8 +119,7 @@ class _NavItem extends StatelessWidget {
                         child: Text(
                           label,
                           style: const TextStyle(
-                            color: Colors
-                                .white, // Assumes your primary color is dark/vibrant
+                            color: Colors.white, // Assumes your primary color is dark/vibrant
                             fontWeight: FontWeight.bold,
                           ),
                         ),

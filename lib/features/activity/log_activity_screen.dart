@@ -24,8 +24,7 @@ class LogActivityScreen extends StatefulWidget {
   State<LogActivityScreen> createState() => _LogActivityScreenState();
 }
 
-class _LogActivityScreenState extends State<LogActivityScreen>
-    with SingleTickerProviderStateMixin, WidgetsBindingObserver {
+class _LogActivityScreenState extends State<LogActivityScreen> with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   // --- STATE VARIABLES ---
 
   // Tracking State
@@ -56,8 +55,7 @@ class _LogActivityScreenState extends State<LogActivityScreen>
   Map<String, VehicleData> _vehicleEmissionFactors = {};
 
   // Notifications State
-  final FlutterLocalNotificationsPlugin _localNotifications =
-      FlutterLocalNotificationsPlugin();
+  final FlutterLocalNotificationsPlugin _localNotifications = FlutterLocalNotificationsPlugin();
 
   // --- LIFECYCLE ---
 
@@ -66,10 +64,7 @@ class _LogActivityScreenState extends State<LogActivityScreen>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
 
-    _bounceController = AnimationController(
-      duration: const Duration(milliseconds: 500),
-      vsync: this,
-    );
+    _bounceController = AnimationController(duration: const Duration(milliseconds: 500), vsync: this);
 
     _setupNotifications();
     _fetchEmissionFactors();
@@ -88,10 +83,7 @@ class _LogActivityScreenState extends State<LogActivityScreen>
 
   Future<void> _fetchEmissionFactors() async {
     try {
-      final response = await Supabase.instance.client
-          .from('emission_factors')
-          .select('factor_id, activity_name, co2_per_unit')
-          .eq('category', 'Transport');
+      final response = await Supabase.instance.client.from('emission_factors').select('factor_id, activity_name, co2_per_unit').eq('category', 'Transport');
 
       final Map<String, VehicleData> fetchedFactors = {};
 
@@ -115,11 +107,7 @@ class _LogActivityScreenState extends State<LogActivityScreen>
       debugPrint('❌ DB Error: $e');
       if (mounted) {
         setState(() => _isLoadingFactors = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Failed to load live emission factors.'),
-          ),
-        );
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Failed to load live emission factors.')));
       }
     }
   }
@@ -136,8 +124,7 @@ class _LogActivityScreenState extends State<LogActivityScreen>
       if (user == null) throw Exception("No authenticated user found.");
 
       final targetVehicleData = _vehicleEmissionFactors[_selectedVehicle!];
-      if (targetVehicleData == null)
-        throw Exception("Invalid vehicle factor tracking identity.");
+      if (targetVehicleData == null) throw Exception("Invalid vehicle factor tracking identity.");
 
       debugPrint("===== SAVE TRIP =====");
       debugPrint("_startPosition = $_startPosition");
@@ -156,28 +143,20 @@ class _LogActivityScreenState extends State<LogActivityScreen>
             ];
 
             // Filter out nulls, empty values, or generic placeholders
-            final cleanParts = parts
-                .where((e) => e != null && e.isNotEmpty && e != 'Unnamed Road')
-                .toList();
+            final cleanParts = parts.where((e) => e != null && e.isNotEmpty && e != 'Unnamed Road').toList();
 
             // Fallback if everything is empty
             return cleanParts.isNotEmpty ? cleanParts.join(', ') : 'Local Area';
           }
 
           // Get Point A
-          List<Placemark> startMarks = await placemarkFromCoordinates(
-            _startPosition!.latitude,
-            _startPosition!.longitude,
-          );
+          List<Placemark> startMarks = await placemarkFromCoordinates(_startPosition!.latitude, _startPosition!.longitude);
           if (startMarks.isNotEmpty) {
             _startAddress = buildAddress(startMarks.first);
           }
 
           // Get Point B
-          List<Placemark> endMarks = await placemarkFromCoordinates(
-            _lastPosition!.latitude,
-            _lastPosition!.longitude,
-          );
+          List<Placemark> endMarks = await placemarkFromCoordinates(_lastPosition!.latitude, _lastPosition!.longitude);
           if (endMarks.isNotEmpty) {
             _endAddress = buildAddress(endMarks.first);
           }
@@ -202,11 +181,7 @@ class _LogActivityScreenState extends State<LogActivityScreen>
       });
 
       // 🚀 Run the Mission Engine silently
-      final completedMissions = await MissionEngine.evaluateTelemetry(
-        userId: user.id,
-        category: 'Commute',
-        activityName: _selectedVehicle!,
-      );
+      final completedMissions = await MissionEngine.evaluateTelemetry(userId: user.id, category: 'Commute', activityName: _selectedVehicle!);
 
       if (mounted) {
         setState(() => _isSavingLog = false);
@@ -217,9 +192,7 @@ class _LogActivityScreenState extends State<LogActivityScreen>
       debugPrint('❌ Insertion Error: $e');
       if (mounted) {
         setState(() => _isSavingLog = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to record log to database: $e')),
-        );
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to record log to database: $e')));
       }
     }
   }
@@ -232,9 +205,7 @@ class _LogActivityScreenState extends State<LogActivityScreen>
       barrierDismissible: false,
       builder: (BuildContext context) {
         return Dialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(24),
-          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
           elevation: 0,
           backgroundColor: Colors.transparent,
           child: Container(
@@ -243,13 +214,7 @@ class _LogActivityScreenState extends State<LogActivityScreen>
               color: Colors.white,
               shape: BoxShape.rectangle,
               borderRadius: BorderRadius.circular(24),
-              boxShadow: const [
-                BoxShadow(
-                  color: Colors.black12,
-                  blurRadius: 20.0,
-                  offset: Offset(0.0, 10.0),
-                ),
-              ],
+              boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 20.0, offset: Offset(0.0, 10.0))],
             ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -257,34 +222,19 @@ class _LogActivityScreenState extends State<LogActivityScreen>
                 Container(
                   height: 80,
                   width: 80,
-                  decoration: BoxDecoration(
-                    color: AppTheme.primaryColor.withOpacity(0.1),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(
-                    Icons.eco_rounded,
-                    color: AppTheme.primaryColor,
-                    size: 48,
-                  ),
+                  decoration: BoxDecoration(color: AppTheme.primaryColor.withOpacity(0.1), shape: BoxShape.circle),
+                  child: const Icon(Icons.eco_rounded, color: AppTheme.primaryColor, size: 48),
                 ),
                 const SizedBox(height: 24),
                 const Text(
                   "Awesome Journey!",
-                  style: TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black87,
-                  ),
+                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.black87),
                 ),
                 const SizedBox(height: 12),
                 Text(
                   "You successfully tracked and logged your travel distance of ${_distanceKm.toStringAsFixed(2)} km.\n\nEvery trip you audit builds a clearer picture of your environmental legacy. Keep up the clean commuting habits!",
                   textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    color: Colors.black54,
-                    height: 1.4,
-                  ),
+                  style: const TextStyle(fontSize: 14, color: Colors.black54, height: 1.4),
                 ),
                 const SizedBox(height: 24),
                 SizedBox(
@@ -293,9 +243,7 @@ class _LogActivityScreenState extends State<LogActivityScreen>
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppTheme.primaryColor,
                       padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14),
-                      ),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                       elevation: 0,
                     ),
                     onPressed: () {
@@ -320,11 +268,7 @@ class _LogActivityScreenState extends State<LogActivityScreen>
                     },
                     child: const Text(
                       'Back to Dashboard',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
+                      style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
                     ),
                   ),
                 ),
@@ -342,17 +286,12 @@ class _LogActivityScreenState extends State<LogActivityScreen>
       barrierDismissible: false,
       builder: (context) {
         return AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(24),
-          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
           title: const Column(
             children: [
               Icon(Icons.emoji_events, color: Colors.amber, size: 56),
               SizedBox(height: 12),
-              Text(
-                "Quest Completed!",
-                style: TextStyle(fontWeight: FontWeight.w900, fontSize: 22),
-              ),
+              Text("Quest Completed!", style: TextStyle(fontWeight: FontWeight.w900, fontSize: 22)),
             ],
           ),
           content: Column(
@@ -370,20 +309,10 @@ class _LogActivityScreenState extends State<LogActivityScreen>
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Icon(
-                        Icons.check_circle,
-                        color: Colors.green,
-                        size: 22,
-                      ),
+                      const Icon(Icons.check_circle, color: Colors.green, size: 22),
                       const SizedBox(width: 12),
                       Expanded(
-                        child: Text(
-                          mission,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 14,
-                          ),
-                        ),
+                        child: Text(mission, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
                       ),
                     ],
                   ),
@@ -396,15 +325,10 @@ class _LogActivityScreenState extends State<LogActivityScreen>
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppTheme.primaryColor,
                 minimumSize: const Size.fromHeight(50),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
-                ),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
               ),
               onPressed: () {
-                Navigator.of(
-                  context,
-                  rootNavigator: true,
-                ).pop(); // Close Quest dialog
+                Navigator.of(context, rootNavigator: true).pop(); // Close Quest dialog
                 // Navigate back to dashboard safely
                 WidgetsBinding.instance.addPostFrameCallback((_) {
                   if (mounted) {
@@ -418,11 +342,7 @@ class _LogActivityScreenState extends State<LogActivityScreen>
               },
               child: const Text(
                 "Awesome",
-                style: TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 16,
-                ),
+                style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
               ),
             ),
           ],
@@ -434,11 +354,8 @@ class _LogActivityScreenState extends State<LogActivityScreen>
   // --- NOTIFICATIONS ENGINE ---
 
   Future<void> _setupNotifications() async {
-    const AndroidInitializationSettings androidSettings =
-        AndroidInitializationSettings('@mipmap/ic_launcher');
-    const InitializationSettings initSettings = InitializationSettings(
-      android: androidSettings,
-    );
+    const AndroidInitializationSettings androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
+    const InitializationSettings initSettings = InitializationSettings(android: androidSettings);
     await _localNotifications.initialize(initSettings);
   }
 
@@ -451,19 +368,15 @@ class _LogActivityScreenState extends State<LogActivityScreen>
   }
 
   Future<void> _showBackgroundReminderNotification() async {
-    const AndroidNotificationDetails androidDetails =
-        AndroidNotificationDetails(
-          'carbonsense_tracking_channel',
-          'Active Tracking Reminders',
-          channelDescription:
-              'Reminds you when a trip is actively being recorded.',
-          importance: Importance.max,
-          priority: Priority.high,
-          icon: '@mipmap/ic_launcher',
-        );
-    const NotificationDetails platformDetails = NotificationDetails(
-      android: androidDetails,
+    const AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
+      'carbonsense_tracking_channel',
+      'Active Tracking Reminders',
+      channelDescription: 'Reminds you when a trip is actively being recorded.',
+      importance: Importance.max,
+      priority: Priority.high,
+      icon: '@mipmap/ic_launcher',
     );
+    const NotificationDetails platformDetails = NotificationDetails(android: androidDetails);
 
     await _localNotifications.show(
       0,
@@ -526,11 +439,7 @@ class _LogActivityScreenState extends State<LogActivityScreen>
         // Safety catch: If they didn't move at all, just reset.
         if (_distanceKm < 0.01) {
           _resetTrip();
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text("Trip ended. No distance was recorded."),
-            ),
-          );
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Trip ended. No distance was recorded.")));
         }
       });
     } else {
@@ -555,48 +464,41 @@ class _LogActivityScreenState extends State<LogActivityScreen>
           _startTimer();
           _bounceController.repeat(reverse: true);
 
-          _positionStream = LocationTracker.getContinuousLocationStream()
-              .listen((Position currentPosition) {
-                if (currentPosition.accuracy > 25.0) {
-                  debugPrint('⚠️ Ignored: Bad GPS Signal');
-                  return;
-                }
+          _positionStream = LocationTracker.getContinuousLocationStream().listen((Position currentPosition) {
+            if (currentPosition.accuracy > 25.0) {
+              debugPrint('⚠️ Ignored: Bad GPS Signal');
+              return;
+            }
 
-                if (_lastPosition != null) {
-                  final addedDistance = LocationTracker.calculateDistanceInKm(
-                    _lastPosition!,
-                    currentPosition,
-                  );
+            if (_lastPosition != null) {
+              final addedDistance = LocationTracker.calculateDistanceInKm(_lastPosition!, currentPosition);
 
-                  if (addedDistance > 0.2) {
-                    debugPrint('⚠️ Ignored: Speed teleportation detected');
-                    _lastPosition = currentPosition;
-                    return;
-                  }
+              if (addedDistance > 0.2) {
+                debugPrint('⚠️ Ignored: Speed teleportation detected');
+                _lastPosition = currentPosition;
+                return;
+              }
 
-                  if (addedDistance < 0.01) return;
+              if (addedDistance < 0.01) return;
 
-                  if (mounted) {
-                    setState(() {
-                      _distanceKm += addedDistance;
+              if (mounted) {
+                setState(() {
+                  _distanceKm += addedDistance;
 
-                      final targetData =
-                          _vehicleEmissionFactors[_selectedVehicle!];
-                      final factor = targetData?.factor ?? 0.0;
+                  final targetData = _vehicleEmissionFactors[_selectedVehicle!];
+                  final factor = targetData?.factor ?? 0.0;
 
-                      _co2Emissions = _distanceKm * factor;
-                      _lastPosition = currentPosition;
-                    });
-                  }
-                }
-              });
+                  _co2Emissions = _distanceKm * factor;
+                  _lastPosition = currentPosition;
+                });
+              }
+            }
+          });
         }
       } catch (e) {
         if (mounted) {
           setState(() => _isGettingLocation = false);
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(SnackBar(content: Text('Error: $e')));
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
         }
       }
     }
@@ -640,15 +542,11 @@ class _LogActivityScreenState extends State<LogActivityScreen>
                       const SizedBox(height: 12),
 
                       Text(
-                        _isTracking || hasFinishedTrip
-                            ? _formatDuration(_elapsedSeconds)
-                            : '00:00',
+                        _isTracking || hasFinishedTrip ? _formatDuration(_elapsedSeconds) : '00:00',
                         style: TextStyle(
                           fontSize: 64,
                           fontWeight: FontWeight.w900,
-                          color: _isTracking
-                              ? AppTheme.primaryColor
-                              : Colors.grey.shade300,
+                          color: _isTracking ? AppTheme.primaryColor : Colors.grey.shade300,
                           fontFeatures: const [FontFeature.tabularFigures()],
                         ),
                       ),
@@ -660,33 +558,19 @@ class _LogActivityScreenState extends State<LogActivityScreen>
                       else if (hasFinishedTrip)
                         const Text(
                           'Trip Completed',
-                          style: TextStyle(
-                            fontSize: 16,
-                            color: Colors.grey,
-                            fontWeight: FontWeight.w600,
-                          ),
+                          style: TextStyle(fontSize: 16, color: Colors.grey, fontWeight: FontWeight.w600),
                         )
                       else
                         const Text(
                           'Ready to depart',
-                          style: TextStyle(
-                            fontSize: 16,
-                            color: Colors.grey,
-                            fontWeight: FontWeight.w600,
-                          ),
+                          style: TextStyle(fontSize: 16, color: Colors.grey, fontWeight: FontWeight.w600),
                         ),
 
                       const Spacer(),
 
-                      if (!_isTracking && _distanceKm == 0) ...[
-                        _buildTrackingTips(),
-                        const SizedBox(height: 24),
-                      ],
+                      if (!_isTracking && _distanceKm == 0) ...[_buildTrackingTips(), const SizedBox(height: 24)],
 
-                      if (hasFinishedTrip)
-                        _buildResultsCard()
-                      else
-                        _buildHeroButton(),
+                      if (hasFinishedTrip) _buildResultsCard() else _buildHeroButton(),
 
                       const Spacer(),
                     ],
@@ -715,19 +599,12 @@ class _LogActivityScreenState extends State<LogActivityScreen>
           Container(
             width: 8,
             height: 8,
-            decoration: const BoxDecoration(
-              color: Colors.green,
-              shape: BoxShape.circle,
-            ),
+            decoration: const BoxDecoration(color: Colors.green, shape: BoxShape.circle),
           ),
           const SizedBox(width: 8),
           Text(
             'GPS Active',
-            style: TextStyle(
-              color: Colors.green.shade700,
-              fontSize: 13,
-              fontWeight: FontWeight.bold,
-            ),
+            style: TextStyle(color: Colors.green.shade700, fontSize: 13, fontWeight: FontWeight.bold),
           ),
         ],
       ),
@@ -774,19 +651,14 @@ class _LogActivityScreenState extends State<LogActivityScreen>
 
           const SizedBox(height: 12), // Reduced from 16
 
-          _buildInstructionRow(
-            icon: Icons.play_circle_outline,
-            color: AppTheme.primaryColor,
-            text: 'Tap START exactly when your vehicle begins moving.',
-          ),
+          _buildInstructionRow(icon: Icons.play_circle_outline, color: AppTheme.primaryColor, text: 'Tap START exactly when your vehicle begins moving.'),
 
           const SizedBox(height: 8), // Reduced from 10
 
           _buildInstructionRow(
             icon: Icons.screen_lock_portrait_outlined,
             color: Colors.blue,
-            text:
-                'You can lock your screen while CarbonSense continues tracking your trip.',
+            text: 'You can lock your screen while CarbonSense continues tracking your trip.',
           ),
 
           const SizedBox(height: 8),
@@ -794,8 +666,7 @@ class _LogActivityScreenState extends State<LogActivityScreen>
           _buildInstructionRow(
             icon: Icons.stop_circle_outlined,
             color: Colors.redAccent,
-            text:
-                'Tap END TRIP immediately upon arrival for accurate carbon calculations.',
+            text: 'Tap END TRIP immediately upon arrival for accurate carbon calculations.',
           ),
         ],
       ),
@@ -803,11 +674,7 @@ class _LogActivityScreenState extends State<LogActivityScreen>
   }
 
   // --- HELPER WIDGET FOR INSTRUCTION ROWS ---
-  Widget _buildInstructionRow({
-    required IconData icon,
-    required Color color,
-    required String text,
-  }) {
+  Widget _buildInstructionRow({required IconData icon, required Color color, required String text}) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -816,12 +683,7 @@ class _LogActivityScreenState extends State<LogActivityScreen>
         Expanded(
           child: Text(
             text,
-            style: const TextStyle(
-              color: Colors.black87,
-              fontSize: 13,
-              height: 1.4,
-              fontWeight: FontWeight.w500,
-            ),
+            style: const TextStyle(color: Colors.black87, fontSize: 13, height: 1.4, fontWeight: FontWeight.w500),
           ),
         ),
       ],
@@ -838,9 +700,7 @@ class _LogActivityScreenState extends State<LogActivityScreen>
           child: Icon(
             _getIconForVehicle(_selectedVehicle ?? ''),
             size: 56,
-            color: _isTracking || (_distanceKm > 0)
-                ? AppTheme.primaryColor
-                : Colors.grey.shade300,
+            color: _isTracking || (_distanceKm > 0) ? AppTheme.primaryColor : Colors.grey.shade300,
           ),
         );
       },
@@ -856,21 +716,12 @@ class _LogActivityScreenState extends State<LogActivityScreen>
           borderRadius: BorderRadius.circular(16),
           border: Border.all(color: Colors.grey.shade300),
         ),
-        child: const Center(
-          child: SizedBox(
-            height: 24,
-            width: 24,
-            child: CircularProgressIndicator(strokeWidth: 2),
-          ),
-        ),
+        child: const Center(child: SizedBox(height: 24, width: 24, child: CircularProgressIndicator(strokeWidth: 2))),
       );
     }
 
     if (_vehicleEmissionFactors.isEmpty) {
-      return const Text(
-        "No vehicles found in database.",
-        style: TextStyle(color: Colors.red),
-      );
+      return const Text("No vehicles found in database.", style: TextStyle(color: Colors.red));
     }
 
     return Column(
@@ -878,11 +729,7 @@ class _LogActivityScreenState extends State<LogActivityScreen>
       children: [
         const Text(
           "Select Transport Mode",
-          style: TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.bold,
-            color: Colors.grey,
-          ),
+          style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey),
         ),
         const SizedBox(height: 8),
         Container(
@@ -891,53 +738,31 @@ class _LogActivityScreenState extends State<LogActivityScreen>
             color: Colors.white,
             borderRadius: BorderRadius.circular(16),
             border: Border.all(color: Colors.grey.shade300),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.03),
-                blurRadius: 10,
-                offset: const Offset(0, 4),
-              ),
-            ],
+            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 10, offset: const Offset(0, 4))],
           ),
           child: DropdownButtonHideUnderline(
             child: DropdownButton<String>(
               value: _selectedVehicle,
               isExpanded: true,
-              icon: const Icon(
-                Icons.keyboard_arrow_down,
-                color: AppTheme.primaryColor,
-              ),
-              style: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-                color: Colors.black87,
-              ),
+              icon: const Icon(Icons.keyboard_arrow_down, color: AppTheme.primaryColor),
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.black87),
               onChanged: _isTracking
                   ? null
                   : (String? newValue) {
-                      if (newValue != null)
-                        setState(() => _selectedVehicle = newValue);
+                      if (newValue != null) setState(() => _selectedVehicle = newValue);
                     },
-              items: _vehicleEmissionFactors.keys.map<DropdownMenuItem<String>>(
-                (String value) {
-                  return DropdownMenuItem<String>(
-                    value: value,
-                    child: Row(
-                      children: [
-                        Icon(
-                          _getIconForVehicle(value),
-                          color: AppTheme.primaryColor,
-                          size: 20,
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Text(value, overflow: TextOverflow.ellipsis),
-                        ),
-                      ],
-                    ),
-                  );
-                },
-              ).toList(),
+              items: _vehicleEmissionFactors.keys.map<DropdownMenuItem<String>>((String value) {
+                return DropdownMenuItem<String>(
+                  value: value,
+                  child: Row(
+                    children: [
+                      Icon(_getIconForVehicle(value), color: AppTheme.primaryColor, size: 20),
+                      const SizedBox(width: 12),
+                      Expanded(child: Text(value, overflow: TextOverflow.ellipsis)),
+                    ],
+                  ),
+                );
+              }).toList(),
             ),
           ),
         ),
@@ -957,8 +782,7 @@ class _LogActivityScreenState extends State<LogActivityScreen>
           color: _isTracking ? Colors.redAccent : AppTheme.primaryColor,
           boxShadow: [
             BoxShadow(
-              color: (_isTracking ? Colors.redAccent : AppTheme.primaryColor)
-                  .withOpacity(0.3),
+              color: (_isTracking ? Colors.redAccent : AppTheme.primaryColor).withOpacity(0.3),
               blurRadius: 30,
               spreadRadius: 10,
               offset: const Offset(0, 10),
@@ -972,9 +796,7 @@ class _LogActivityScreenState extends State<LogActivityScreen>
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Icon(
-                      _isTracking
-                          ? Icons.stop_rounded
-                          : Icons.play_arrow_rounded,
+                      _isTracking ? Icons.stop_rounded : Icons.play_arrow_rounded,
                       color: Colors.white,
                       size: 48, // Reduced from 64 to fit the new button size
                     ),
@@ -1007,29 +829,15 @@ class _LogActivityScreenState extends State<LogActivityScreen>
         children: [
           const Text(
             "TRIP SUMMARY",
-            style: TextStyle(
-              fontWeight: FontWeight.w900,
-              fontSize: 12,
-              letterSpacing: 1.5,
-              color: Colors.grey,
-            ),
+            style: TextStyle(fontWeight: FontWeight.w900, fontSize: 12, letterSpacing: 1.5, color: Colors.grey),
           ),
           const SizedBox(height: 16),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              _buildStatMetric(
-                Icons.route,
-                _distanceKm.toStringAsFixed(2),
-                'Kilometers',
-              ),
+              _buildStatMetric(Icons.route, _distanceKm.toStringAsFixed(2), 'Kilometers'),
               Container(width: 1, height: 40, color: Colors.grey.shade300),
-              _buildStatMetric(
-                Icons.co2,
-                '+${_co2Emissions.toStringAsFixed(2)}',
-                'kg CO₂e',
-                color: Colors.redAccent,
-              ),
+              _buildStatMetric(Icons.co2, '+${_co2Emissions.toStringAsFixed(2)}', 'kg CO₂e', color: Colors.redAccent),
             ],
           ),
           const SizedBox(height: 20),
@@ -1039,27 +847,14 @@ class _LogActivityScreenState extends State<LogActivityScreen>
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppTheme.primaryColor,
                 padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               ),
               onPressed: _isSavingLog ? null : _saveTripToDatabase,
               child: _isSavingLog
-                  ? const SizedBox(
-                      height: 20,
-                      width: 20,
-                      child: CircularProgressIndicator(
-                        color: Colors.white,
-                        strokeWidth: 2,
-                      ),
-                    )
+                  ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
                   : const Text(
                       'Confirm & Log Route',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                      ),
+                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
                     ),
             ),
           ),
@@ -1068,33 +863,21 @@ class _LogActivityScreenState extends State<LogActivityScreen>
           TextButton.icon(
             onPressed: _isSavingLog ? null : _resetTrip,
             icon: const Icon(Icons.refresh, size: 16, color: Colors.grey),
-            label: const Text(
-              "Discard trip & reset",
-              style: TextStyle(color: Colors.grey, fontSize: 12),
-            ),
+            label: const Text("Discard trip & reset", style: TextStyle(color: Colors.grey, fontSize: 12)),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildStatMetric(
-    IconData icon,
-    String value,
-    String label, {
-    Color color = Colors.black87,
-  }) {
+  Widget _buildStatMetric(IconData icon, String value, String label, {Color color = Colors.black87}) {
     return Column(
       children: [
         Icon(icon, color: Colors.grey.shade400, size: 24),
         const SizedBox(height: 4),
         Text(
           value,
-          style: TextStyle(
-            fontSize: 24,
-            fontWeight: FontWeight.w900,
-            color: color,
-          ),
+          style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900, color: color),
         ),
         Text(label, style: const TextStyle(fontSize: 12, color: Colors.grey)),
       ],
@@ -1103,16 +886,11 @@ class _LogActivityScreenState extends State<LogActivityScreen>
 
   IconData _getIconForVehicle(String vehicle) {
     final lower = vehicle.toLowerCase();
-    if (lower.contains('walk') || lower.contains('bicycle'))
-      return Icons.directions_walk;
-    if (lower.contains('train') ||
-        lower.contains('mrt') ||
-        lower.contains('lrt'))
-      return Icons.train;
+    if (lower.contains('walk') || lower.contains('bicycle')) return Icons.directions_walk;
+    if (lower.contains('train') || lower.contains('mrt') || lower.contains('lrt')) return Icons.train;
     if (lower.contains('jeepney')) return Icons.directions_bus_filled_outlined;
     if (lower.contains('bus')) return Icons.directions_bus;
-    if (lower.contains('motorcycle') || lower.contains('tricycle'))
-      return Icons.two_wheeler;
+    if (lower.contains('motorcycle') || lower.contains('tricycle')) return Icons.two_wheeler;
     if (lower.contains('car')) return Icons.directions_car;
     return Icons.commute;
   }

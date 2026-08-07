@@ -27,15 +27,20 @@ serve(async (req) => {
     const PHILIPPINE_GRID_FACTOR = 0.7120;
     const GRID_FACTOR_ID = "184fdcea-17b3-4370-8dd6-ed33612015c6";
 
-    // Simplified prompt because response_schema does the heavy lifting!
-    const prompt = `Analyze this electricity bill image. 
-    1. Look for the field labeled "actual consumption" or "kWh" to find the total kilowatt-hours consumed for the current billing period.
-    2. Set "kwh_used" to this extracted number.
-    3. Set "factor_id" strictly to "${GRID_FACTOR_ID}".
-    4. Set "estimated_co2e" to the exact result of (kwh_used * ${PHILIPPINE_GRID_FACTOR}).`;
+    // 👇 NEW: Updated prompt to strictly check for a bill first
+    const prompt =
+      `You are an expert utility bill parser. First, verify if the image actually contains an electricity bill, utility statement, or energy receipt. 
+
+CRITICAL INSTRUCTION: If the image is NOT a bill (e.g., a picture of a person, a keyboard, a landscape, or a random object), immediately reject it. Return is_valid_bill as false, and 0 for all numerical values.
+
+If the image DOES contain a bill, proceed with the following:
+1. Look for the field labeled "actual consumption" or "kWh" to find the total kilowatt-hours consumed for the current billing period.
+2. Set "kwh_used" to this extracted number.
+3. Set "factor_id" strictly to "${GRID_FACTOR_ID}".
+4. Set "estimated_co2e" to the exact result of (kwh_used * ${PHILIPPINE_GRID_FACTOR}).`;
 
     const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent?key=${GEMINI_API_KEY}`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -44,7 +49,6 @@ serve(async (req) => {
             {
               parts: [
                 { text: prompt },
-                // 👇 Using the exact snake_case syntax from your working code
                 { inline_data: { mime_type: detectedMimeType, data: image } },
               ],
             },
@@ -54,12 +58,18 @@ serve(async (req) => {
             response_schema: {
               type: "OBJECT",
               properties: {
+                // 👇 NEW: Added is_valid_bill to the schema
+                is_valid_bill: {
+                  type: "BOOLEAN",
+                  description:
+                    "True if the image is actually a utility/electricity bill, false if it is not.",
+                },
                 kwh_used: { type: "NUMBER" },
                 estimated_co2e: { type: "NUMBER" },
                 factor_id: { type: "STRING" },
               },
-              // Strictly enforce the return keys
               required: [
+                "is_valid_bill", // Ensure this is required
                 "kwh_used",
                 "estimated_co2e",
                 "factor_id",

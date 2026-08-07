@@ -26,30 +26,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
       final userId = Supabase.instance.client.auth.currentUser?.id;
       if (userId == null) return;
 
-      final profileResponse = await Supabase.instance.client
-          .from('user_profiles')
-          .select()
-          .eq('user_id', userId)
-          .maybeSingle();
+      final profileResponse = await Supabase.instance.client.from('user_profiles').select().eq('user_id', userId).maybeSingle();
 
-      final lifestyleResponse = await Supabase.instance.client
-          .from('lifestyle_profiles')
-          .select()
-          .eq('user_id', userId)
-          .maybeSingle();
+      final lifestyleResponse = await Supabase.instance.client.from('lifestyle_profiles').select().eq('user_id', userId).maybeSingle();
 
       // THE SMART ONBOARDING CHECK
       if (profileResponse != null) {
         final rawLocation = profileResponse['avatar_url'];
-        final bool hasLocation =
-            rawLocation != null && rawLocation.toString().trim().isNotEmpty;
+        final bool hasLocation = rawLocation != null && rawLocation.toString().trim().isNotEmpty;
         final bool isObProfileDone = profileResponse['ob_profile'] == true;
 
         if (hasLocation && !isObProfileDone) {
-          await Supabase.instance.client
-              .from('user_profiles')
-              .update({'ob_profile': true})
-              .eq('user_id', userId);
+          await Supabase.instance.client.from('user_profiles').update({'ob_profile': true}).eq('user_id', userId);
           profileResponse['ob_profile'] = true;
         }
       }
@@ -82,14 +70,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
       builder: (context) {
         return Padding(
-          padding: EdgeInsets.only(
-            bottom: MediaQuery.of(context).viewInsets.bottom,
-          ),
+          padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
           child: SafeArea(
             child: Padding(
               padding: const EdgeInsets.all(24.0),
@@ -103,11 +87,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       const SizedBox(width: 12),
                       Text(
                         title,
-                        style: const TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.w900,
-                          color: Colors.black87,
-                        ),
+                        style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: Colors.black87),
                       ),
                     ],
                   ),
@@ -121,16 +101,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       style: OutlinedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 16),
                         side: BorderSide(color: Colors.grey.shade300),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                       ),
                       child: const Text(
                         'Cancel',
-                        style: TextStyle(
-                          color: Colors.black54,
-                          fontWeight: FontWeight.bold,
-                        ),
+                        style: TextStyle(color: Colors.black54, fontWeight: FontWeight.bold),
                       ),
                     ),
                   ),
@@ -148,9 +123,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     if (_isLoading) {
       return const Scaffold(
         backgroundColor: Color(0xFFF9FFF9),
-        body: Center(
-          child: CircularProgressIndicator(color: AppTheme.primaryColor),
-        ),
+        body: Center(child: CircularProgressIndicator(color: AppTheme.primaryColor)),
       );
     }
 
@@ -159,9 +132,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     // Extract the Adaptive Target Goal
     final targetRaw = _userProfile?['monthly_co2_target'];
-    final String monthlyTarget = targetRaw != null
-        ? '${(targetRaw as num).toStringAsFixed(0)} kg CO₂e'
-        : 'Not Set';
+    final String monthlyTarget = targetRaw != null ? '${(targetRaw as num).toStringAsFixed(0)} kg CO₂e' : 'Not Set';
 
     final dietType = _lifestyleProfile?['diet_type'] ?? 'Analyzing...';
     final commuteType = _lifestyleProfile?['commute_type'] ?? 'Analyzing...';
@@ -181,9 +152,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         color: AppTheme.primaryColor,
         onRefresh: _fetchCompleteProfile,
         child: SingleChildScrollView(
-          physics: const AlwaysScrollableScrollPhysics(
-            parent: BouncingScrollPhysics(),
-          ),
+          physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
           padding: const EdgeInsets.all(24.0),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.center,
@@ -192,38 +161,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 padding: const EdgeInsets.all(4),
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  border: Border.all(
-                    color: AppTheme.primaryColor.withOpacity(0.3),
-                    width: 2,
-                  ),
+                  border: Border.all(color: AppTheme.primaryColor.withOpacity(0.3), width: 2),
                 ),
                 child: CircleAvatar(
                   radius: 46,
                   backgroundColor: AppTheme.primaryColor.withOpacity(0.1),
                   backgroundImage: _userProfile?['avatar_url'] != null
-                      ? NetworkImage(
-                          "${_userProfile!['avatar_url']}?t=${DateTime.now().millisecondsSinceEpoch}",
-                        )
+                      ? NetworkImage("${_userProfile!['avatar_url']}?t=${DateTime.now().millisecondsSinceEpoch}")
                       : null,
-                  child: _userProfile?['avatar_url'] == null
-                      ? const Icon(
-                          Icons.person,
-                          size: 40,
-                          color: AppTheme.primaryColor,
-                        )
-                      : null,
+                  child: _userProfile?['avatar_url'] == null ? const Icon(Icons.person, size: 40, color: AppTheme.primaryColor) : null,
                 ),
               ),
               const SizedBox(height: 16),
 
               Text(
                 displayName,
-                style: const TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: -0.5,
-                  color: Colors.black87,
-                ),
+                style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w900, letterSpacing: -0.5, color: Colors.black87),
               ),
               const SizedBox(height: 4),
               Row(
@@ -233,11 +186,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   const SizedBox(width: 4),
                   Text(
                     location,
-                    style: const TextStyle(
-                      fontSize: 15,
-                      color: Colors.grey,
-                      fontWeight: FontWeight.w500,
-                    ),
+                    style: const TextStyle(fontSize: 15, color: Colors.grey, fontWeight: FontWeight.w500),
                   ),
                 ],
               ),
@@ -255,14 +204,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     foregroundColor: AppTheme.primaryColor,
                     elevation: 0,
                     padding: const EdgeInsets.symmetric(vertical: 12),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   ),
-                  child: const Text(
-                    'Edit Profile',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                  ),
+                  child: const Text('Edit Profile', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
                 ),
               ),
               const SizedBox(height: 40),
@@ -276,11 +220,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 alignment: Alignment.centerLeft,
                 child: Text(
                   "Lifestyle Profile",
-                  style: TextStyle(
-                    fontWeight: FontWeight.w900,
-                    fontSize: 18,
-                    color: Colors.black87,
-                  ),
+                  style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18, color: Colors.black87),
                 ),
               ),
               const SizedBox(height: 16),
@@ -288,23 +228,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
               // 🌟 NEW LAYOUT: 2-Item Row below the Hero Card
               Row(
                 children: [
-                  Expanded(
-                    child: _buildGridCard(
-                      "Diet",
-                      dietType,
-                      dietType.contains('Analyzing')
-                          ? Icons.sync
-                          : Icons.restaurant,
-                    ),
-                  ),
+                  Expanded(child: _buildGridCard("Diet", dietType, dietType.contains('Analyzing') ? Icons.sync : Icons.restaurant)),
                   const SizedBox(width: 16),
-                  Expanded(
-                    child: _buildGridCard(
-                      "Commute",
-                      commuteType,
-                      _getIconForCommute(commuteType),
-                    ),
-                  ),
+                  Expanded(child: _buildGridCard("Commute", commuteType, _getIconForCommute(commuteType))),
                 ],
               ),
               const SizedBox(height: 40),
@@ -313,11 +239,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 alignment: Alignment.centerLeft,
                 child: Text(
                   "Account & Settings",
-                  style: TextStyle(
-                    fontWeight: FontWeight.w900,
-                    fontSize: 18,
-                    color: Colors.black87,
-                  ),
+                  style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18, color: Colors.black87),
                 ),
               ),
               const SizedBox(height: 16),
@@ -325,16 +247,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(24),
-                  border: Border.all(
-                    color: AppTheme.primaryColor.withOpacity(0.1),
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: AppTheme.primaryColor.withOpacity(0.03),
-                      blurRadius: 10,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
+                  border: Border.all(color: AppTheme.primaryColor.withOpacity(0.1)),
+                  boxShadow: [BoxShadow(color: AppTheme.primaryColor.withOpacity(0.03), blurRadius: 10, offset: const Offset(0, 4))],
                 ),
                 child: Column(
                   children: [
@@ -346,6 +260,38 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       final confirmController = TextEditingController();
                       bool isObscured = true;
                       bool isSaving = false;
+
+                      String? currentPasswordApiError;
+
+                      // State variables for dynamic password requirements
+                      bool hasMinLength = false;
+                      bool hasUppercase = false;
+                      bool noSpecialChars = false;
+
+                      // Helper widget for rendering the dynamic requirements
+                      Widget buildRequirement(String text, bool isMet) {
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 6.0),
+                          child: Row(
+                            children: [
+                              Icon(
+                                isMet ? Icons.check_circle : Icons.radio_button_unchecked,
+                                size: 16,
+                                color: isMet ? AppTheme.primaryColor : Colors.grey.shade400,
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                text,
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: isMet ? FontWeight.w600 : FontWeight.normal,
+                                  color: isMet ? Colors.black87 : Colors.black54,
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      }
 
                       _openSettingsMenu(
                         "Change Password",
@@ -360,49 +306,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                   Container(
                                     padding: const EdgeInsets.all(16),
                                     decoration: BoxDecoration(
-                                      color: AppTheme.primaryColor.withOpacity(
-                                        0.05,
-                                      ),
+                                      color: AppTheme.primaryColor.withOpacity(0.05),
                                       borderRadius: BorderRadius.circular(12),
-                                      border: Border.all(
-                                        color: AppTheme.primaryColor
-                                            .withOpacity(0.2),
-                                      ),
+                                      border: Border.all(color: AppTheme.primaryColor.withOpacity(0.2)),
                                     ),
-                                    child: const Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
                                       children: [
-                                        Text(
+                                        const Text(
                                           "Password Requirements:",
-                                          style: TextStyle(
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 13,
-                                            color: Colors.black87,
-                                          ),
+                                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.black87),
                                         ),
-                                        SizedBox(height: 8),
-                                        Text(
-                                          "• Minimum of 6 characters",
-                                          style: TextStyle(
-                                            fontSize: 13,
-                                            color: Colors.black54,
-                                          ),
-                                        ),
-                                        Text(
-                                          "• At least 1 uppercase letter",
-                                          style: TextStyle(
-                                            fontSize: 13,
-                                            color: Colors.black54,
-                                          ),
-                                        ),
-                                        Text(
-                                          "• No special characters allowed",
-                                          style: TextStyle(
-                                            fontSize: 13,
-                                            color: Colors.black54,
-                                          ),
-                                        ),
+                                        const SizedBox(height: 12),
+                                        buildRequirement("Minimum of 6 characters", hasMinLength),
+                                        buildRequirement("At least 1 uppercase letter", hasUppercase),
+                                        buildRequirement("No special characters allowed", noSpecialChars),
                                       ],
                                     ),
                                   ),
@@ -413,15 +331,24 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                     obscureText: isObscured,
                                     decoration: InputDecoration(
                                       labelText: "Current Password",
-                                      border: OutlineInputBorder(
-                                        borderRadius: BorderRadius.circular(12),
-                                      ),
+                                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                                       prefixIcon: const Icon(Icons.password),
                                     ),
-                                    validator: (value) =>
-                                        (value == null || value.isEmpty)
-                                        ? 'Please enter your current password'
-                                        : null,
+                                    onChanged: (value) {
+                                      if (currentPasswordApiError != null) {
+                                        setModalState(() => currentPasswordApiError = null);
+                                        formKey.currentState?.validate();
+                                      }
+                                    },
+                                    validator: (value) {
+                                      if (value == null || value.trim().isEmpty) {
+                                        return 'Please enter your current password';
+                                      }
+                                      if (currentPasswordApiError != null) {
+                                        return currentPasswordApiError;
+                                      }
+                                      return null;
+                                    },
                                   ),
                                   const SizedBox(height: 16),
                                   TextFormField(
@@ -429,32 +356,28 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                     obscureText: isObscured,
                                     decoration: InputDecoration(
                                       labelText: "New Password",
-                                      border: OutlineInputBorder(
-                                        borderRadius: BorderRadius.circular(12),
-                                      ),
-                                      prefixIcon: const Icon(
-                                        Icons.lock_outline,
-                                      ),
+                                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                                      prefixIcon: const Icon(Icons.lock_outline),
                                       suffixIcon: IconButton(
-                                        icon: Icon(
-                                          isObscured
-                                              ? Icons.visibility_off
-                                              : Icons.visibility,
-                                        ),
-                                        onPressed: () => setModalState(
-                                          () => isObscured = !isObscured,
-                                        ),
+                                        icon: Icon(isObscured ? Icons.visibility_off : Icons.visibility),
+                                        onPressed: () => setModalState(() => isObscured = !isObscured),
                                       ),
                                     ),
+                                    onChanged: (value) {
+                                      // Update requirement checks in real-time
+                                      setModalState(() {
+                                        hasMinLength = value.length >= 6;
+                                        hasUppercase = value.contains(RegExp(r'[A-Z]'));
+                                        noSpecialChars = value.isNotEmpty && RegExp(r'^[a-zA-Z0-9]+$').hasMatch(value);
+                                      });
+                                    },
                                     validator: (value) {
-                                      if (value == null || value.length < 6)
-                                        return 'Minimum 6 characters required';
-                                      if (!value.contains(RegExp(r'[A-Z]')))
-                                        return 'Must contain at least 1 uppercase letter';
-                                      if (!RegExp(
-                                        r'^[a-zA-Z0-9]+$',
-                                      ).hasMatch(value))
-                                        return 'No special characters allowed';
+                                      if (value == null || value.trim().isEmpty) {
+                                        return 'Please enter a new password';
+                                      }
+                                      if (!hasMinLength) return 'Minimum 6 characters required';
+                                      if (!hasUppercase) return 'Must contain at least 1 uppercase letter';
+                                      if (!noSpecialChars) return 'No special characters allowed';
                                       return null;
                                     },
                                   ),
@@ -464,16 +387,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                     obscureText: isObscured,
                                     decoration: InputDecoration(
                                       labelText: "Confirm New Password",
-                                      border: OutlineInputBorder(
-                                        borderRadius: BorderRadius.circular(12),
-                                      ),
-                                      prefixIcon: const Icon(
-                                        Icons.check_circle_outline,
-                                      ),
+                                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                                      prefixIcon: const Icon(Icons.check_circle_outline),
                                     ),
                                     validator: (value) {
-                                      if (value != passwordController.text)
-                                        return 'Passwords do not match';
+                                      if (value == null || value.trim().isEmpty) {
+                                        return 'Please confirm your new password';
+                                      }
+                                      if (value != passwordController.text) {
+                                        return 'New passwords do not match';
+                                      }
                                       return null;
                                     },
                                   ),
@@ -485,124 +408,107 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                       onPressed: isSaving
                                           ? null
                                           : () async {
-                                              if (formKey.currentState!
-                                                  .validate()) {
-                                                setModalState(
-                                                  () => isSaving = true,
-                                                );
+                                              if (formKey.currentState!.validate()) {
+                                                setModalState(() => isSaving = true);
                                                 try {
-                                                  final user = Supabase
-                                                      .instance
-                                                      .client
-                                                      .auth
-                                                      .currentUser;
+                                                  final user = Supabase.instance.client.auth.currentUser;
 
-                                                  await Supabase
-                                                      .instance
-                                                      .client
-                                                      .auth
-                                                      .signInWithPassword(
-                                                        email: user!.email!,
-                                                        password:
-                                                            currentPasswordController
-                                                                .text,
-                                                      );
+                                                  await Supabase.instance.client.auth.signInWithPassword(
+                                                    email: user!.email!,
+                                                    password: currentPasswordController.text,
+                                                  );
 
-                                                  await Supabase
-                                                      .instance
-                                                      .client
-                                                      .auth
-                                                      .updateUser(
-                                                        UserAttributes(
-                                                          password:
-                                                              passwordController
-                                                                  .text,
-                                                        ),
-                                                      );
+                                                  await Supabase.instance.client.auth.updateUser(UserAttributes(password: passwordController.text));
 
                                                   if (context.mounted) {
-                                                    Navigator.pop(context);
-                                                    ScaffoldMessenger.of(
-                                                      context,
-                                                    ).showSnackBar(
-                                                      const SnackBar(
-                                                        content: Text(
-                                                          'Password updated successfully!',
+                                                    Navigator.pop(context); // Close the bottom sheet
+
+                                                    // Show Custom Success Dialog
+                                                    showDialog(
+                                                      context: context,
+                                                      builder: (context) => Dialog(
+                                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+                                                        backgroundColor: Colors.white,
+                                                        child: Padding(
+                                                          padding: const EdgeInsets.all(24.0),
+                                                          child: Column(
+                                                            mainAxisSize: MainAxisSize.min,
+                                                            children: [
+                                                              Container(
+                                                                padding: const EdgeInsets.all(16),
+                                                                decoration: BoxDecoration(
+                                                                  color: AppTheme.primaryColor.withOpacity(0.1),
+                                                                  shape: BoxShape.circle,
+                                                                ),
+                                                                child: const Icon(Icons.check_circle, color: AppTheme.primaryColor, size: 64),
+                                                              ),
+                                                              const SizedBox(height: 24),
+                                                              const Text(
+                                                                "Password Updated",
+                                                                style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: Colors.black87),
+                                                              ),
+                                                              const SizedBox(height: 8),
+                                                              const Text(
+                                                                "Your account password has been successfully changed. You can now use it on your next login.",
+                                                                textAlign: TextAlign.center,
+                                                                style: TextStyle(fontSize: 14, color: Colors.black54, height: 1.5),
+                                                              ),
+                                                              const SizedBox(height: 32),
+                                                              SizedBox(
+                                                                width: double.infinity,
+                                                                child: ElevatedButton(
+                                                                  onPressed: () => Navigator.pop(context),
+                                                                  style: ElevatedButton.styleFrom(
+                                                                    backgroundColor: AppTheme.primaryColor,
+                                                                    padding: const EdgeInsets.symmetric(vertical: 16),
+                                                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                                                  ),
+                                                                  child: const Text(
+                                                                    'Done',
+                                                                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+                                                                  ),
+                                                                ),
+                                                              ),
+                                                            ],
+                                                          ),
                                                         ),
-                                                        backgroundColor:
-                                                            AppTheme
-                                                                .primaryColor,
                                                       ),
                                                     );
                                                   }
                                                 } on AuthException catch (e) {
                                                   if (context.mounted) {
-                                                    String errorMsg = e.message;
-                                                    if (e.message
-                                                        .toLowerCase()
-                                                        .contains(
-                                                          "invalid login credentials",
-                                                        )) {
-                                                      errorMsg =
-                                                          "Incorrect current password.";
+                                                    if (e.message.toLowerCase().contains("invalid login credentials")) {
+                                                      setModalState(() {
+                                                        currentPasswordApiError = "Incorrect current password.";
+                                                      });
+                                                      formKey.currentState!.validate();
+                                                    } else {
+                                                      ScaffoldMessenger.of(
+                                                        context,
+                                                      ).showSnackBar(SnackBar(content: Text(e.message), backgroundColor: Colors.red));
                                                     }
-                                                    ScaffoldMessenger.of(
-                                                      context,
-                                                    ).showSnackBar(
-                                                      SnackBar(
-                                                        content: Text(errorMsg),
-                                                        backgroundColor:
-                                                            Colors.red,
-                                                      ),
-                                                    );
                                                   }
                                                 } catch (e) {
                                                   if (context.mounted) {
                                                     ScaffoldMessenger.of(
                                                       context,
-                                                    ).showSnackBar(
-                                                      SnackBar(
-                                                        content: Text(
-                                                          'Error: ${e.toString()}',
-                                                        ),
-                                                        backgroundColor:
-                                                            Colors.red,
-                                                      ),
-                                                    );
+                                                    ).showSnackBar(SnackBar(content: Text('Error: ${e.toString()}'), backgroundColor: Colors.red));
                                                   }
                                                 } finally {
-                                                  setModalState(
-                                                    () => isSaving = false,
-                                                  );
+                                                  setModalState(() => isSaving = false);
                                                 }
                                               }
                                             },
                                       style: ElevatedButton.styleFrom(
                                         backgroundColor: AppTheme.primaryColor,
-                                        padding: const EdgeInsets.symmetric(
-                                          vertical: 16,
-                                        ),
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(
-                                            12,
-                                          ),
-                                        ),
+                                        padding: const EdgeInsets.symmetric(vertical: 16),
+                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                                       ),
                                       child: isSaving
-                                          ? const SizedBox(
-                                              height: 20,
-                                              width: 20,
-                                              child: CircularProgressIndicator(
-                                                color: Colors.white,
-                                                strokeWidth: 2,
-                                              ),
-                                            )
+                                          ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
                                           : const Text(
                                               'Update Password',
-                                              style: TextStyle(
-                                                color: Colors.white,
-                                                fontWeight: FontWeight.bold,
-                                              ),
+                                              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
                                             ),
                                     ),
                                   ),
@@ -616,161 +522,98 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     Divider(height: 1, color: Colors.grey.shade100, indent: 60),
 
                     // --- DANGER ZONE: DELETE ACCOUNT ---
-                    _buildListTile(
-                      Icons.delete_forever,
-                      "Delete Account",
-                      isDestructive: true,
-                      () {
-                        final confirmDeleteController = TextEditingController();
-                        bool isDeleting = false;
-                        bool isConfirmed = false;
+                    _buildListTile(Icons.delete_forever, "Delete Account", isDestructive: true, () {
+                      final confirmDeleteController = TextEditingController();
+                      bool isDeleting = false;
+                      bool isConfirmed = false;
 
-                        _openSettingsMenu(
-                          "Delete Account",
-                          Icons.warning_amber_rounded,
-                          StatefulBuilder(
-                            builder: (BuildContext context, StateSetter setModalState) {
-                              return Column(
-                                children: [
-                                  Container(
-                                    padding: const EdgeInsets.all(16),
-                                    decoration: BoxDecoration(
-                                      color: Colors.red.shade50,
+                      _openSettingsMenu(
+                        "Delete Account",
+                        Icons.warning_amber_rounded,
+                        StatefulBuilder(
+                          builder: (BuildContext context, StateSetter setModalState) {
+                            return Column(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(16),
+                                  decoration: BoxDecoration(
+                                    color: Colors.red.shade50,
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(color: Colors.red.shade200),
+                                  ),
+                                  child: const Text(
+                                    "WARNING: This action is permanent and cannot be undone. All of your activity logs, profile data, and AI prescriptions will be permanently erased.",
+                                    style: TextStyle(color: Colors.red, height: 1.5, fontWeight: FontWeight.bold),
+                                  ),
+                                ),
+                                const SizedBox(height: 24),
+
+                                TextField(
+                                  controller: confirmDeleteController,
+                                  decoration: InputDecoration(
+                                    labelText: 'Type "DELETE" to confirm',
+                                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                                    focusedBorder: OutlineInputBorder(
                                       borderRadius: BorderRadius.circular(12),
-                                      border: Border.all(
-                                        color: Colors.red.shade200,
-                                      ),
-                                    ),
-                                    child: const Text(
-                                      "WARNING: This action is permanent and cannot be undone. All of your activity logs, profile data, and AI prescriptions will be permanently erased.",
-                                      style: TextStyle(
-                                        color: Colors.red,
-                                        height: 1.5,
-                                        fontWeight: FontWeight.bold,
-                                      ),
+                                      borderSide: const BorderSide(color: Colors.red, width: 2),
                                     ),
                                   ),
-                                  const SizedBox(height: 24),
+                                  onChanged: (value) {
+                                    setModalState(() {
+                                      isConfirmed = (value == "DELETE");
+                                    });
+                                  },
+                                ),
+                                const SizedBox(height: 24),
 
-                                  TextField(
-                                    controller: confirmDeleteController,
-                                    decoration: InputDecoration(
-                                      labelText: 'Type "DELETE" to confirm',
-                                      border: OutlineInputBorder(
-                                        borderRadius: BorderRadius.circular(12),
-                                      ),
-                                      focusedBorder: OutlineInputBorder(
-                                        borderRadius: BorderRadius.circular(12),
-                                        borderSide: const BorderSide(
-                                          color: Colors.red,
-                                          width: 2,
-                                        ),
-                                      ),
-                                    ),
-                                    onChanged: (value) {
-                                      setModalState(() {
-                                        isConfirmed = (value == "DELETE");
-                                      });
-                                    },
-                                  ),
-                                  const SizedBox(height: 24),
+                                SizedBox(
+                                  width: double.infinity,
+                                  child: ElevatedButton(
+                                    onPressed: (!isConfirmed || isDeleting)
+                                        ? null
+                                        : () async {
+                                            setModalState(() => isDeleting = true);
+                                            try {
+                                              final myUserId = Supabase.instance.client.auth.currentUser!.id;
 
-                                  SizedBox(
-                                    width: double.infinity,
-                                    child: ElevatedButton(
-                                      onPressed: (!isConfirmed || isDeleting)
-                                          ? null
-                                          : () async {
-                                              setModalState(
-                                                () => isDeleting = true,
-                                              );
-                                              try {
-                                                final myUserId = Supabase
-                                                    .instance
-                                                    .client
-                                                    .auth
-                                                    .currentUser!
-                                                    .id;
+                                              await Supabase.instance.client.rpc('delete_user_account', params: {'target_user_id': myUserId});
 
-                                                await Supabase.instance.client
-                                                    .rpc(
-                                                      'delete_user_account',
-                                                      params: {
-                                                        'target_user_id':
-                                                            myUserId,
-                                                      },
-                                                    );
+                                              await Supabase.instance.client.auth.signOut();
 
-                                                await Supabase
-                                                    .instance
-                                                    .client
-                                                    .auth
-                                                    .signOut();
-
-                                                if (context.mounted) {
-                                                  Navigator.pop(context);
-                                                  context.go('/welcome');
-                                                }
-                                              } catch (e) {
-                                                if (context.mounted) {
-                                                  ScaffoldMessenger.of(
-                                                    context,
-                                                  ).showSnackBar(
-                                                    SnackBar(
-                                                      content: Text(
-                                                        'Failed to delete account: $e',
-                                                      ),
-                                                      backgroundColor:
-                                                          Colors.red,
-                                                    ),
-                                                  );
-                                                }
-                                              } finally {
-                                                setModalState(
-                                                  () => isDeleting = false,
-                                                );
+                                              if (context.mounted) {
+                                                Navigator.pop(context);
+                                                context.go('/welcome');
                                               }
-                                            },
-                                      style: ElevatedButton.styleFrom(
-                                        backgroundColor: Colors.red.shade600,
-                                        disabledBackgroundColor:
-                                            Colors.grey.shade300,
-                                        padding: const EdgeInsets.symmetric(
-                                          vertical: 16,
-                                        ),
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(
-                                            12,
-                                          ),
-                                        ),
-                                      ),
-                                      child: isDeleting
-                                          ? const SizedBox(
-                                              height: 20,
-                                              width: 20,
-                                              child: CircularProgressIndicator(
-                                                color: Colors.white,
-                                                strokeWidth: 2,
-                                              ),
-                                            )
-                                          : Text(
-                                              'I understand, delete my account',
-                                              style: TextStyle(
-                                                color: isConfirmed
-                                                    ? Colors.white
-                                                    : Colors.grey.shade500,
-                                                fontWeight: FontWeight.bold,
-                                              ),
-                                            ),
+                                            } catch (e) {
+                                              if (context.mounted) {
+                                                ScaffoldMessenger.of(
+                                                  context,
+                                                ).showSnackBar(SnackBar(content: Text('Failed to delete account: $e'), backgroundColor: Colors.red));
+                                              }
+                                            } finally {
+                                              setModalState(() => isDeleting = false);
+                                            }
+                                          },
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: Colors.red.shade600,
+                                      disabledBackgroundColor: Colors.grey.shade300,
+                                      padding: const EdgeInsets.symmetric(vertical: 16),
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                                     ),
+                                    child: isDeleting
+                                        ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                                        : Text(
+                                            'I understand, delete my account',
+                                            style: TextStyle(color: isConfirmed ? Colors.white : Colors.grey.shade500, fontWeight: FontWeight.bold),
+                                          ),
                                   ),
-                                ],
-                              );
-                            },
-                          ),
-                        );
-                      },
-                    ),
+                                ),
+                              ],
+                            );
+                          },
+                        ),
+                      );
+                    }),
                   ],
                 ),
               ),
@@ -792,13 +635,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       decoration: BoxDecoration(
         color: AppTheme.primaryColor,
         borderRadius: BorderRadius.circular(24),
-        boxShadow: [
-          BoxShadow(
-            color: AppTheme.primaryColor.withOpacity(0.3),
-            blurRadius: 15,
-            offset: const Offset(0, 8),
-          ),
-        ],
+        boxShadow: [BoxShadow(color: AppTheme.primaryColor.withOpacity(0.3), blurRadius: 15, offset: const Offset(0, 8))],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -807,43 +644,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
             children: [
               Container(
                 padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: const Icon(
-                  Icons.track_changes,
-                  color: Colors.white,
-                  size: 24,
-                ),
+                decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), borderRadius: BorderRadius.circular(12)),
+                child: const Icon(Icons.track_changes, color: Colors.white, size: 24),
               ),
               const SizedBox(width: 16),
               const Text(
                 "Adaptive Carbon Goal",
-                style: TextStyle(
-                  color: Colors.white70,
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 0.5,
-                ),
+                style: TextStyle(color: Colors.white70, fontSize: 14, fontWeight: FontWeight.bold, letterSpacing: 0.5),
               ),
             ],
           ),
           const SizedBox(height: 24),
           Text(
             value,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 36,
-              fontWeight: FontWeight.w900,
-              letterSpacing: -1,
-            ),
+            style: const TextStyle(color: Colors.white, fontSize: 36, fontWeight: FontWeight.w900, letterSpacing: -1),
           ),
           const SizedBox(height: 8),
-          const Text(
-            "Target auto-adjusts monthly based on your telemetry.",
-            style: TextStyle(color: Colors.white70, fontSize: 13, height: 1.4),
-          ),
+          const Text("Target auto-adjusts monthly based on your telemetry.", style: TextStyle(color: Colors.white70, fontSize: 13, height: 1.4)),
         ],
       ),
     );
@@ -856,13 +673,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         color: Colors.white,
         borderRadius: BorderRadius.circular(24),
         border: Border.all(color: AppTheme.primaryColor.withOpacity(0.15)),
-        boxShadow: [
-          BoxShadow(
-            color: AppTheme.primaryColor.withOpacity(0.06),
-            blurRadius: 15,
-            offset: const Offset(0, 8),
-          ),
-        ],
+        boxShadow: [BoxShadow(color: AppTheme.primaryColor.withOpacity(0.06), blurRadius: 15, offset: const Offset(0, 8))],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -871,21 +682,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
           const SizedBox(height: 16),
           Text(
             title,
-            style: const TextStyle(
-              color: Colors.grey,
-              fontSize: 12,
-              fontWeight: FontWeight.bold,
-              letterSpacing: 0.5,
-            ),
+            style: const TextStyle(color: Colors.grey, fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 0.5),
           ),
           const SizedBox(height: 4),
           Text(
             value,
-            style: const TextStyle(
-              color: Colors.black87,
-              fontSize: 16,
-              fontWeight: FontWeight.w800,
-            ),
+            style: const TextStyle(color: Colors.black87, fontSize: 16, fontWeight: FontWeight.w800),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),
@@ -894,35 +696,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Widget _buildListTile(
-    IconData icon,
-    String title,
-    VoidCallback onTap, {
-    bool isDestructive = false,
-  }) {
+  Widget _buildListTile(IconData icon, String title, VoidCallback onTap, {bool isDestructive = false}) {
     return ListTile(
       contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
       leading: Container(
         padding: const EdgeInsets.all(10),
         decoration: BoxDecoration(
-          color: isDestructive
-              ? Colors.red.withOpacity(0.1)
-              : AppTheme.primaryColor.withOpacity(0.1),
+          color: isDestructive ? Colors.red.withOpacity(0.1) : AppTheme.primaryColor.withOpacity(0.1),
           borderRadius: BorderRadius.circular(12),
         ),
-        child: Icon(
-          icon,
-          color: isDestructive ? Colors.red : AppTheme.primaryColor,
-          size: 20,
-        ),
+        child: Icon(icon, color: isDestructive ? Colors.red : AppTheme.primaryColor, size: 20),
       ),
       title: Text(
         title,
-        style: TextStyle(
-          fontWeight: FontWeight.w600,
-          color: isDestructive ? Colors.red : Colors.black87,
-          fontSize: 15,
-        ),
+        style: TextStyle(fontWeight: FontWeight.w600, color: isDestructive ? Colors.red : Colors.black87, fontSize: 15),
       ),
       trailing: const Icon(Icons.chevron_right, color: Colors.grey),
       onTap: onTap,

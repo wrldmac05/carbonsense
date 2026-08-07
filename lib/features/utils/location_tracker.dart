@@ -12,7 +12,7 @@ class LocationTracker {
       permission = await Geolocator.requestPermission();
       if (permission == LocationPermission.denied) return Future.error('Permission denied.');
     }
-    if (permission == LocationPermission.deniedForever) return Future.error('Permission permanently denied.'); 
+    if (permission == LocationPermission.deniedForever) return Future.error('Permission permanently denied.');
 
     return await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
   }
@@ -26,8 +26,8 @@ class LocationTracker {
       foregroundNotificationConfig: const ForegroundNotificationConfig(
         notificationText: "CarbonSense is tracking your commute...",
         notificationTitle: "Active Trip",
-        enableWakeLock: true, 
-        setOngoing: true, 
+        enableWakeLock: true,
+        setOngoing: true,
       ),
     );
 
@@ -36,12 +36,7 @@ class LocationTracker {
 
   // 3. Existing Math Function (Keep this)
   static double calculateDistanceInKm(Position startPosition, Position endPosition) {
-    final distanceInMeters = Geolocator.distanceBetween(
-      startPosition.latitude,
-      startPosition.longitude,
-      endPosition.latitude,
-      endPosition.longitude,
-    );
+    final distanceInMeters = Geolocator.distanceBetween(startPosition.latitude, startPosition.longitude, endPosition.latitude, endPosition.longitude);
     return distanceInMeters / 1000;
   }
 }

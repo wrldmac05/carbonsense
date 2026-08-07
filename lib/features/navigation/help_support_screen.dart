@@ -8,17 +8,15 @@ class HelpSupportScreen extends StatelessWidget {
   // Function to open the website
   Future<void> _launchWebsite(BuildContext context) async {
     // Replace this with your actual Vercel/Firebase web hosting link later!
-    final Uri url = Uri.parse('https://carbonsense-web.vercel.app'); 
-    
+    final Uri url = Uri.parse('https://carbon-sense-web.vercel.app/');
+
     try {
       if (!await launchUrl(url, mode: LaunchMode.externalApplication)) {
         throw Exception('Could not launch $url');
       }
     } catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Web portal is currently under maintenance.')),
-        );
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Web portal is currently under maintenance.')));
       }
     }
   }
@@ -28,7 +26,10 @@ class HelpSupportScreen extends StatelessWidget {
     return Scaffold(
       backgroundColor: const Color(0xFFF9FFF9),
       appBar: AppBar(
-        title: const Text('Help & Support', style: TextStyle(fontWeight: FontWeight.w900, color: Colors.black)),
+        title: const Text(
+          'Help & Support',
+          style: TextStyle(fontWeight: FontWeight.w900, color: Colors.black),
+        ),
         centerTitle: false,
         backgroundColor: Colors.transparent,
         elevation: 0,
@@ -45,10 +46,7 @@ class HelpSupportScreen extends StatelessWidget {
               style: TextStyle(fontSize: 28, fontWeight: FontWeight.w900, letterSpacing: -0.5, color: Colors.black87),
             ),
             const SizedBox(height: 8),
-            Text(
-              "Find answers to common questions or access the full CarbonSense ecosystem.",
-              style: TextStyle(fontSize: 15, color: Colors.grey.shade600, height: 1.5),
-            ),
+            Text("Find answers to common questions or access the full CarbonSense ecosystem.", style: TextStyle(fontSize: 15, color: Colors.grey.shade600, height: 1.5)),
             const SizedBox(height: 32),
 
             // --- 1. WEB PORTAL REDIRECT CARD ---
@@ -58,11 +56,7 @@ class HelpSupportScreen extends StatelessWidget {
               child: Container(
                 padding: const EdgeInsets.all(24),
                 decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [AppTheme.primaryColor, AppTheme.primaryColor.withOpacity(0.8)],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
+                  gradient: LinearGradient(colors: [AppTheme.primaryColor, AppTheme.primaryColor.withOpacity(0.8)], begin: Alignment.topLeft, end: Alignment.bottomRight),
                   borderRadius: BorderRadius.circular(24),
                   boxShadow: [BoxShadow(color: AppTheme.primaryColor.withOpacity(0.3), blurRadius: 20, offset: const Offset(0, 10))],
                 ),
@@ -74,7 +68,10 @@ class HelpSupportScreen extends StatelessWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text("CarbonSense Web", style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 18)),
+                          Text(
+                            "CarbonSense Web",
+                            style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 18),
+                          ),
                           SizedBox(height: 4),
                           Text("Access the full dashboard on your desktop browser.", style: TextStyle(color: Colors.white70, fontSize: 13, height: 1.4)),
                         ],
@@ -88,7 +85,10 @@ class HelpSupportScreen extends StatelessWidget {
             const SizedBox(height: 32),
 
             // --- 2. FAQ SECTION ---
-            const Text("Frequently Asked Questions", style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18, color: Colors.black87)),
+            const Text(
+              "Frequently Asked Questions",
+              style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18, color: Colors.black87),
+            ),
             const SizedBox(height: 16),
             _buildFaqCard(
               "How does the AI Eco-Coach work?",
@@ -105,7 +105,10 @@ class HelpSupportScreen extends StatelessWidget {
             const SizedBox(height: 32),
 
             // --- 3. CONTACT SUPPORT ---
-            const Text("Still need help?", style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18, color: Colors.black87)),
+            const Text(
+              "Still need help?",
+              style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18, color: Colors.black87),
+            ),
             const SizedBox(height: 16),
             Container(
               decoration: BoxDecoration(
@@ -136,9 +139,16 @@ class HelpSupportScreen extends StatelessWidget {
                 children: [
                   const Icon(Icons.eco, color: Colors.grey, size: 24),
                   const SizedBox(height: 8),
-                  Text("CarbonSense v1.0.0", style: TextStyle(color: Colors.grey.shade600, fontWeight: FontWeight.bold)),
+                  Text(
+                    "CarbonSense v1.0.0",
+                    style: TextStyle(color: Colors.grey.shade600, fontWeight: FontWeight.bold),
+                  ),
                   const SizedBox(height: 4),
-                  Text("A capstone initiative developed at\nNational University Dasmariñas.", textAlign: TextAlign.center, style: TextStyle(color: Colors.grey.shade500, fontSize: 12, height: 1.5)),
+                  Text(
+                    "A capstone initiative developed at\nNational University Dasmariñas.",
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: Colors.grey.shade500, fontSize: 12, height: 1.5),
+                  ),
                 ],
               ),
             ),
@@ -163,7 +173,10 @@ class HelpSupportScreen extends StatelessWidget {
         child: ExpansionTile(
           iconColor: AppTheme.primaryColor,
           collapsedIconColor: Colors.grey,
-          title: Text(question, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: Colors.black87)),
+          title: Text(
+            question,
+            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: Colors.black87),
+          ),
           children: [
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),

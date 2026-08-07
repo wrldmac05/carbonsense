@@ -18,9 +18,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
     final email = _emailController.text.trim();
 
     if (email.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter your email address.')),
-      );
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please enter your email address.')));
       return;
     }
 
@@ -32,29 +30,16 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
       // Calls Supabase to trigger the SMTP reset email
       // Note: If testing on web, you can add a redirectTo here later if needed!
       // 🌟 Notice the underscore on _emailController and the explicit redirectTo: label
-      await Supabase.instance.client.auth.resetPasswordForEmail(
-        _emailController.text.trim(),
-        redirectTo: 'io.supabase.carbonsense://reset-password', 
-      );
+      await Supabase.instance.client.auth.resetPasswordForEmail(_emailController.text.trim(), redirectTo: 'io.supabase.carbonsense://reset-password');
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Recovery link sent! Check your inbox.'),
-            backgroundColor: Colors.green,
-          ),
-        );
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Recovery link sent! Check your inbox.'), backgroundColor: Colors.green));
         // 👇 2. Safely route back to login using GoRouter
-        context.go('/login'); 
+        context.go('/login');
       }
     } catch (error) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error: ${error.toString()}'),
-            backgroundColor: Theme.of(context).colorScheme.error,
-          ),
-        );
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: ${error.toString()}'), backgroundColor: Theme.of(context).colorScheme.error));
       }
     } finally {
       if (mounted) {
@@ -88,23 +73,16 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                   child: IconButton(
                     icon: const Icon(Icons.arrow_back),
                     // 👇 3. Also fixed the top back button to use GoRouter
-                    onPressed: () => context.go('/login'), 
+                    onPressed: () => context.go('/login'),
                   ),
                 ),
                 const SizedBox(height: 16),
-                const Icon(
-                  Icons.eco,
-                  size: 80,
-                  color: AppTheme.primaryColor,
-                ),
+                const Icon(Icons.eco, size: 80, color: AppTheme.primaryColor),
                 const SizedBox(height: 16),
                 Text(
                   'Reset Password',
                   textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                        color: AppTheme.primaryColor,
-                        fontWeight: FontWeight.bold,
-                      ),
+                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(color: AppTheme.primaryColor, fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 8),
                 const Text(
@@ -119,9 +97,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                   decoration: InputDecoration(
                     hintText: 'Email address',
                     prefixIcon: const Icon(Icons.email_outlined),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                     focusedBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
                       borderSide: const BorderSide(color: AppTheme.primaryColor, width: 2),
@@ -134,24 +110,12 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                     backgroundColor: AppTheme.primaryColor,
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   ),
                   onPressed: _isLoading ? null : _resetPassword,
                   child: _isLoading
-                      ? const SizedBox(
-                          height: 20,
-                          width: 20,
-                          child: CircularProgressIndicator(
-                            color: Colors.white,
-                            strokeWidth: 2,
-                          ),
-                        )
-                      : const Text(
-                          'Send Recovery Link',
-                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                        ),
+                      ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                      : const Text('Send Recovery Link', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                 ),
               ],
             ),

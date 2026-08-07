@@ -12,11 +12,7 @@ class MissionEngine {
     List<String> newlyCompletedMissions = [];
 
     try {
-      final pendingTasksResponse = await client
-          .from('user_tasks')
-          .select('user_task_id, tasks_dictionary(*)')
-          .eq('user_id', userId)
-          .eq('is_completed', false);
+      final pendingTasksResponse = await client.from('user_tasks').select('user_task_id, tasks_dictionary(*)').eq('user_id', userId).eq('is_completed', false);
 
       final lowerActivity = activityName.toLowerCase();
 
@@ -43,8 +39,7 @@ class MissionEngine {
                   lowerActivity.contains('mrt') ||
                   lowerActivity.contains('lrt'))) {
             isMatch = true;
-          } else if (taskDesc.contains('carpool') &&
-              lowerActivity.contains('carpool')) {
+          } else if (taskDesc.contains('carpool') && lowerActivity.contains('carpool')) {
             isMatch = true;
           }
         } else if (category == 'Diet' && taskTag == 'Diet') {
@@ -74,20 +69,13 @@ class MissionEngine {
             isMatch = true;
           }
         } else if (category == 'Energy' && taskTag == 'Energy') {
-          if (taskDesc.contains('air-dry') &&
-              lowerActivity.contains('air dry')) {
+          if (taskDesc.contains('air-dry') && lowerActivity.contains('air dry')) {
             isMatch = true;
           }
         }
 
         if (isMatch) {
-          await client
-              .from('user_tasks')
-              .update({
-                'is_completed': true,
-                'completed_at': DateTime.now().toIso8601String(),
-              })
-              .eq('user_task_id', taskId);
+          await client.from('user_tasks').update({'is_completed': true, 'completed_at': DateTime.now().toIso8601String()}).eq('user_task_id', taskId);
 
           newlyCompletedMissions.add(taskDict['description']);
         }

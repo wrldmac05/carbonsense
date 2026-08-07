@@ -14,8 +14,7 @@ class AnalyticsScreen extends ConsumerStatefulWidget {
 }
 
 class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
-  int _selectedMonthIndex =
-      DateTime.now().month - 1; // Defaults to current month
+  int _selectedMonthIndex = DateTime.now().month - 1; // Defaults to current month
 
   @override
   void initState() {
@@ -28,10 +27,7 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
   Future<void> _runSmartSync() async {
     try {
       final userId = Supabase.instance.client.auth.currentUser!.id;
-      await Supabase.instance.client.functions.invoke(
-        'eco_coach',
-        body: {'user_id': userId},
-      );
+      await Supabase.instance.client.functions.invoke('eco_coach', body: {'user_id': userId});
     } catch (e) {
       debugPrint("Silent Sync Error: $e");
     }
@@ -55,22 +51,11 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          "Analytics",
-          style: TextStyle(
-            fontSize: 34,
-            fontWeight: FontWeight.w900,
-            letterSpacing: -1.0,
-          ),
-        ),
+        const Text("Analytics", style: TextStyle(fontSize: 34, fontWeight: FontWeight.w900, letterSpacing: -1.0)),
         const SizedBox(height: 4),
         Text(
           "Review your real-time carbon mitigation insights.",
-          style: TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w500,
-            color: Colors.grey.shade600,
-          ),
+          style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: Colors.grey.shade600),
         ),
       ],
     );
@@ -80,132 +65,148 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
   Widget build(BuildContext context) {
     final logsAsync = ref.watch(activityLogsStreamProvider);
     final generalAiAsync = ref.watch(generalAiInsightProvider);
-    final monthlyAiAsync = ref.watch(
-      monthlyAiInsightProvider(_selectedMonthIndex),
-    );
+    final monthlyAiAsync = ref.watch(monthlyAiInsightProvider(_selectedMonthIndex));
 
     return Scaffold(
       backgroundColor: const Color(0xFFF9FFF9),
-      body: logsAsync.when(
-        loading: () => const Center(
-          child: CircularProgressIndicator(color: AppTheme.primaryColor),
-        ),
-        error: (err, _) => Center(child: Text('Error: $err')),
-        data: (logs) {
-          if (logs.isEmpty) {
-            return const Center(
-              child: Padding(
-                padding: EdgeInsets.all(32.0),
-                child: Text(
-                  "Welcome to CarbonSense!\n\nLog your first activity today to wake up your personal AI Eco-Coach.",
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 16,
-                    color: Colors.grey,
-                    height: 1.5,
+      body: SafeArea(
+        child: logsAsync.when(
+          loading: () => const Center(child: CircularProgressIndicator(color: AppTheme.primaryColor)),
+
+          // 🌟 REPLACED: Modern full-page offline/error UI
+          error: (err, stack) => Center(
+            child: Padding(
+              padding: const EdgeInsets.all(32.0),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.cloud_off_rounded, color: Colors.grey.shade400, size: 64),
+                  const SizedBox(height: 16),
+                  const Text(
+                    "Connection lost",
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.black87),
                   ),
+                  const SizedBox(height: 8),
+                  Text(
+                    "We couldn't load your analytics right now. Please check your internet connection and try again.",
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: Colors.grey.shade600, fontSize: 14, height: 1.4),
+                  ),
+                  const SizedBox(height: 24),
+                  ElevatedButton.icon(
+                    onPressed: () {
+                      // 🌟 Refresh all analytic streams when pressed
+                      ref.invalidate(activityLogsStreamProvider);
+                      ref.invalidate(generalAiInsightProvider);
+                      ref.invalidate(monthlyAiInsightProvider);
+                      _runSmartSync();
+                    },
+                    icon: const Icon(Icons.refresh, size: 18),
+                    label: const Text("Try Again"),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.primaryColor,
+                      foregroundColor: Colors.white,
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          // 🌟 KEPT: Your exact original data handling and layout logic
+          data: (logs) {
+            if (logs.isEmpty) {
+              return const Center(
+                child: Padding(
+                  padding: EdgeInsets.all(32.0),
+                  child: Text(
+                    "Welcome to CarbonSense!\n\nLog your first activity today to wake up your personal AI Eco-Coach.",
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: 16, color: Colors.grey, height: 1.5),
+                  ),
+                ),
+              );
+            }
+
+            // If logs are NOT empty, the rest of the page loads normally!
+            final yearlyData = _getYearlyData(logs);
+            final totalYearlyImpact = yearlyData.fold(0.0, (sum, item) => sum + item);
+            final selectedMonthImpact = yearlyData[_selectedMonthIndex];
+
+            return RefreshIndicator(
+              color: AppTheme.primaryColor,
+              onRefresh: () async {
+                ref.invalidate(activityLogsStreamProvider);
+                ref.invalidate(generalAiInsightProvider);
+                ref.invalidate(monthlyAiInsightProvider);
+                await _runSmartSync();
+              },
+              child: SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // 🌟 CONNECTION STEP: Injecting your beautiful new header here!
+                    Padding(padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 8.0), child: _buildHeader()),
+                    const SizedBox(height: 16),
+
+                    // 2. GENERAL AI INSIGHT (The Big Picture)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 10),
+                      child: generalAiAsync.when(
+                        loading: () => const LinearProgressIndicator(color: AppTheme.primaryColor),
+                        error: (err, _) => const SizedBox.shrink(),
+                        data: (text) => _buildAiCard("GENERAL ECO-COACH", text, isGeneral: true),
+                      ),
+                    ),
+
+                    // 3. YEARLY OVERVIEW GRAPH
+                    Padding(padding: const EdgeInsets.all(20.0), child: _buildYearlyChartCard(yearlyData, totalYearlyImpact)),
+
+                    const Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 24.0, vertical: 8.0),
+                      child: Text("Monthly Deep Dive", style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18)),
+                    ),
+
+                    // 4. MONTH SELECTOR
+                    _buildMonthSelector(),
+
+                    // 5. MONTH-SPECIFIC DETAILS & AI
+                    Padding(
+                      padding: const EdgeInsets.all(20.0),
+                      child: Column(
+                        children: [
+                          _buildMonthSummaryCard(selectedMonthImpact),
+                          const SizedBox(height: 16),
+
+                          monthlyAiAsync.when(
+                            loading: () => const LinearProgressIndicator(color: Colors.greenAccent),
+                            error: (err, _) => const SizedBox.shrink(),
+                            data: (text) {
+                              if (_selectedMonthIndex == DateTime.now().month - 1) {
+                                text = "Activity tracking in progress... Your full AI summary will be generated on the 1st of next month!";
+                              }
+
+                              return _buildAiCard(
+                                // 🌟 FIX: Uses dynamic current year instead of 2026
+                                "${DateFormat('MMMM').format(DateTime(DateTime.now().year, _selectedMonthIndex + 1)).toUpperCase()} INSIGHT",
+                                text,
+                                isGeneral: false,
+                              );
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 40),
+                  ],
                 ),
               ),
             );
-          }
-
-          // If logs are NOT empty, the rest of the page loads normally!
-          final yearlyData = _getYearlyData(logs);
-          final totalYearlyImpact = yearlyData.fold(
-            0.0,
-            (sum, item) => sum + item,
-          );
-          final selectedMonthImpact = yearlyData[_selectedMonthIndex];
-
-          return SingleChildScrollView(
-            physics: const BouncingScrollPhysics(),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // 🌟 CONNECTION STEP: Injecting your beautiful new header here!
-                Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 24.0,
-                    vertical: 8.0,
-                  ),
-                  child: _buildHeader(),
-                ),
-                const SizedBox(height: 16),
-
-                // 2. GENERAL AI INSIGHT (The Big Picture)
-                Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 20.0,
-                    vertical: 10,
-                  ),
-                  child: generalAiAsync.when(
-                    loading: () => const LinearProgressIndicator(
-                      color: AppTheme.primaryColor,
-                    ),
-                    error: (err, _) => const SizedBox.shrink(),
-                    data: (text) => _buildAiCard(
-                      "GENERAL ECO-COACH",
-                      text,
-                      isGeneral: true,
-                    ),
-                  ),
-                ),
-
-                // 3. YEARLY OVERVIEW GRAPH
-                Padding(
-                  padding: const EdgeInsets.all(20.0),
-                  child: _buildYearlyChartCard(yearlyData, totalYearlyImpact),
-                ),
-
-                const Padding(
-                  padding: EdgeInsets.symmetric(
-                    horizontal: 24.0,
-                    vertical: 8.0,
-                  ),
-                  child: Text(
-                    "Monthly Deep Dive",
-                    style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18),
-                  ),
-                ),
-
-                // 4. MONTH SELECTOR
-                _buildMonthSelector(),
-
-                // 5. MONTH-SPECIFIC DETAILS & AI
-                Padding(
-                  padding: const EdgeInsets.all(20.0),
-                  child: Column(
-                    children: [
-                      _buildMonthSummaryCard(selectedMonthImpact),
-                      const SizedBox(height: 16),
-
-                      monthlyAiAsync.when(
-                        loading: () => const LinearProgressIndicator(
-                          color: Colors.greenAccent,
-                        ),
-                        error: (err, _) => const SizedBox.shrink(),
-                        data: (text) {
-                          if (_selectedMonthIndex == DateTime.now().month - 1) {
-                            text =
-                                "Activity tracking in progress... Your full AI summary will be generated on the 1st of next month!";
-                          }
-
-                          return _buildAiCard(
-                            // 🌟 FIX: Uses dynamic current year instead of 2026
-                            "${DateFormat('MMMM').format(DateTime(DateTime.now().year, _selectedMonthIndex + 1)).toUpperCase()} INSIGHT",
-                            text,
-                            isGeneral: false,
-                          );
-                        },
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 40),
-              ],
-            ),
-          );
-        },
+          },
+        ),
       ),
     );
   }
@@ -219,45 +220,23 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
         color: isGeneral ? Colors.white : const Color(0xFF1A1A1A),
         borderRadius: BorderRadius.circular(24),
         border: Border.all(color: AppTheme.primaryColor.withOpacity(0.2)),
-        boxShadow: [
-          BoxShadow(
-            color: AppTheme.primaryColor.withOpacity(0.08),
-            blurRadius: 20,
-            offset: const Offset(0, 10),
-          ),
-        ],
+        boxShadow: [BoxShadow(color: AppTheme.primaryColor.withOpacity(0.08), blurRadius: 20, offset: const Offset(0, 10))],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Icon(
-                Icons.auto_awesome,
-                color: isGeneral ? AppTheme.primaryColor : Colors.greenAccent,
-                size: 20,
-              ),
+              Icon(Icons.auto_awesome, color: isGeneral ? AppTheme.primaryColor : Colors.greenAccent, size: 20),
               const SizedBox(width: 8),
               Text(
                 title,
-                style: TextStyle(
-                  color: isGeneral ? AppTheme.primaryColor : Colors.greenAccent,
-                  fontWeight: FontWeight.w900,
-                  fontSize: 11,
-                  letterSpacing: 1.2,
-                ),
+                style: TextStyle(color: isGeneral ? AppTheme.primaryColor : Colors.greenAccent, fontWeight: FontWeight.w900, fontSize: 11, letterSpacing: 1.2),
               ),
             ],
           ),
           const SizedBox(height: 12),
-          Text(
-            text,
-            style: TextStyle(
-              fontSize: 15,
-              height: 1.5,
-              color: isGeneral ? Colors.black87 : Colors.white,
-            ),
-          ),
+          Text(text, style: TextStyle(fontSize: 15, height: 1.5, color: isGeneral ? Colors.black87 : Colors.white)),
         ],
       ),
     );
@@ -269,13 +248,7 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(32),
-        boxShadow: [
-          BoxShadow(
-            color: AppTheme.primaryColor.withOpacity(0.08),
-            blurRadius: 30,
-            offset: const Offset(0, 15),
-          ),
-        ],
+        boxShadow: [BoxShadow(color: AppTheme.primaryColor.withOpacity(0.08), blurRadius: 30, offset: const Offset(0, 15))],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -285,14 +258,7 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
             style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 4),
-          Text(
-            "${total.toStringAsFixed(1)} kg CO₂e",
-            style: const TextStyle(
-              fontSize: 32,
-              fontWeight: FontWeight.w900,
-              letterSpacing: -1,
-            ),
-          ),
+          Text("${total.toStringAsFixed(1)} kg CO₂e", style: const TextStyle(fontSize: 32, fontWeight: FontWeight.w900, letterSpacing: -1)),
           const SizedBox(height: 32),
           _buildYearlyGraph(data),
         ],
@@ -301,9 +267,7 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
   }
 
   Widget _buildYearlyGraph(List<double> data) {
-    final maxY = data.isEmpty
-        ? 100.0
-        : (data.reduce((a, b) => a > b ? a : b) * 1.2);
+    final maxY = data.isEmpty ? 100.0 : (data.reduce((a, b) => a > b ? a : b) * 1.2);
 
     return SizedBox(
       height: 200,
@@ -313,16 +277,11 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
           gridData: FlGridData(
             show: true,
             drawVerticalLine: false,
-            getDrawingHorizontalLine: (val) =>
-                FlLine(color: Colors.grey.withOpacity(0.1), strokeWidth: 1),
+            getDrawingHorizontalLine: (val) => FlLine(color: Colors.grey.withOpacity(0.1), strokeWidth: 1),
           ),
           titlesData: FlTitlesData(
-            topTitles: const AxisTitles(
-              sideTitles: SideTitles(showTitles: false),
-            ),
-            rightTitles: const AxisTitles(
-              sideTitles: SideTitles(showTitles: false),
-            ),
+            topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+            rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
             leftTitles: AxisTitles(
               sideTitles: SideTitles(
                 showTitles: true,
@@ -333,11 +292,7 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
                     child: Text(
                       val.toInt().toString(),
                       textAlign: TextAlign.right,
-                      style: const TextStyle(
-                        color: Colors.grey,
-                        fontSize: 11,
-                        fontWeight: FontWeight.bold,
-                      ),
+                      style: const TextStyle(color: Colors.grey, fontSize: 11, fontWeight: FontWeight.bold),
                     ),
                   );
                 },
@@ -347,20 +302,7 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
               sideTitles: SideTitles(
                 showTitles: true,
                 getTitlesWidget: (val, _) {
-                  final months = [
-                    "J",
-                    "F",
-                    "M",
-                    "A",
-                    "M",
-                    "J",
-                    "J",
-                    "A",
-                    "S",
-                    "O",
-                    "N",
-                    "D",
-                  ];
+                  final months = ["J", "F", "M", "A", "M", "J", "J", "A", "S", "O", "N", "D"];
                   int index = val.toInt();
                   if (index < 0 || index > 11) return const SizedBox.shrink();
 
@@ -372,9 +314,7 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
                       months[index],
                       style: TextStyle(
                         color: isSelected ? AppTheme.primaryColor : Colors.grey,
-                        fontWeight: isSelected
-                            ? FontWeight.w900
-                            : FontWeight.bold,
+                        fontWeight: isSelected ? FontWeight.w900 : FontWeight.bold,
                         fontSize: 12,
                       ),
                     ),
@@ -386,11 +326,7 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
           borderData: FlBorderData(show: false),
           lineBarsData: [
             LineChartBarData(
-              spots: data
-                  .asMap()
-                  .entries
-                  .map((e) => FlSpot(e.key.toDouble(), e.value))
-                  .toList(),
+              spots: data.asMap().entries.map((e) => FlSpot(e.key.toDouble(), e.value)).toList(),
               isCurved: true,
               color: AppTheme.primaryColor,
               barWidth: 4,
@@ -400,10 +336,7 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
                 gradient: LinearGradient(
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
-                  colors: [
-                    AppTheme.primaryColor.withOpacity(0.2),
-                    AppTheme.primaryColor.withOpacity(0),
-                  ],
+                  colors: [AppTheme.primaryColor.withOpacity(0.2), AppTheme.primaryColor.withOpacity(0)],
                 ),
               ),
             ),
@@ -414,20 +347,7 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
   }
 
   Widget _buildMonthSelector() {
-    final months = [
-      "January",
-      "February",
-      "March",
-      "April",
-      "May",
-      "June",
-      "July",
-      "August",
-      "September",
-      "October",
-      "November",
-      "December",
-    ];
+    final months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
     return SizedBox(
       height: 50,
       child: ListView.builder(
@@ -444,29 +364,13 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
               decoration: BoxDecoration(
                 color: isSelected ? AppTheme.primaryColor : Colors.white,
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(
-                  color: isSelected
-                      ? AppTheme.primaryColor
-                      : Colors.grey.shade200,
-                ),
-                boxShadow: isSelected
-                    ? [
-                        BoxShadow(
-                          color: AppTheme.primaryColor.withOpacity(0.3),
-                          blurRadius: 8,
-                          offset: const Offset(0, 4),
-                        ),
-                      ]
-                    : [],
+                border: Border.all(color: isSelected ? AppTheme.primaryColor : Colors.grey.shade200),
+                boxShadow: isSelected ? [BoxShadow(color: AppTheme.primaryColor.withOpacity(0.3), blurRadius: 8, offset: const Offset(0, 4))] : [],
               ),
               child: Center(
                 child: Text(
                   months[index],
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 13,
-                    color: isSelected ? Colors.white : Colors.black87,
-                  ),
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: isSelected ? Colors.white : Colors.black87),
                 ),
               ),
             ),
@@ -478,9 +382,7 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
 
   Widget _buildMonthSummaryCard(double impact) {
     // 🌟 FIX: Uses dynamic current year instead of 2026
-    String monthName = DateFormat(
-      'MMMM',
-    ).format(DateTime(DateTime.now().year, _selectedMonthIndex + 1));
+    String monthName = DateFormat('MMMM').format(DateTime(DateTime.now().year, _selectedMonthIndex + 1));
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(20),
@@ -497,26 +399,13 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
             children: [
               Text(
                 "$monthName Total",
-                style: const TextStyle(
-                  color: Colors.grey,
-                  fontWeight: FontWeight.bold,
-                ),
+                style: const TextStyle(color: Colors.grey, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 4),
-              Text(
-                "${impact.toStringAsFixed(1)} kg",
-                style: const TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
+              Text("${impact.toStringAsFixed(1)} kg", style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w900)),
             ],
           ),
-          const Icon(
-            Icons.calendar_month,
-            color: AppTheme.primaryColor,
-            size: 32,
-          ),
+          const Icon(Icons.calendar_month, color: AppTheme.primaryColor, size: 32),
         ],
       ),
     );

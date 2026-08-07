@@ -17,9 +17,13 @@ serve(async (req) => {
 
     const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
 
-    // 1. Update the prompt to ask for ingredients
-    const prompt = `Analyze this food image. 
+    // 👇 NEW: Updated prompt to strictly check for food first
+    const prompt =
+      `You are an expert food emissions estimator. First, analyze the image to determine if it contains food or a meal. 
+        
+CRITICAL INSTRUCTION: If the image does NOT contain food (e.g., it is a picture of a keyboard, a person, a car, or an empty table), you must immediately reject it. Return is_food as false, food_name as "Not Food", empty strings for categories, and 0 for numerical values.
 
+If the image DOES contain food, proceed with the following:
 Identify the primary ingredients visible or typically present in this dish and return them as an array of strings.
 
 Analyze the food and map it to these categories:
@@ -31,7 +35,7 @@ Analyze the food and map it to these categories:
 For "is_meatless": return true if the meal contains no meat, poultry, or seafood. Otherwise false.`;
 
     const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent?key=${GEMINI_API_KEY}`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -44,19 +48,23 @@ For "is_meatless": return true if the meal contains no meat, poultry, or seafood
               ],
             },
           ],
-          // 2. Update the schema in your fetch call
+          // 👇 NEW: Added is_food to the schema
           generationConfig: {
             response_mime_type: "application/json",
             response_schema: {
               type: "OBJECT",
               properties: {
+                is_food: {
+                  type: "BOOLEAN",
+                  description:
+                    "True if the image actually contains food/meals, false if it is a random object/scene.",
+                },
                 food_name: { type: "STRING" },
                 db_category: { type: "STRING" },
                 factor_id: { type: "STRING" },
                 weight_g: { type: "NUMBER" },
                 estimated_co2e: { type: "NUMBER" },
                 is_meatless: { type: "BOOLEAN" },
-                // 👇 NEW: Added ingredients array
                 ingredients: {
                   type: "ARRAY",
                   items: { type: "STRING" },
@@ -64,13 +72,14 @@ For "is_meatless": return true if the meal contains no meat, poultry, or seafood
                 },
               },
               required: [
+                "is_food", // Make sure this is required
                 "food_name",
                 "db_category",
                 "factor_id",
                 "weight_g",
                 "estimated_co2e",
                 "is_meatless",
-                "ingredients", // 👇 NEW: Make it required
+                "ingredients",
               ],
             },
           },
@@ -80,11 +89,10 @@ For "is_meatless": return true if the meal contains no meat, poultry, or seafood
 
     const geminiData = await response.json();
 
-    // 🌟 FIX 2: Safely handle Gemini errors before parsing
+    // 🌟 Safely handle Gemini errors before parsing
     if (!geminiData.candidates || geminiData.candidates.length === 0) {
       console.error("Gemini API Error Payload:", JSON.stringify(geminiData));
 
-      // Check for specific Gemini API errors to send back to Flutter
       if (geminiData.error) {
         throw new Error(`Gemini Error: ${geminiData.error.message}`);
       } else if (geminiData.promptFeedback?.blockReason) {

@@ -29,10 +29,7 @@ class _MissionCameraScreenState extends State<MissionCameraScreen> {
   Future<void> _takePicture() async {
     try {
       // Compressing quality to 70 prevents massive base64 string payloads
-      final XFile? photo = await _picker.pickImage(
-        source: ImageSource.camera,
-        imageQuality: 70,
-      );
+      final XFile? photo = await _picker.pickImage(source: ImageSource.camera, imageQuality: 70);
 
       if (photo != null) {
         setState(() {
@@ -57,20 +54,15 @@ class _MissionCameraScreenState extends State<MissionCameraScreen> {
       // 2. Send to your Supabase Edge Function for Gemini processing
       final response = await Supabase.instance.client.functions.invoke(
         'verify_mission_vision',
-        body: {
-          'image_base64': base64Image,
-          'vision_criteria': widget.visionCriteria,
-        },
+        body: {'image_base64': base64Image, 'vision_criteria': widget.visionCriteria},
       );
 
       // 3. Robust JSON Decoding
       // The edge function now returns JSON directly, so response.data is already a Map!
-      final Map<String, dynamic> decodedData =
-          response.data as Map<String, dynamic>;
+      final Map<String, dynamic> decodedData = response.data as Map<String, dynamic>;
 
       final bool isVerified = decodedData['is_verified'] ?? false;
-      final String reason =
-          decodedData['reason'] ?? 'AI could not process the image.';
+      final String reason = decodedData['reason'] ?? 'AI could not process the image.';
 
       if (!context.mounted) return;
 
@@ -78,10 +70,7 @@ class _MissionCameraScreenState extends State<MissionCameraScreen> {
         // 4. Update Database on Success
         await Supabase.instance.client
             .from('user_tasks')
-            .update({
-              'is_completed': true,
-              'completed_at': DateTime.now().toIso8601String(),
-            })
+            .update({'is_completed': true, 'completed_at': DateTime.now().toIso8601String()})
             .eq('user_task_id', widget.userTaskId);
 
         if (!context.mounted) return;
@@ -93,9 +82,7 @@ class _MissionCameraScreenState extends State<MissionCameraScreen> {
     } catch (e) {
       debugPrint('Vision API Error: $e');
       if (!context.mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Error contacting AI server: $e')));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error contacting AI server: $e')));
     } finally {
       if (mounted) setState(() => _isProcessing = false);
     }
@@ -103,45 +90,35 @@ class _MissionCameraScreenState extends State<MissionCameraScreen> {
 
   void _showResultDialog(bool success, String title, String message) {
     showDialog(
-      context: context,
+      context: context, // Uses the MissionCameraScreen's context
       barrierDismissible: false,
-      builder: (context) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
+        // 👈 1. Distinct dialogContext
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: Row(
           children: [
-            Icon(
-              success ? Icons.check_circle : Icons.error_outline,
-              color: success ? Colors.green : Colors.red,
-            ),
+            Icon(success ? Icons.check_circle : Icons.error_outline, color: success ? Colors.green : Colors.red),
             const SizedBox(width: 8),
-            Text(
-              title,
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
-            ),
+            Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
           ],
         ),
-        content: Text(
-          message,
-          style: const TextStyle(fontSize: 14, height: 1.5),
-        ),
+        content: Text(message, style: const TextStyle(fontSize: 14, height: 1.5)),
         actions: [
           ElevatedButton(
             style: ElevatedButton.styleFrom(
               backgroundColor: success ? Colors.green : AppTheme.primaryColor,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
-              ),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
             ),
             onPressed: () {
-              Navigator.pop(context); // Close dialog
+              // 👈 2. Close the dialog first
+              Navigator.pop(dialogContext);
+
               if (success) {
-                Navigator.pop(context); // Go back to dashboard if successful
+                // 👈 3. Pop the MissionCameraScreen to reveal the HomeDashboard right beneath it
+                Navigator.pop(context);
               }
             },
-            child: Text(
-              success ? 'Awesome' : 'Try Again',
-              style: const TextStyle(color: Colors.white),
-            ),
+            child: Text(success ? 'Awesome' : 'Try Again', style: const TextStyle(color: Colors.white)),
           ),
         ],
       ),
@@ -156,10 +133,7 @@ class _MissionCameraScreenState extends State<MissionCameraScreen> {
         backgroundColor: Colors.transparent,
         elevation: 0,
         iconTheme: const IconThemeData(color: Colors.white),
-        title: const Text(
-          'AI Verification',
-          style: TextStyle(color: Colors.white),
-        ),
+        title: const Text('AI Verification', style: TextStyle(color: Colors.white)),
       ),
       body: SafeArea(
         child: Column(
@@ -168,30 +142,18 @@ class _MissionCameraScreenState extends State<MissionCameraScreen> {
             Container(
               padding: const EdgeInsets.all(16),
               margin: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(16),
-              ),
+              decoration: BoxDecoration(color: Colors.white.withOpacity(0.1), borderRadius: BorderRadius.circular(16)),
               child: Column(
                 children: [
                   const Text(
                     "PROVE YOUR MISSION",
-                    style: TextStyle(
-                      color: Colors.greenAccent,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 1.2,
-                      fontSize: 12,
-                    ),
+                    style: TextStyle(color: Colors.greenAccent, fontWeight: FontWeight.bold, letterSpacing: 1.2, fontSize: 12),
                   ),
                   const SizedBox(height: 8),
                   Text(
                     widget.taskDescription,
                     textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w500,
-                    ),
+                    style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w500),
                   ),
                 ],
               ),
@@ -211,16 +173,9 @@ class _MissionCameraScreenState extends State<MissionCameraScreen> {
                         : Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              Icon(
-                                Icons.camera_alt,
-                                size: 64,
-                                color: Colors.grey.shade700,
-                              ),
+                              Icon(Icons.camera_alt, size: 64, color: Colors.grey.shade700),
                               const SizedBox(height: 16),
-                              Text(
-                                'Tap below to open camera',
-                                style: TextStyle(color: Colors.grey.shade500),
-                              ),
+                              Text('Tap below to open camera', style: TextStyle(color: Colors.grey.shade500)),
                             ],
                           ),
                   ),
@@ -232,51 +187,27 @@ class _MissionCameraScreenState extends State<MissionCameraScreen> {
             Padding(
               padding: const EdgeInsets.all(24.0),
               child: _isProcessing
-                  ? const CircularProgressIndicator(
-                      color: AppTheme.primaryColor,
-                    )
+                  ? const CircularProgressIndicator(color: AppTheme.primaryColor)
                   : Row(
                       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                       children: [
                         if (_imageFile != null)
                           TextButton.icon(
                             onPressed: _takePicture,
-                            icon: const Icon(
-                              Icons.refresh,
-                              color: Colors.white70,
-                            ),
-                            label: const Text(
-                              'Retake',
-                              style: TextStyle(color: Colors.white70),
-                            ),
+                            icon: const Icon(Icons.refresh, color: Colors.white70),
+                            label: const Text('Retake', style: TextStyle(color: Colors.white70)),
                           ),
                         ElevatedButton.icon(
                           style: ElevatedButton.styleFrom(
                             backgroundColor: AppTheme.primaryColor,
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 24,
-                              vertical: 16,
-                            ),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(16),
-                            ),
+                            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                           ),
-                          onPressed: _imageFile == null
-                              ? _takePicture
-                              : _submitForVerification,
-                          icon: Icon(
-                            _imageFile == null
-                                ? Icons.camera
-                                : Icons.auto_awesome,
-                            color: Colors.white,
-                          ),
+                          onPressed: _imageFile == null ? _takePicture : _submitForVerification,
+                          icon: Icon(_imageFile == null ? Icons.camera : Icons.auto_awesome, color: Colors.white),
                           label: Text(
                             _imageFile == null ? 'Take Photo' : 'Analyze Image',
-                            style: const TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
-                            ),
+                            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
                           ),
                         ),
                       ],

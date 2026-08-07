@@ -25,10 +25,7 @@ class _BillScannerScreenState extends State<BillScannerScreen> {
 
   // --- CAPTURE IMAGE FUNCTION ---
   Future<void> _getImage(ImageSource source) async {
-    final XFile? pickedFile = await _picker.pickImage(
-      source: source,
-      imageQuality: 80,
-    );
+    final XFile? pickedFile = await _picker.pickImage(source: source, imageQuality: 80);
 
     if (pickedFile != null) {
       setState(() {
@@ -42,6 +39,76 @@ class _BillScannerScreenState extends State<BillScannerScreen> {
     }
   }
 
+  void _showMessageDialog(String title, String message, {bool isError = false, VoidCallback? onSecondaryAction, String? secondaryActionText}) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        final theme = Theme.of(context);
+        final isDark = theme.brightness == Brightness.dark;
+        final primaryColor = theme.primaryColor;
+        final iconColor = isError ? Colors.redAccent : primaryColor;
+
+        return Dialog(
+          backgroundColor: isDark ? Colors.grey[900] : Colors.white,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+          child: Padding(
+            padding: const EdgeInsets.all(24.0),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(color: iconColor.withOpacity(0.1), shape: BoxShape.circle),
+                  child: Icon(isError ? Icons.warning_rounded : Icons.check_circle_outline_rounded, color: iconColor, size: 36),
+                ),
+                const SizedBox(height: 20),
+                Text(
+                  title,
+                  textAlign: TextAlign.center,
+                  style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold, color: isError ? Colors.redAccent : primaryColor),
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  message,
+                  textAlign: TextAlign.center,
+                  style: theme.textTheme.bodyMedium?.copyWith(color: isDark ? Colors.white70 : Colors.black87, height: 1.4),
+                ),
+                const SizedBox(height: 28),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    child: const Text('Got it', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16)),
+                  ),
+                ),
+                if (onSecondaryAction != null && secondaryActionText != null) ...[
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton(
+                      style: OutlinedButton.styleFrom(
+                        side: BorderSide(color: primaryColor),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      ),
+                      onPressed: () {
+                        Navigator.of(context).pop();
+                        onSecondaryAction();
+                      },
+                      child: Text(
+                        secondaryActionText,
+                        style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16, color: primaryColor),
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   // --- SUPABASE EDGE FUNCTION BRIDGE ---
   Future<void> _analyzeImageWithGemini() async {
     if (_selectedImage == null) return;
@@ -49,18 +116,34 @@ class _BillScannerScreenState extends State<BillScannerScreen> {
     setState(() => _isAnalyzing = true);
 
     try {
+      throw Exception("429 Quota Exceeded");
       final bytes = await _selectedImage!.readAsBytes();
       final base64Image = base64Encode(bytes);
 
-      final response = await Supabase.instance.client.functions.invoke(
-        'analyze-bill-image',
-        body: {'image': base64Image},
-      );
+      final response = await Supabase.instance.client.functions.invoke('analyze-bill-image', body: {'image': base64Image});
 
       if (response.status == 200) {
         final data = response.data as Map<String, dynamic>;
         debugPrint('⚡ GEMINI BILL RESPONSE: $data');
 
+        // 👇 NEW: Check if the AI recognized the image as an electricity bill
+        final bool isValidBill = data['is_valid_bill'] ?? true;
+
+        if (!isValidBill) {
+          // Reject the image and alert the user
+          setState(() {
+            _isAnalyzing = false;
+            _selectedImage = null; // Clear the invalid image
+          });
+
+          if (mounted) {
+            // Replaced SnackBar with Custom Dialog
+            _showMessageDialog('Invalid Image', 'No electricity bill detected in this image. Please try again!', isError: true);
+          }
+          return; // Stop execution here
+        }
+
+        // Proceed normally if it IS a bill
         setState(() {
           _factorId = data['factor_id']?.toString();
           _kwhUsed = double.tryParse(data['kwh_used']?.toString() ?? '0');
@@ -72,11 +155,23 @@ class _BillScannerScreenState extends State<BillScannerScreen> {
       }
     } catch (e) {
       debugPrint('❌ Vision AI Error: $e');
-      setState(() => _isAnalyzing = false);
+      setState(() {
+        _isAnalyzing = false;
+        _selectedImage = null;
+      });
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Failed to read bill: $e')));
+        final errorStr = e.toString().toLowerCase();
+        if (errorStr.contains('quota') || errorStr.contains('429') || errorStr.contains('exhausted')) {
+          _showMessageDialog(
+            'AI Quota Reached',
+            'Our AI is taking a quick breather due to high demand. You can still log your bill manually!',
+            isError: true,
+            secondaryActionText: 'Enter Data Manually',
+            onSecondaryAction: () => context.push('/activity/manual-bill'),
+          );
+        } else {
+          _showMessageDialog('Analysis Failed', 'Failed to read bill: $e', isError: true);
+        }
       }
     }
   }
@@ -106,9 +201,7 @@ class _BillScannerScreenState extends State<BillScannerScreen> {
       debugPrint('❌ DB Save Error: $e');
       if (mounted) {
         setState(() => _isAnalyzing = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to save energy log: $e')),
-        );
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to save energy log: $e')));
       }
     }
   }
@@ -120,9 +213,7 @@ class _BillScannerScreenState extends State<BillScannerScreen> {
       barrierDismissible: false,
       builder: (BuildContext context) {
         return Dialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(24),
-          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
           elevation: 0,
           backgroundColor: Colors.transparent,
           child: Container(
@@ -130,13 +221,7 @@ class _BillScannerScreenState extends State<BillScannerScreen> {
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(24),
-              boxShadow: const [
-                BoxShadow(
-                  color: Colors.black12,
-                  blurRadius: 20.0,
-                  offset: Offset(0.0, 10.0),
-                ),
-              ],
+              boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 20.0, offset: Offset(0.0, 10.0))],
             ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -144,34 +229,19 @@ class _BillScannerScreenState extends State<BillScannerScreen> {
                 Container(
                   height: 80,
                   width: 80,
-                  decoration: BoxDecoration(
-                    color: Colors.amber.shade50,
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(
-                    Icons.electric_bolt,
-                    color: Colors.amber.shade600,
-                    size: 48,
-                  ),
+                  decoration: BoxDecoration(color: Colors.amber.shade50, shape: BoxShape.circle),
+                  child: Icon(Icons.electric_bolt, color: Colors.amber.shade600, size: 48),
                 ),
                 const SizedBox(height: 20),
                 const Text(
                   "Bill Scanned!",
-                  style: TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black87,
-                  ),
+                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.black87),
                 ),
                 const SizedBox(height: 12),
                 Text(
                   "We extracted ${_kwhUsed?.toStringAsFixed(1)} kWh from your utility bill.\n\nTracking your monthly grid electricity is the first step toward finding ways to lower your energy consumption.",
                   textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    color: Colors.black54,
-                    height: 1.4,
-                  ),
+                  style: const TextStyle(fontSize: 14, color: Colors.black54, height: 1.4),
                 ),
                 const SizedBox(height: 24),
                 SizedBox(
@@ -180,9 +250,7 @@ class _BillScannerScreenState extends State<BillScannerScreen> {
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppTheme.primaryColor,
                       padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14),
-                      ),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                       elevation: 0,
                     ),
                     onPressed: () {
@@ -193,11 +261,7 @@ class _BillScannerScreenState extends State<BillScannerScreen> {
                     },
                     child: const Text(
                       'Back to Activity Log',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
+                      style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
                     ),
                   ),
                 ),
@@ -215,10 +279,7 @@ class _BillScannerScreenState extends State<BillScannerScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFF9FFF9),
       appBar: AppBar(
-        title: const Text(
-          'Electricity Bill Scanner',
-          style: TextStyle(fontWeight: FontWeight.bold),
-        ),
+        title: const Text('Electricity Bill Scanner', style: TextStyle(fontWeight: FontWeight.bold)),
         centerTitle: true,
         backgroundColor: Colors.transparent,
         elevation: 0,
@@ -241,18 +302,12 @@ class _BillScannerScreenState extends State<BillScannerScreen> {
                           decoration: BoxDecoration(
                             color: Colors.white,
                             borderRadius: BorderRadius.circular(24),
-                            border: Border.all(
-                              color: Colors.grey.shade300,
-                              width: 2,
-                            ),
+                            border: Border.all(color: Colors.grey.shade300, width: 2),
                           ),
                           child: _selectedImage != null
                               ? ClipRRect(
                                   borderRadius: BorderRadius.circular(22),
-                                  child: Image.file(
-                                    _selectedImage!,
-                                    fit: BoxFit.cover,
-                                  ),
+                                  child: Image.file(_selectedImage!, fit: BoxFit.cover),
                                 )
                               : _buildScannerPlaceholder(),
                         ),
@@ -262,14 +317,9 @@ class _BillScannerScreenState extends State<BillScannerScreen> {
 
                       // BOTTOM: Dynamic Content
                       if (_isAnalyzing) ...[
-                        const CircularProgressIndicator(
-                          color: AppTheme.primaryColor,
-                        ),
+                        const CircularProgressIndicator(color: AppTheme.primaryColor),
                         const SizedBox(height: 12),
-                        const Text(
-                          "Gemini Vision Engine reading document...",
-                          style: TextStyle(fontWeight: FontWeight.w500),
-                        ),
+                        const Text("CarbonSense is reading the document...", style: TextStyle(fontWeight: FontWeight.w500)),
                       ] else if (_kwhUsed != null) ...[
                         _buildResultsCard(),
                       ] else ...[
@@ -296,10 +346,7 @@ class _BillScannerScreenState extends State<BillScannerScreen> {
         children: [
           Container(
             padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(
-              color: AppTheme.primaryColor.withOpacity(0.1),
-              shape: BoxShape.circle,
-            ),
+            decoration: BoxDecoration(color: AppTheme.primaryColor.withOpacity(0.1), shape: BoxShape.circle),
             child: const Icon(
               Icons.document_scanner_outlined,
               size: 56, // Increased size since it's the main focal point now
@@ -309,17 +356,10 @@ class _BillScannerScreenState extends State<BillScannerScreen> {
           const SizedBox(height: 24),
           const Text(
             'Ready to Scan',
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-              color: Colors.black87,
-            ),
+            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.black87),
           ),
           const SizedBox(height: 8),
-          const Text(
-            'Upload or capture your bill below',
-            style: TextStyle(fontSize: 14, color: Colors.black54),
-          ),
+          const Text('Upload or capture your bill below', style: TextStyle(fontSize: 14, color: Colors.black54)),
         ],
       ),
     );
@@ -332,33 +372,20 @@ class _BillScannerScreenState extends State<BillScannerScreen> {
       decoration: BoxDecoration(
         color: Colors.white, // Matches the app's clean aesthetic
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: AppTheme.primaryColor.withOpacity(0.3),
-        ), // Same border as your results card
-        boxShadow: [
-          BoxShadow(
-            color: AppTheme.primaryColor.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
+        border: Border.all(color: AppTheme.primaryColor.withOpacity(0.3)), // Same border as your results card
+        boxShadow: [BoxShadow(color: AppTheme.primaryColor.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 4))],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              const Icon(
-                Icons.privacy_tip_outlined,
-                color: AppTheme.primaryColor,
-                size: 22,
-              ),
+              const Icon(Icons.privacy_tip_outlined, color: AppTheme.primaryColor, size: 22),
               const SizedBox(width: 8),
               const Text(
                 "Privacy First Guidelines",
                 style: TextStyle(
-                  fontWeight:
-                      FontWeight.w900, // Matches your results card typography
+                  fontWeight: FontWeight.w900, // Matches your results card typography
                   color: Colors.black87,
                   fontSize: 16,
                 ),
@@ -377,8 +404,7 @@ class _BillScannerScreenState extends State<BillScannerScreen> {
               borderRadius: BorderRadius.circular(11),
               child: Image.asset(
                 'assets/images/bill_sample_highlight.png',
-                height:
-                    100, // Kept slightly compact so it doesn't push buttons off-screen
+                height: 100, // Kept slightly compact so it doesn't push buttons off-screen
                 width: double.infinity,
                 fit: BoxFit.cover,
                 alignment: const Alignment(0, 0.4), // Slightly lower
@@ -389,10 +415,7 @@ class _BillScannerScreenState extends State<BillScannerScreen> {
                     alignment: Alignment.center,
                     child: Text(
                       "[ Cropped Visual Guide Here ]",
-                      style: TextStyle(
-                        color: AppTheme.primaryColor.withOpacity(0.6),
-                        fontWeight: FontWeight.w500,
-                      ),
+                      style: TextStyle(color: AppTheme.primaryColor.withOpacity(0.6), fontWeight: FontWeight.w500),
                     ),
                   );
                 },
@@ -402,35 +425,18 @@ class _BillScannerScreenState extends State<BillScannerScreen> {
           const SizedBox(height: 16),
 
           // --- THE CHECKLIST ---
-          _buildInstructionRow(
-            icon: Icons.zoom_in,
-            color: AppTheme.primaryColor,
-            text:
-                'Zoom in ONLY on the "Actual Consumption" or "Total kWh" number.',
-          ),
+          _buildInstructionRow(icon: Icons.zoom_in, color: AppTheme.primaryColor, text: 'Zoom in ONLY on the "Actual Consumption" or "Total kWh" number.'),
           const SizedBox(height: 10),
-          _buildInstructionRow(
-            icon: Icons.visibility_off,
-            color: Colors.redAccent,
-            text: 'Do NOT capture your name, address, or account numbers.',
-          ),
+          _buildInstructionRow(icon: Icons.visibility_off, color: Colors.redAccent, text: 'Do NOT capture your name, address, or account numbers.'),
           const SizedBox(height: 10),
-          _buildInstructionRow(
-            icon: Icons.lightbulb_outline,
-            color: Colors.amber.shade600,
-            text: 'Ensure the number is well-lit and readable.',
-          ),
+          _buildInstructionRow(icon: Icons.lightbulb_outline, color: Colors.amber.shade600, text: 'Ensure the number is well-lit and readable.'),
         ],
       ),
     );
   }
 
   // Helper widget remains unchanged
-  Widget _buildInstructionRow({
-    required IconData icon,
-    required Color color,
-    required String text,
-  }) {
+  Widget _buildInstructionRow({required IconData icon, required Color color, required String text}) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -439,12 +445,7 @@ class _BillScannerScreenState extends State<BillScannerScreen> {
         Expanded(
           child: Text(
             text,
-            style: const TextStyle(
-              color: Colors.black87,
-              fontSize: 13,
-              height: 1.4,
-              fontWeight: FontWeight.w500,
-            ),
+            style: const TextStyle(color: Colors.black87, fontSize: 13, height: 1.4, fontWeight: FontWeight.w500),
           ),
         ),
       ],
@@ -459,18 +460,13 @@ class _BillScannerScreenState extends State<BillScannerScreen> {
             style: ElevatedButton.styleFrom(
               backgroundColor: AppTheme.primaryColor,
               padding: const EdgeInsets.symmetric(vertical: 16),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-              ),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
             ),
             onPressed: () => _getImage(ImageSource.camera),
             icon: const Icon(Icons.camera_alt_rounded, color: Colors.white),
             label: const Text(
               'Scan Bill',
-              style: TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-              ),
+              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
             ),
           ),
         ),
@@ -480,21 +476,13 @@ class _BillScannerScreenState extends State<BillScannerScreen> {
             style: OutlinedButton.styleFrom(
               padding: const EdgeInsets.symmetric(vertical: 16),
               side: const BorderSide(color: AppTheme.primaryColor),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-              ),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
             ),
             onPressed: () => _getImage(ImageSource.gallery),
-            icon: const Icon(
-              Icons.photo_library_rounded,
-              color: AppTheme.primaryColor,
-            ),
+            icon: const Icon(Icons.photo_library_rounded, color: AppTheme.primaryColor),
             label: const Text(
               'Gallery',
-              style: TextStyle(
-                color: AppTheme.primaryColor,
-                fontWeight: FontWeight.bold,
-              ),
+              style: TextStyle(color: AppTheme.primaryColor, fontWeight: FontWeight.bold),
             ),
           ),
         ),
@@ -514,11 +502,7 @@ class _BillScannerScreenState extends State<BillScannerScreen> {
         children: [
           const Text(
             "GRID ELECTRICITY",
-            style: TextStyle(
-              fontWeight: FontWeight.w900,
-              fontSize: 18,
-              color: Colors.black87,
-            ),
+            style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18, color: Colors.black87),
           ),
           const SizedBox(height: 16),
           Row(
@@ -526,17 +510,8 @@ class _BillScannerScreenState extends State<BillScannerScreen> {
             children: [
               Column(
                 children: [
-                  Text(
-                    '${_kwhUsed?.toStringAsFixed(1)} kWh',
-                    style: const TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w900,
-                    ),
-                  ),
-                  const Text(
-                    'Extracted Usage',
-                    style: TextStyle(fontSize: 12, color: Colors.grey),
-                  ),
+                  Text('${_kwhUsed?.toStringAsFixed(1)} kWh', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900)),
+                  const Text('Extracted Usage', style: TextStyle(fontSize: 12, color: Colors.grey)),
                 ],
               ),
               Container(width: 1, height: 30, color: Colors.grey.shade300),
@@ -544,16 +519,9 @@ class _BillScannerScreenState extends State<BillScannerScreen> {
                 children: [
                   Text(
                     '+${_co2e?.toStringAsFixed(2)} kg',
-                    style: const TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w900,
-                      color: Colors.redAccent,
-                    ),
+                    style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: Colors.redAccent),
                   ),
-                  const Text(
-                    'CO₂e Footprint',
-                    style: TextStyle(fontSize: 12, color: Colors.grey),
-                  ),
+                  const Text('CO₂e Footprint', style: TextStyle(fontSize: 12, color: Colors.grey)),
                 ],
               ),
             ],
@@ -565,17 +533,12 @@ class _BillScannerScreenState extends State<BillScannerScreen> {
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppTheme.primaryColor,
                 padding: const EdgeInsets.symmetric(vertical: 14),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               ),
               onPressed: _saveEnergyLog,
               child: const Text(
                 'Confirm & Log Energy',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                ),
+                style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
               ),
             ),
           ),
@@ -584,10 +547,7 @@ class _BillScannerScreenState extends State<BillScannerScreen> {
           TextButton.icon(
             onPressed: () => _getImage(ImageSource.camera),
             icon: const Icon(Icons.refresh, size: 16, color: Colors.grey),
-            label: const Text(
-              "Incorrect reading? Retake photo",
-              style: TextStyle(color: Colors.grey, fontSize: 12),
-            ),
+            label: const Text("Incorrect reading? Retake photo", style: TextStyle(color: Colors.grey, fontSize: 12)),
           ),
         ],
       ),

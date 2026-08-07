@@ -43,36 +43,27 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
 
     // 🌟 ADDED: Validate that the fields are not empty
     if (newPassword.isEmpty || confirmPassword.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please fill out both password fields.')),
-      );
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please fill out both password fields.')));
       return;
     }
 
     // 🌟 ADDED: Validate that both passwords match
     if (newPassword != confirmPassword) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Passwords do not match.')),
-      );
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Passwords do not match.')));
       return;
     }
 
     if (!_hasMinLength || !_hasUppercase || !_hasNumber) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Password does not meet requirements.')),
-      );
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Password does not meet requirements.')));
       return;
     }
 
     // 🌟 THE FIX: Check if Supabase actually established a session from the link
     final session = Supabase.instance.client.auth.currentSession;
     if (session == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('This reset link has expired or is invalid. Please request a new one.'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('This reset link has expired or is invalid. Please request a new one.'), backgroundColor: Colors.red));
       // Kick them back to the forgot password screen to try again
       context.go('/forgot-password');
       return;
@@ -82,29 +73,21 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
 
     try {
       // Supabase magic: Updates the current user's password using the temporary email session
-      await Supabase.instance.client.auth.updateUser(
-        UserAttributes(password: newPassword),
-      );
+      await Supabase.instance.client.auth.updateUser(UserAttributes(password: newPassword));
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Password updated successfully! Please login.'),
-            backgroundColor: Colors.green,
-          ),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Password updated successfully! Please login.'), backgroundColor: Colors.green));
         // Wipe current session and force them to login with the new credentials
         await Supabase.instance.client.auth.signOut();
         context.go('/login');
       }
     } catch (error) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to reset password: ${error.toString()}'),
-            backgroundColor: Theme.of(context).colorScheme.error,
-          ),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Failed to reset password: ${error.toString()}'), backgroundColor: Theme.of(context).colorScheme.error));
       }
     } finally {
       if (mounted) {
@@ -126,16 +109,9 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
       padding: const EdgeInsets.only(bottom: 4.0),
       child: Row(
         children: [
-          Icon(
-            isMet ? Icons.check_circle : Icons.radio_button_unchecked,
-            color: isMet ? Colors.green : Colors.grey,
-            size: 16,
-          ),
+          Icon(isMet ? Icons.check_circle : Icons.radio_button_unchecked, color: isMet ? Colors.green : Colors.grey, size: 16),
           const SizedBox(width: 8),
-          Text(
-            text,
-            style: TextStyle(color: isMet ? Colors.green : Colors.grey, fontSize: 12),
-          ),
+          Text(text, style: TextStyle(color: isMet ? Colors.green : Colors.grey, fontSize: 12)),
         ],
       ),
     );
@@ -152,17 +128,12 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Center(
-                  child: Icon(Icons.lock_reset, size: 80, color: AppTheme.primaryColor),
-                ),
+                const Center(child: Icon(Icons.lock_reset, size: 80, color: AppTheme.primaryColor)),
                 const SizedBox(height: 16),
                 Center(
                   child: Text(
                     'Enter New Password',
-                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                          color: AppTheme.primaryColor,
-                          fontWeight: FontWeight.bold,
-                        ),
+                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(color: AppTheme.primaryColor, fontWeight: FontWeight.bold),
                   ),
                 ),
                 const SizedBox(height: 32),
@@ -172,7 +143,6 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                   decoration: const InputDecoration(hintText: 'New Password'),
                 ),
                 const SizedBox(height: 16), // 🌟 ADDED SPACING
-                
                 // 🌟 NEW: Confirm Password Field
                 TextField(
                   controller: _confirmPasswordController,
@@ -180,7 +150,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                   decoration: const InputDecoration(hintText: 'Confirm New Password'),
                 ),
                 const SizedBox(height: 12),
-                
+
                 _buildRequirement('At least 6 characters', _hasMinLength),
                 _buildRequirement('At least 1 uppercase letter', _hasUppercase),
                 _buildRequirement('At least 1 number', _hasNumber),
@@ -189,9 +159,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                   width: double.infinity,
                   child: ElevatedButton(
                     onPressed: _isLoading ? null : _updatePassword,
-                    child: _isLoading
-                        ? const CircularProgressIndicator(color: Colors.white)
-                        : const Text('Save New Password'),
+                    child: _isLoading ? const CircularProgressIndicator(color: Colors.white) : const Text('Save New Password'),
                   ),
                 ),
               ],
