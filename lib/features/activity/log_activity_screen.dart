@@ -378,12 +378,7 @@ class _LogActivityScreenState extends State<LogActivityScreen> with SingleTicker
     );
     const NotificationDetails platformDetails = NotificationDetails(android: androidDetails);
 
-    await _localNotifications.show(
-      0,
-      'Trip Tracking in Progress 📍',
-      'CarbonSense is calculating your ${_selectedVehicle ?? 'commute'} distance.',
-      platformDetails,
-    );
+    await _localNotifications.show(0, 'Trip Tracking in Progress 📍', 'CarbonSense is calculating your ${_selectedVehicle ?? 'commute'} distance.', platformDetails);
   }
 
   // --- TIMER & MATH LOGIC ---
@@ -527,7 +522,7 @@ class _LogActivityScreenState extends State<LogActivityScreen> with SingleTicker
         child: LayoutBuilder(
           builder: (context, constraints) {
             return SingleChildScrollView(
-              padding: const EdgeInsets.all(24),
+              padding: const EdgeInsets.only(left: 24, top: 24, right: 24, bottom: 120),
               child: ConstrainedBox(
                 constraints: BoxConstraints(minHeight: constraints.maxHeight),
                 child: IntrinsicHeight(
@@ -655,19 +650,11 @@ class _LogActivityScreenState extends State<LogActivityScreen> with SingleTicker
 
           const SizedBox(height: 8), // Reduced from 10
 
-          _buildInstructionRow(
-            icon: Icons.screen_lock_portrait_outlined,
-            color: Colors.blue,
-            text: 'You can lock your screen while CarbonSense continues tracking your trip.',
-          ),
+          _buildInstructionRow(icon: Icons.screen_lock_portrait_outlined, color: Colors.blue, text: 'You can lock your screen while CarbonSense continues tracking your trip.'),
 
           const SizedBox(height: 8),
 
-          _buildInstructionRow(
-            icon: Icons.stop_circle_outlined,
-            color: Colors.redAccent,
-            text: 'Tap END TRIP immediately upon arrival for accurate carbon calculations.',
-          ),
+          _buildInstructionRow(icon: Icons.stop_circle_outlined, color: Colors.redAccent, text: 'Tap END TRIP immediately upon arrival for accurate carbon calculations.'),
         ],
       ),
     );
@@ -697,11 +684,7 @@ class _LogActivityScreenState extends State<LogActivityScreen> with SingleTicker
         final double bounceOffset = -15 * _bounceController.value;
         return Transform.translate(
           offset: Offset(0, bounceOffset),
-          child: Icon(
-            _getIconForVehicle(_selectedVehicle ?? ''),
-            size: 56,
-            color: _isTracking || (_distanceKm > 0) ? AppTheme.primaryColor : Colors.grey.shade300,
-          ),
+          child: Icon(_getIconForVehicle(_selectedVehicle ?? ''), size: 56, color: _isTracking || (_distanceKm > 0) ? AppTheme.primaryColor : Colors.grey.shade300),
         );
       },
     );
@@ -780,14 +763,7 @@ class _LogActivityScreenState extends State<LogActivityScreen> with SingleTicker
         decoration: BoxDecoration(
           shape: BoxShape.circle,
           color: _isTracking ? Colors.redAccent : AppTheme.primaryColor,
-          boxShadow: [
-            BoxShadow(
-              color: (_isTracking ? Colors.redAccent : AppTheme.primaryColor).withOpacity(0.3),
-              blurRadius: 30,
-              spreadRadius: 10,
-              offset: const Offset(0, 10),
-            ),
-          ],
+          boxShadow: [BoxShadow(color: (_isTracking ? Colors.redAccent : AppTheme.primaryColor).withOpacity(0.3), blurRadius: 30, spreadRadius: 10, offset: const Offset(0, 10))],
         ),
         child: Center(
           child: _isGettingLocation

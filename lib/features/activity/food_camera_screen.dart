@@ -125,7 +125,6 @@ class _FoodCameraScreenState extends State<FoodCameraScreen> {
     setState(() => _isAnalyzing = true);
 
     try {
-      throw Exception("429 Quota Exceeded");
       final bytes = await _selectedImage!.readAsBytes();
       final base64Image = base64Encode(bytes);
 
@@ -389,7 +388,7 @@ class _FoodCameraScreenState extends State<FoodCameraScreen> {
       body: SafeArea(
         child: SingleChildScrollView(
           child: Padding(
-            padding: const EdgeInsets.all(24),
+            padding: const EdgeInsets.only(left: 24, top: 24, right: 24, bottom: 120),
             child: ConstrainedBox(
               constraints: BoxConstraints(minHeight: MediaQuery.of(context).size.height - kToolbarHeight - MediaQuery.of(context).padding.top),
               child: IntrinsicHeight(

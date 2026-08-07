@@ -11,41 +11,27 @@ class ScoreHistoryScreen extends StatelessWidget {
       body: SafeArea(
         child: SingleChildScrollView(
           child: Padding(
-            padding: const EdgeInsets.all(24.0),
+            padding: const EdgeInsets.only(left: 24, top: 24, right: 24, bottom: 120),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.start, // Snaps to top
               crossAxisAlignment: CrossAxisAlignment.stretch, // Expands full width
               children: [
                 Row(
                   children: [
-                    IconButton(
-                      icon: const Icon(Icons.arrow_back),
-                      onPressed: () => Navigator.pop(context),
-                    ),
+                    IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => Navigator.pop(context)),
                     Text(
                       'Footprint Trends',
-                      style: Theme.of(context)
-                          .textTheme
-                          .headlineSmall
-                          ?.copyWith(
-                              color: AppTheme.primaryColor,
-                              fontWeight: FontWeight.bold),
+                      style: Theme.of(context).textTheme.headlineSmall?.copyWith(color: AppTheme.primaryColor, fontWeight: FontWeight.bold),
                     ),
                   ],
                 ),
                 const SizedBox(height: 24),
                 Card(
                   elevation: 4,
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16)),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                   child: Padding(
                     padding: const EdgeInsets.fromLTRB(16, 24, 24, 16),
-                    child: SizedBox(
-                      height: 300,
-                      child: LineChart(
-                        _mainData(),
-                      ),
-                    ),
+                    child: SizedBox(height: 300, child: LineChart(_mainData())),
                   ),
                 ),
               ],
@@ -129,10 +115,7 @@ class ScoreHistoryScreen extends StatelessWidget {
           barWidth: 5,
           isStrokeCapRound: true,
           dotData: const FlDotData(show: false),
-          belowBarData: BarAreaData(
-            show: true,
-            color: AppTheme.primaryColor.withAlpha(77),
-          ),
+          belowBarData: BarAreaData(show: true, color: AppTheme.primaryColor.withAlpha(77)),
         ),
       ],
     );

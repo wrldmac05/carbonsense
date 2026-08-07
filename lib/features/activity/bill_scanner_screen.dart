@@ -116,7 +116,6 @@ class _BillScannerScreenState extends State<BillScannerScreen> {
     setState(() => _isAnalyzing = true);
 
     try {
-      throw Exception("429 Quota Exceeded");
       final bytes = await _selectedImage!.readAsBytes();
       final base64Image = base64Encode(bytes);
 
@@ -288,7 +287,7 @@ class _BillScannerScreenState extends State<BillScannerScreen> {
         child: LayoutBuilder(
           builder: (context, constraints) {
             return SingleChildScrollView(
-              padding: const EdgeInsets.all(24),
+              padding: const EdgeInsets.only(left: 24, top: 24, right: 24, bottom: 120),
               child: ConstrainedBox(
                 constraints: BoxConstraints(minHeight: constraints.maxHeight),
                 child: IntrinsicHeight(

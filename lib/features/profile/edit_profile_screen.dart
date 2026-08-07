@@ -247,7 +247,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           ? const Center(child: CircularProgressIndicator(color: AppTheme.primaryColor))
           : SingleChildScrollView(
               physics: const BouncingScrollPhysics(),
-              padding: const EdgeInsets.all(24.0),
+              padding: const EdgeInsets.only(left: 24, top: 24, right: 24, bottom: 120),
               child: Form(
                 key: _formKey,
                 child: Column(

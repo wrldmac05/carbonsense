@@ -153,7 +153,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         onRefresh: _fetchCompleteProfile,
         child: SingleChildScrollView(
           physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
-          padding: const EdgeInsets.all(24.0),
+          padding: const EdgeInsets.only(left: 24, top: 24, right: 24, bottom: 120),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
@@ -166,9 +166,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 child: CircleAvatar(
                   radius: 46,
                   backgroundColor: AppTheme.primaryColor.withOpacity(0.1),
-                  backgroundImage: _userProfile?['avatar_url'] != null
-                      ? NetworkImage("${_userProfile!['avatar_url']}?t=${DateTime.now().millisecondsSinceEpoch}")
-                      : null,
+                  backgroundImage: _userProfile?['avatar_url'] != null ? NetworkImage("${_userProfile!['avatar_url']}?t=${DateTime.now().millisecondsSinceEpoch}") : null,
                   child: _userProfile?['avatar_url'] == null ? const Icon(Icons.person, size: 40, color: AppTheme.primaryColor) : null,
                 ),
               ),
@@ -274,19 +272,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           padding: const EdgeInsets.only(bottom: 6.0),
                           child: Row(
                             children: [
-                              Icon(
-                                isMet ? Icons.check_circle : Icons.radio_button_unchecked,
-                                size: 16,
-                                color: isMet ? AppTheme.primaryColor : Colors.grey.shade400,
-                              ),
+                              Icon(isMet ? Icons.check_circle : Icons.radio_button_unchecked, size: 16, color: isMet ? AppTheme.primaryColor : Colors.grey.shade400),
                               const SizedBox(width: 8),
                               Text(
                                 text,
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: isMet ? FontWeight.w600 : FontWeight.normal,
-                                  color: isMet ? Colors.black87 : Colors.black54,
-                                ),
+                                style: TextStyle(fontSize: 13, fontWeight: isMet ? FontWeight.w600 : FontWeight.normal, color: isMet ? Colors.black87 : Colors.black54),
                               ),
                             ],
                           ),
@@ -358,10 +348,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                       labelText: "New Password",
                                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                                       prefixIcon: const Icon(Icons.lock_outline),
-                                      suffixIcon: IconButton(
-                                        icon: Icon(isObscured ? Icons.visibility_off : Icons.visibility),
-                                        onPressed: () => setModalState(() => isObscured = !isObscured),
-                                      ),
+                                      suffixIcon: IconButton(icon: Icon(isObscured ? Icons.visibility_off : Icons.visibility), onPressed: () => setModalState(() => isObscured = !isObscured)),
                                     ),
                                     onChanged: (value) {
                                       // Update requirement checks in real-time
@@ -413,10 +400,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                                 try {
                                                   final user = Supabase.instance.client.auth.currentUser;
 
-                                                  await Supabase.instance.client.auth.signInWithPassword(
-                                                    email: user!.email!,
-                                                    password: currentPasswordController.text,
-                                                  );
+                                                  await Supabase.instance.client.auth.signInWithPassword(email: user!.email!, password: currentPasswordController.text);
 
                                                   await Supabase.instance.client.auth.updateUser(UserAttributes(password: passwordController.text));
 
@@ -436,10 +420,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                                             children: [
                                                               Container(
                                                                 padding: const EdgeInsets.all(16),
-                                                                decoration: BoxDecoration(
-                                                                  color: AppTheme.primaryColor.withOpacity(0.1),
-                                                                  shape: BoxShape.circle,
-                                                                ),
+                                                                decoration: BoxDecoration(color: AppTheme.primaryColor.withOpacity(0.1), shape: BoxShape.circle),
                                                                 child: const Icon(Icons.check_circle, color: AppTheme.primaryColor, size: 64),
                                                               ),
                                                               const SizedBox(height: 24),
@@ -483,16 +464,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                                       });
                                                       formKey.currentState!.validate();
                                                     } else {
-                                                      ScaffoldMessenger.of(
-                                                        context,
-                                                      ).showSnackBar(SnackBar(content: Text(e.message), backgroundColor: Colors.red));
+                                                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message), backgroundColor: Colors.red));
                                                     }
                                                   }
                                                 } catch (e) {
                                                   if (context.mounted) {
-                                                    ScaffoldMessenger.of(
-                                                      context,
-                                                    ).showSnackBar(SnackBar(content: Text('Error: ${e.toString()}'), backgroundColor: Colors.red));
+                                                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: ${e.toString()}'), backgroundColor: Colors.red));
                                                   }
                                                 } finally {
                                                   setModalState(() => isSaving = false);
@@ -586,9 +563,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                               }
                                             } catch (e) {
                                               if (context.mounted) {
-                                                ScaffoldMessenger.of(
-                                                  context,
-                                                ).showSnackBar(SnackBar(content: Text('Failed to delete account: $e'), backgroundColor: Colors.red));
+                                                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to delete account: $e'), backgroundColor: Colors.red));
                                               }
                                             } finally {
                                               setModalState(() => isDeleting = false);
@@ -701,10 +676,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
       leading: Container(
         padding: const EdgeInsets.all(10),
-        decoration: BoxDecoration(
-          color: isDestructive ? Colors.red.withOpacity(0.1) : AppTheme.primaryColor.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(12),
-        ),
+        decoration: BoxDecoration(color: isDestructive ? Colors.red.withOpacity(0.1) : AppTheme.primaryColor.withOpacity(0.1), borderRadius: BorderRadius.circular(12)),
         child: Icon(icon, color: isDestructive ? Colors.red : AppTheme.primaryColor, size: 20),
       ),
       title: Text(

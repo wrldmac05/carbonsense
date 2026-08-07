@@ -292,7 +292,7 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
             color: Colors.white,
             borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
           ),
-          padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
+          padding: const EdgeInsets.only(left: 24, top: 24, right: 24, bottom: 120),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -339,7 +339,7 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
                     return SingleChildScrollView(
                       physics: const BouncingScrollPhysics(),
                       child: Padding(
-                        padding: const EdgeInsets.only(bottom: 40.0),
+                        padding: const EdgeInsets.only(left: 24, top: 24, right: 24, bottom: 120),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -467,7 +467,7 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
             color: Colors.white,
             borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
           ),
-          padding: const EdgeInsets.all(24.0),
+          padding: const EdgeInsets.only(left: 24, top: 24, right: 24, bottom: 120),
           child: SafeArea(
             child: SingleChildScrollView(
               physics: const BouncingScrollPhysics(),
@@ -606,7 +606,7 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
                 // 🌟 Kept BouncingScrollPhysics but wrapped in AlwaysScrollable to ensure pull-to-refresh works even on short screens
                 physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
                 child: Padding(
-                  padding: const EdgeInsets.all(24.0),
+                  padding: const EdgeInsets.only(left: 24, top: 24, right: 24, bottom: 120),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -711,8 +711,8 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
         ),
         const SizedBox(height: 6),
         Text(
-          "What do you want to do today?",
-          style: TextStyle(fontSize: 34, fontWeight: FontWeight.w900, letterSpacing: -1.0, color: Colors.grey.shade900),
+          "Let's make an impact today",
+          style: TextStyle(fontSize: 32, fontWeight: FontWeight.w900, letterSpacing: -1.0, color: Colors.grey.shade900),
         ),
         const SizedBox(height: 4),
         Text(
@@ -1160,8 +1160,8 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
                           final validationMethod = taskDetails['validation_method']?.toString() ?? 'telemetry';
 
                           if (validationMethod == 'vision') {
-                            Navigator.push(
-                              context,
+                            // 👇 Add 'rootNavigator: true' here
+                            Navigator.of(context, rootNavigator: true).push(
                               MaterialPageRoute(
                                 builder: (context) => MissionCameraScreen(taskDescription: description, visionCriteria: visionCriteria, userTaskId: userTaskId),
                               ),

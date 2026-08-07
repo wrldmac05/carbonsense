@@ -175,7 +175,7 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
 
                     // 5. MONTH-SPECIFIC DETAILS & AI
                     Padding(
-                      padding: const EdgeInsets.all(20.0),
+                      padding: const EdgeInsets.only(left: 24, top: 24, right: 24, bottom: 120),
                       child: Column(
                         children: [
                           _buildMonthSummaryCard(selectedMonthImpact),
@@ -274,11 +274,7 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
       child: LineChart(
         LineChartData(
           maxY: maxY == 0 ? 10 : maxY,
-          gridData: FlGridData(
-            show: true,
-            drawVerticalLine: false,
-            getDrawingHorizontalLine: (val) => FlLine(color: Colors.grey.withOpacity(0.1), strokeWidth: 1),
-          ),
+          gridData: FlGridData(show: true, drawVerticalLine: false, getDrawingHorizontalLine: (val) => FlLine(color: Colors.grey.withOpacity(0.1), strokeWidth: 1)),
           titlesData: FlTitlesData(
             topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
             rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
@@ -312,11 +308,7 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
                     padding: const EdgeInsets.only(top: 8.0),
                     child: Text(
                       months[index],
-                      style: TextStyle(
-                        color: isSelected ? AppTheme.primaryColor : Colors.grey,
-                        fontWeight: isSelected ? FontWeight.w900 : FontWeight.bold,
-                        fontSize: 12,
-                      ),
+                      style: TextStyle(color: isSelected ? AppTheme.primaryColor : Colors.grey, fontWeight: isSelected ? FontWeight.w900 : FontWeight.bold, fontSize: 12),
                     ),
                   );
                 },
@@ -333,11 +325,7 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
               dotData: const FlDotData(show: false),
               belowBarData: BarAreaData(
                 show: true,
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [AppTheme.primaryColor.withOpacity(0.2), AppTheme.primaryColor.withOpacity(0)],
-                ),
+                gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [AppTheme.primaryColor.withOpacity(0.2), AppTheme.primaryColor.withOpacity(0)]),
               ),
             ),
           ],

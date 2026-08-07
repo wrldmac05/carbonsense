@@ -56,7 +56,7 @@ class _ActivityLogScreenState extends ConsumerState<ActivityLogScreen> {
       backgroundColor: Colors.transparent,
       builder: (context) {
         return Container(
-          padding: const EdgeInsets.all(24),
+          padding: const EdgeInsets.only(left: 24, top: 24, right: 24, bottom: 120),
           decoration: const BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
@@ -219,11 +219,7 @@ class _ActivityLogScreenState extends ConsumerState<ActivityLogScreen> {
         ),
         Text(
           value,
-          style: TextStyle(
-            color: isHighlight ? AppTheme.primaryColor : Colors.black87,
-            fontSize: isHighlight ? 18 : 16,
-            fontWeight: isHighlight ? FontWeight.w900 : FontWeight.bold,
-          ),
+          style: TextStyle(color: isHighlight ? AppTheme.primaryColor : Colors.black87, fontSize: isHighlight ? 18 : 16, fontWeight: isHighlight ? FontWeight.w900 : FontWeight.bold),
         ),
       ],
     );
@@ -327,7 +323,7 @@ class _ActivityLogScreenState extends ConsumerState<ActivityLogScreen> {
                 physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
                 slivers: [
                   SliverPadding(
-                    padding: const EdgeInsets.all(24.0),
+                    padding: const EdgeInsets.only(left: 24, top: 24, right: 24, bottom: 120),
                     sliver: SliverList(
                       delegate: SliverChildListDelegate([
                         Row(
@@ -338,9 +334,7 @@ class _ActivityLogScreenState extends ConsumerState<ActivityLogScreen> {
                               children: [
                                 Text(
                                   'Track Activity',
-                                  style: Theme.of(
-                                    context,
-                                  ).textTheme.headlineSmall?.copyWith(color: Colors.black87, fontWeight: FontWeight.w900, letterSpacing: -0.5),
+                                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(color: Colors.black87, fontWeight: FontWeight.w900, letterSpacing: -0.5),
                                 ),
                                 const SizedBox(height: 4),
                                 Text('What did you do today?', style: TextStyle(color: Colors.grey.shade600, fontSize: 14)),
@@ -511,10 +505,7 @@ class _ActivityLogScreenState extends ConsumerState<ActivityLogScreen> {
                         Container(
                           width: 5,
                           height: 5,
-                          decoration: BoxDecoration(
-                            color: hasData ? (isSelected ? Colors.white : AppTheme.primaryColor) : Colors.transparent,
-                            shape: BoxShape.circle,
-                          ),
+                          decoration: BoxDecoration(color: hasData ? (isSelected ? Colors.white : AppTheme.primaryColor) : Colors.transparent, shape: BoxShape.circle),
                         ),
                       ],
                     ),
@@ -562,13 +553,7 @@ class _ActivityLogScreenState extends ConsumerState<ActivityLogScreen> {
     );
   }
 
-  Widget _buildModernListTile({
-    required String title,
-    required String category,
-    required String subtitle,
-    required String co2Value,
-    required VoidCallback onTap,
-  }) {
+  Widget _buildModernListTile({required String title, required String category, required String subtitle, required String co2Value, required VoidCallback onTap}) {
     return Material(
       color: Colors.transparent,
       child: InkWell(

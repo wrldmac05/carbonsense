@@ -55,53 +55,65 @@ class _CustomDrawerState extends State<CustomDrawer> {
       child: SafeArea(
         child: Column(
           children: [
-            // --- 1. PREMIUM HEADER ---
+            // --- 1. HEADER ---
             Container(
-              padding: const EdgeInsets.fromLTRB(24, 40, 24, 24),
               width: double.infinity,
-              decoration: BoxDecoration(
-                border: Border(bottom: BorderSide(color: Colors.grey.shade200)),
+              clipBehavior: Clip.hardEdge,
+              decoration: const BoxDecoration(
+                color: AppTheme.primaryColor, // Solid Primary Color
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              child: Stack(
                 children: [
-                  Container(
-                    padding: const EdgeInsets.all(4),
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      border: Border.all(color: AppTheme.primaryColor.withOpacity(0.3), width: 2),
-                    ),
-                    child: CircleAvatar(
-                      radius: 36,
-                      backgroundColor: AppTheme.primaryColor.withOpacity(0.1),
-                      backgroundImage: _avatarUrl != null ? NetworkImage("$_avatarUrl?t=${DateTime.now().millisecondsSinceEpoch}") : null,
-                      child: _avatarUrl == null ? const Icon(Icons.person, size: 36, color: AppTheme.primaryColor) : null,
+                  // --- WATERMARKS ---
+                  // Watermark 1: Top Right
+                  Positioned(
+                    top: -20,
+                    right: -30,
+                    child: Icon(
+                      Icons.fingerprint, // Consider replacing with your app's actual logo icon
+                      size: 160,
+                      color: Colors.white.withOpacity(0.06),
                     ),
                   ),
-                  const SizedBox(height: 16),
-                  Text(
-                    _displayName,
-                    style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: Colors.black87, letterSpacing: -0.5),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    _email,
-                    style: TextStyle(fontSize: 13, color: Colors.grey.shade600, fontWeight: FontWeight.w500),
-                  ),
-                  const SizedBox(height: 16),
-                  // A small "Alive" badge
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                    decoration: BoxDecoration(color: AppTheme.primaryColor.withOpacity(0.1), borderRadius: BorderRadius.circular(12)),
-                    child: const Row(
-                      mainAxisSize: MainAxisSize.min,
+                  // Watermark 2: Bottom Left
+                  Positioned(bottom: -40, left: -10, child: Icon(Icons.blur_on, size: 120, color: Colors.white.withOpacity(0.04))),
+
+                  // --- MAIN CONTENT ---
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(24, 40, 24, 24),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Icon(Icons.eco, size: 14, color: AppTheme.primaryColor),
-                        SizedBox(width: 6),
-                        Text(
-                          'Carbon Tracking Active',
-                          style: TextStyle(color: AppTheme.primaryColor, fontSize: 11, fontWeight: FontWeight.bold),
+                        Container(
+                          padding: const EdgeInsets.all(4),
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            border: Border.all(color: Colors.white.withOpacity(0.4), width: 2),
+                          ),
+                          child: CircleAvatar(
+                            radius: 36,
+                            backgroundColor: Colors.white.withOpacity(0.15),
+                            backgroundImage: _avatarUrl != null ? NetworkImage("$_avatarUrl?t=${DateTime.now().millisecondsSinceEpoch}") : null,
+                            child: _avatarUrl == null ? const Icon(Icons.person, size: 36, color: Colors.white) : null,
+                          ),
                         ),
+                        const SizedBox(height: 16),
+
+                        // Name
+                        Text(
+                          _displayName,
+                          style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: Colors.white, letterSpacing: -0.5),
+                        ),
+                        const SizedBox(height: 4),
+
+                        // Email
+                        Text(
+                          _email,
+                          style: const TextStyle(fontSize: 13, color: Colors.white70, fontWeight: FontWeight.w500),
+                        ),
+
+                        // Note: If you ever need to add relevant info (e.g., Phone Number, Role),
+                        // you can simply add a SizedBox and another Text widget right here.
                       ],
                     ),
                   ),
