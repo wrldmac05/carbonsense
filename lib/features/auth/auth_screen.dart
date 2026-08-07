@@ -85,7 +85,7 @@ class _AuthScreenState extends State<AuthScreen> with SingleTickerProviderStateM
       body: Stack(
         children: [
           // 1. BACKGROUND
-          Positioned.fill(child: Image.asset('assets/images/bg1.png', fit: BoxFit.cover)),
+          Positioned.fill(child: Image.asset('assets/images/bg2.png', fit: BoxFit.cover)),
 
           // 2. DYNAMIC HEADERS
           AnimatedPositioned(

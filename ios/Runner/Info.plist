@@ -5,6 +5,21 @@
 		<key>CADisableMinimumFrameDurationOnPhone</key>
 		<true/>
 		<key>CFBundleDevelopmentRegion</key>
+		<key>NSLocationWhenInUseUsageDescription</key>
+        <string>This app requires access to your location to display your position on the map.</string>
+        <key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+        <string>This app requires location access in the background to track your routes.</string>
+        <key>NSLocationAlwaysUsageDescription</key>
+        <string>This app requires location access in the background.</string>
+		<!-- Camera Access -->
+        <key>NSCameraUsageDescription</key>
+        <string>This app requires access to the camera to take profile pictures and scan codes.</string>
+        <!-- Microphone Access (Required if taking videos with sound) -->
+        <key>NSMicrophoneUsageDescription</key>
+        <string>This app requires access to the microphone to record audio with your videos.</string>
+        <!-- Photo Library Access (Required if picking photos from gallery or saving photos) -->
+        <key>NSPhotoLibraryUsageDescription</key>
+        <string>This app requires access to your photo library to let you upload existing photos.</string>
 		<string>$(DEVELOPMENT_LANGUAGE)</string>
 		<key>CFBundleDisplayName</key>
 		<string>Carbonsense</string>

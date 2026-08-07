@@ -59,10 +59,16 @@ dependencies:
 flutter_launcher_icons:
   android: true
   ios: true
+  # Fallback image (or keep your default)
   image_path: 'assets/images/icon_final1.png'
+
+  # iOS-specific opaque image with the green background baked in:
+  image_path_ios: 'assets/images/icon_final_ios.png'
+
   min_sdk_android: 21
-  adaptive_icon_background: '#1e4d2b' # Replace this with your exact dark green hex code
-  adaptive_icon_foreground: 'assets/images/icon_final1.png' # The transparent leaf image
+  # Android adaptive icon configuration:
+  adaptive_icon_background: '#1e4d2b'
+  adaptive_icon_foreground: 'assets/images/icon_final1.png'
 
 flutter_native_splash:
   color: '#FFFFFF' # Change this hex code if your app uses a dark theme
