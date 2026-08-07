@@ -63,7 +63,7 @@ flutter_launcher_icons:
   image_path: 'assets/images/icon_final1.png'
 
   # iOS-specific opaque image with the green background baked in:
-  image_path_ios: 'assets/images/icon_final_ios.png'
+  image_path_ios: 'assets/images/ios_final.png'
 
   min_sdk_android: 21
   # Android adaptive icon configuration:
