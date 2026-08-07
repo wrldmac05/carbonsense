@@ -231,6 +231,7 @@ class _ManualBillScreenState extends State<ManualBillScreen> {
         elevation: 0,
       ),
       body: SafeArea(
+        bottom: false,
         child: SingleChildScrollView(
           padding: const EdgeInsets.only(left: 24, top: 24, right: 24, bottom: 120),
           child: Form(

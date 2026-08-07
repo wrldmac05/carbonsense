@@ -519,6 +519,7 @@ class _LogActivityScreenState extends State<LogActivityScreen> with SingleTicker
         centerTitle: true,
       ),
       body: SafeArea(
+        bottom: false,
         child: LayoutBuilder(
           builder: (context, constraints) {
             return SingleChildScrollView(

@@ -284,6 +284,7 @@ class _BillScannerScreenState extends State<BillScannerScreen> {
         elevation: 0,
       ),
       body: SafeArea(
+        bottom: false,
         child: LayoutBuilder(
           builder: (context, constraints) {
             return SingleChildScrollView(

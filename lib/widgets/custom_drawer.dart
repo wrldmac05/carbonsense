@@ -45,6 +45,8 @@ class _CustomDrawerState extends State<CustomDrawer> {
   Widget build(BuildContext context) {
     // Force the drawer to take up exactly 85% of the screen width
     final drawerWidth = MediaQuery.of(context).size.width * 0.85;
+    // Get device top status bar padding
+    final topPadding = MediaQuery.of(context).padding.top;
 
     return Drawer(
       width: drawerWidth,
@@ -52,7 +54,9 @@ class _CustomDrawerState extends State<CustomDrawer> {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.only(topRight: Radius.circular(32), bottomRight: Radius.circular(32)),
       ),
+      // 1. Set top: false so the green header can bleed into the status bar area
       child: SafeArea(
+        top: false,
         child: Column(
           children: [
             // --- 1. HEADER ---
@@ -80,7 +84,8 @@ class _CustomDrawerState extends State<CustomDrawer> {
 
                   // --- MAIN CONTENT ---
                   Padding(
-                    padding: const EdgeInsets.fromLTRB(24, 40, 24, 24),
+                    // 2. Dynamic top padding keeps content safe from status bar icons
+                    padding: EdgeInsets.fromLTRB(24, topPadding + 24, 24, 24),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -111,9 +116,6 @@ class _CustomDrawerState extends State<CustomDrawer> {
                           _email,
                           style: const TextStyle(fontSize: 13, color: Colors.white70, fontWeight: FontWeight.w500),
                         ),
-
-                        // Note: If you ever need to add relevant info (e.g., Phone Number, Role),
-                        // you can simply add a SizedBox and another Text widget right here.
                       ],
                     ),
                   ),

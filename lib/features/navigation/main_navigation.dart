@@ -1,6 +1,7 @@
 import 'dart:ui';
 import 'package:carbonsense/theme/app_theme.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart'; // Required for status bar dark icons
 import 'package:go_router/go_router.dart';
 import 'package:carbonsense/widgets/custom_drawer.dart';
 import 'package:carbonsense/widgets/quick_start_guide_dialog.dart';
@@ -8,16 +9,17 @@ import 'package:carbonsense/widgets/quick_start_guide_dialog.dart';
 class MainNavigation extends StatelessWidget {
   const MainNavigation({required this.navigationShell, super.key});
   final StatefulNavigationShell navigationShell;
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Scaffold(
       extendBody: true,
-      backgroundColor: const Color(0xFFF9FFF9), // Match your app background
-      // 1. The Drawer lives here now
+      backgroundColor: const Color(0xFFF9FFF9),
       drawer: const CustomDrawer(),
-      // 2. The AppBar lives here now
       appBar: AppBar(
+        systemOverlayStyle: SystemUiOverlayStyle.dark, // Makes status bar icons dark/visible
         backgroundColor: Colors.transparent,
         elevation: 0,
         centerTitle: true,
@@ -44,19 +46,20 @@ class MainNavigation extends StatelessWidget {
           const SizedBox(width: 12),
         ],
       ),
-      // Remove the bottomNavigationBar property entirely and wrap your body like this:
       body: Stack(
         children: [
-          // 1. Your main content behind the nav bar
+          // 1. Main screen content
           navigationShell,
 
-          // 2. Your floating pill stacked on top at the very bottom
+          // 2. Floating pill
           Positioned(
             left: 0,
             right: 0,
             bottom: 0,
             child: SafeArea(
+              top: false, // Ensures top inset isn't calculated here
               child: Padding(
+                // 👈 Changed bottom from 16.0 to 4.0 to lower the pill
                 padding: const EdgeInsets.only(left: 24.0, right: 24.0, bottom: 16.0),
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(30),
@@ -116,7 +119,6 @@ class _NavItem extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(icon, color: isSelected ? Colors.white : (isDark ? Colors.white70 : Colors.black54)),
-            // ClipRect and AnimatedSize work together to smoothly reveal the text
             ClipRect(
               child: AnimatedSize(
                 duration: const Duration(milliseconds: 300),
@@ -126,10 +128,7 @@ class _NavItem extends StatelessWidget {
                         padding: const EdgeInsets.only(left: 8.0),
                         child: Text(
                           label,
-                          style: const TextStyle(
-                            color: Colors.white, // Assumes your primary color is dark/vibrant
-                            fontWeight: FontWeight.bold,
-                          ),
+                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
                         ),
                       )
                     : const SizedBox.shrink(),

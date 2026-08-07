@@ -599,6 +599,7 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
         return Scaffold(
           backgroundColor: Colors.transparent,
           body: SafeArea(
+            bottom: false,
             child: RefreshIndicator(
               color: AppTheme.primaryColor,
               onRefresh: () => _initializeDashboard(showLoader: false),

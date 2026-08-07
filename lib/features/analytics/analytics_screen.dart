@@ -70,6 +70,7 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFF9FFF9),
       body: SafeArea(
+        bottom: false,
         child: logsAsync.when(
           loading: () => const Center(child: CircularProgressIndicator(color: AppTheme.primaryColor)),
 

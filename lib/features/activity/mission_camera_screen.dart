@@ -52,10 +52,7 @@ class _MissionCameraScreenState extends State<MissionCameraScreen> {
       final base64Image = base64Encode(bytes);
 
       // 2. Send to your Supabase Edge Function for Gemini processing
-      final response = await Supabase.instance.client.functions.invoke(
-        'verify_mission_vision',
-        body: {'image_base64': base64Image, 'vision_criteria': widget.visionCriteria},
-      );
+      final response = await Supabase.instance.client.functions.invoke('verify_mission_vision', body: {'image_base64': base64Image, 'vision_criteria': widget.visionCriteria});
 
       // 3. Robust JSON Decoding
       // The edge function now returns JSON directly, so response.data is already a Map!
@@ -68,10 +65,7 @@ class _MissionCameraScreenState extends State<MissionCameraScreen> {
 
       if (isVerified) {
         // 4. Update Database on Success
-        await Supabase.instance.client
-            .from('user_tasks')
-            .update({'is_completed': true, 'completed_at': DateTime.now().toIso8601String()})
-            .eq('user_task_id', widget.userTaskId);
+        await Supabase.instance.client.from('user_tasks').update({'is_completed': true, 'completed_at': DateTime.now().toIso8601String()}).eq('user_task_id', widget.userTaskId);
 
         if (!context.mounted) return;
         _showResultDialog(true, 'Mission Accomplished!', reason);
@@ -136,6 +130,7 @@ class _MissionCameraScreenState extends State<MissionCameraScreen> {
         title: const Text('AI Verification', style: TextStyle(color: Colors.white)),
       ),
       body: SafeArea(
+        bottom: false,
         child: Column(
           children: [
             // Task Instruction Banner
