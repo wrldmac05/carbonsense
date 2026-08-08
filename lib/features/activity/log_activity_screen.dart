@@ -130,32 +130,25 @@ class _LogActivityScreenState extends State<LogActivityScreen> with SingleTicker
       debugPrint("_startPosition = $_startPosition");
       debugPrint("_lastPosition = $_lastPosition");
 
-      // 🌟 NEW: Reverse Geocode Point A and Point B with High Granularity
+      // Reverse Geocode Point A and Point B with High Granularity
       if (_startPosition != null && _lastPosition != null) {
         try {
-          // Helper function to build a precise, street-level address
           String buildAddress(Placemark p) {
-            // Prioritize finer details: Street -> Barangay (subLocality) -> City (locality)
             final parts = [
-              p.street, // e.g., "Aguinaldo Highway" or local street
-              p.subLocality, // e.g., Barangay name (crucial for local Philippine tracking)
-              p.locality, // e.g., "Imus"
+              p.street, // e.g., Street name
+              p.subLocality, // Barangay (crucial for local Philippine tracking)
+              p.locality, // City (e.g., Imus)
             ];
 
-            // Filter out nulls, empty values, or generic placeholders
             final cleanParts = parts.where((e) => e != null && e.isNotEmpty && e != 'Unnamed Road').toList();
-
-            // Fallback if everything is empty
             return cleanParts.isNotEmpty ? cleanParts.join(', ') : 'Local Area';
           }
 
-          // Get Point A
           List<Placemark> startMarks = await placemarkFromCoordinates(_startPosition!.latitude, _startPosition!.longitude);
           if (startMarks.isNotEmpty) {
             _startAddress = buildAddress(startMarks.first);
           }
 
-          // Get Point B
           List<Placemark> endMarks = await placemarkFromCoordinates(_lastPosition!.latitude, _lastPosition!.longitude);
           if (endMarks.isNotEmpty) {
             _endAddress = buildAddress(endMarks.first);
@@ -180,20 +173,20 @@ class _LogActivityScreenState extends State<LogActivityScreen> with SingleTicker
         'end_location': _endAddress, // Point B
       });
 
-      // 🚀 Run the Mission Engine silently
+      // Run the Mission Engine silently
       final completedMissions = await MissionEngine.evaluateTelemetry(userId: user.id, category: 'Commute', activityName: _selectedVehicle!);
 
-      if (mounted) {
-        setState(() => _isSavingLog = false);
-        // Pass the results to the dialog!
-        _showSuccessDialog(completedMissions);
-      }
+      // Guard against mounted context errors following async calls
+      if (!mounted) return;
+
+      setState(() => _isSavingLog = false);
+      _showSuccessDialog(completedMissions);
     } catch (e) {
       debugPrint('❌ Insertion Error: $e');
-      if (mounted) {
-        setState(() => _isSavingLog = false);
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to record log to database: $e')));
-      }
+      if (!mounted) return;
+
+      setState(() => _isSavingLog = false);
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to record log to database: $e')));
     }
   }
 
@@ -355,7 +348,12 @@ class _LogActivityScreenState extends State<LogActivityScreen> with SingleTicker
 
   Future<void> _setupNotifications() async {
     const AndroidInitializationSettings androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
-    const InitializationSettings initSettings = InitializationSettings(android: androidSettings);
+
+    // 🌟 Added iOS Darwin Initialization
+    const DarwinInitializationSettings iosSettings = DarwinInitializationSettings(requestAlertPermission: true, requestBadgePermission: true, requestSoundPermission: true);
+
+    const InitializationSettings initSettings = InitializationSettings(android: androidSettings, iOS: iosSettings);
+
     await _localNotifications.initialize(initSettings);
   }
 
@@ -376,7 +374,11 @@ class _LogActivityScreenState extends State<LogActivityScreen> with SingleTicker
       priority: Priority.high,
       icon: '@mipmap/ic_launcher',
     );
-    const NotificationDetails platformDetails = NotificationDetails(android: androidDetails);
+
+    // 🌟 Added iOS Darwin Notification Details
+    const DarwinNotificationDetails iosDetails = DarwinNotificationDetails(presentAlert: true, presentBadge: true, presentSound: true);
+
+    const NotificationDetails platformDetails = NotificationDetails(android: androidDetails, iOS: iosDetails);
 
     await _localNotifications.show(0, 'Trip Tracking in Progress 📍', 'CarbonSense is calculating your ${_selectedVehicle ?? 'commute'} distance.', platformDetails);
   }

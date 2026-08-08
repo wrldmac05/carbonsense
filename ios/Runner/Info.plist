@@ -52,6 +52,12 @@
              <string>mailto</string>
           </array>
 
+          <!-- Enable Background Location Updates -->
+        <key>UIBackgroundModes</key>
+          <array>
+            <string>location</string>
+          </array>
+
         <key>UIApplicationSceneManifest</key>
         <dict>
             <key>UIApplicationSupportsMultipleScenes</key>
