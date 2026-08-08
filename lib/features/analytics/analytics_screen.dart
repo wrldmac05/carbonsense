@@ -157,7 +157,13 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 10),
                       child: generalAiAsync.when(
-                        loading: () => const LinearProgressIndicator(color: AppTheme.primaryColor),
+                        loading: () => Container(
+                          height: 120, // Approximate height of the loaded card
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(20),
+                          decoration: BoxDecoration(color: Colors.grey.shade100, borderRadius: BorderRadius.circular(24)),
+                          child: const Center(child: CircularProgressIndicator(color: AppTheme.primaryColor)),
+                        ),
                         error: (err, _) => const SizedBox.shrink(),
                         data: (text) => _buildAiCard("GENERAL ECO-COACH", text, isGeneral: true),
                       ),
@@ -174,6 +180,7 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
                     // 4. MONTH SELECTOR
                     _buildMonthSelector(),
 
+                    const SizedBox(height: 12), // 🌟 ADD THIS: Gives the month pills shadow breathing room
                     // 5. MONTH-SPECIFIC DETAILS & AI
                     Padding(
                       padding: const EdgeInsets.only(left: 24, top: 24, right: 24, bottom: 120),
@@ -183,7 +190,13 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
                           const SizedBox(height: 16),
 
                           monthlyAiAsync.when(
-                            loading: () => const LinearProgressIndicator(color: Colors.greenAccent),
+                            loading: () => Container(
+                              height: 120, // Approximate height of the loaded card
+                              width: double.infinity,
+                              padding: const EdgeInsets.all(20),
+                              decoration: BoxDecoration(color: Colors.grey.shade100, borderRadius: BorderRadius.circular(24)),
+                              child: const Center(child: CircularProgressIndicator(color: AppTheme.primaryColor)),
+                            ),
                             error: (err, _) => const SizedBox.shrink(),
                             data: (text) {
                               if (_selectedMonthIndex == DateTime.now().month - 1) {
@@ -274,6 +287,9 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
       height: 200,
       child: LineChart(
         LineChartData(
+          // 🌟 FIX 1: Set explicit min/max X boundaries for 12 months (indices 0 to 11)
+          minX: 0,
+          maxX: 11,
           maxY: maxY == 0 ? 10 : maxY,
           gridData: FlGridData(show: true, drawVerticalLine: false, getDrawingHorizontalLine: (val) => FlLine(color: Colors.grey.withOpacity(0.1), strokeWidth: 1)),
           titlesData: FlTitlesData(
@@ -298,6 +314,9 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
             bottomTitles: AxisTitles(
               sideTitles: SideTitles(
                 showTitles: true,
+                // 🌟 FIX 2: Force fl_chart to render EVERY index (1 unit interval)
+                interval: 1,
+                reservedSize: 28,
                 getTitlesWidget: (val, _) {
                   final months = ["J", "F", "M", "A", "M", "J", "J", "A", "S", "O", "N", "D"];
                   int index = val.toInt();
@@ -315,6 +334,25 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
                 },
               ),
             ),
+          ),
+          lineTouchData: LineTouchData(
+            touchTooltipData: LineTouchTooltipData(
+              getTooltipColor: (LineBarSpot spot) => const Color(0xFF1A1A1A),
+              getTooltipItems: (touchedSpots) {
+                return touchedSpots.map((LineBarSpot touchedSpot) {
+                  return LineTooltipItem('${touchedSpot.y.toStringAsFixed(1)} kg\n', const TextStyle(color: Colors.white, fontWeight: FontWeight.bold));
+                }).toList();
+              },
+            ),
+            touchCallback: (FlTouchEvent event, LineTouchResponse? touchResponse) {
+              if (event is FlTapUpEvent && touchResponse?.lineBarSpots != null) {
+                final index = touchResponse!.lineBarSpots!.first.x.toInt();
+                if (index >= 0 && index <= 11) {
+                  setState(() => _selectedMonthIndex = index);
+                }
+              }
+            },
+            handleBuiltInTouches: true,
           ),
           borderData: FlBorderData(show: false),
           lineBarsData: [
@@ -336,30 +374,33 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
   }
 
   Widget _buildMonthSelector() {
-    final months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+    final months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
     return SizedBox(
-      height: 50,
+      height: 52, // 🌟 Increased height so drop shadows aren't clipped vertically
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 20),
+        clipBehavior: Clip.none, // 🌟 Prevents the bottom drop shadow from clipping
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4), // 🌟 Added vertical padding for shadow clearance
         itemCount: 12,
         itemBuilder: (context, index) {
           bool isSelected = index == _selectedMonthIndex;
           return GestureDetector(
             onTap: () => setState(() => _selectedMonthIndex = index),
-            child: Container(
-              margin: const EdgeInsets.only(right: 12),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              margin: const EdgeInsets.only(right: 10),
               padding: const EdgeInsets.symmetric(horizontal: 20),
               decoration: BoxDecoration(
-                color: isSelected ? AppTheme.primaryColor : Colors.white,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: isSelected ? AppTheme.primaryColor : Colors.grey.shade200),
+                color: isSelected ? AppTheme.primaryColor : Colors.grey.shade100,
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(color: isSelected ? AppTheme.primaryColor : Colors.transparent),
                 boxShadow: isSelected ? [BoxShadow(color: AppTheme.primaryColor.withOpacity(0.3), blurRadius: 8, offset: const Offset(0, 4))] : [],
               ),
               child: Center(
                 child: Text(
                   months[index],
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: isSelected ? Colors.white : Colors.black87),
+                  style: TextStyle(fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600, fontSize: 14, color: isSelected ? Colors.white : Colors.grey.shade600),
                 ),
               ),
             ),
@@ -390,8 +431,23 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
                 "$monthName Total",
                 style: const TextStyle(color: Colors.grey, fontWeight: FontWeight.bold),
               ),
-              const SizedBox(height: 4),
-              Text("${impact.toStringAsFixed(1)} kg", style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w900)),
+              Row(
+                children: [
+                  Text("${impact.toStringAsFixed(1)} kg", style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w900)),
+                  if (impact > 0 && impact < 50) ...[
+                    // Adjust thresholds based on your app's logic
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(color: Colors.green.shade100, borderRadius: BorderRadius.circular(12)),
+                      child: const Text(
+                        "Great!",
+                        style: TextStyle(color: Colors.green, fontSize: 12, fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
             ],
           ),
           const Icon(Icons.calendar_month, color: AppTheme.primaryColor, size: 32),
