@@ -215,7 +215,8 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
 
     if (mounted) {
       setState(() {
-        _netFootprint = max(0, totalEmissions - totalSaved);
+        // 🌟 Allow negative numbers so saved CO2 > logged CO2 displays properly
+        _netFootprint = totalEmissions - totalSaved;
       });
     }
   }
@@ -812,16 +813,19 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
     );
   }
 
-  // 🌟 Dynamic progress and global precision formatter integrated
+  // 🌟 Hero card with support for negative net footprints
   Widget _buildImpactHeroCard() {
     final profile = ref.watch(userProfileStreamProvider).value;
     final targetRaw = profile?['monthly_co2_target'];
     final monthlyTarget = (targetRaw != null && targetRaw > 0) ? (targetRaw as num).toDouble() : 1.0;
 
-    // 🌟 Check if the user has exceeded their target
+    // 🌟 States: Exceeded target vs Net Negative (Carbon Positive status)
     final bool isExceeded = _netFootprint > monthlyTarget;
+    final bool isNegative = _netFootprint < 0;
     final double excessAmount = _netFootprint - monthlyTarget;
-    final progress = min(1.0, max(0.0, _netFootprint / monthlyTarget));
+
+    // Clamp progress between 0.0 and 1.0 safely
+    final progress = isNegative ? 0.0 : min(1.0, max(0.0, _netFootprint / monthlyTarget));
 
     return Material(
       color: Colors.transparent,
@@ -854,7 +858,7 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
                 textBaseline: TextBaseline.alphabetic,
                 children: [
                   Text(
-                    formatFootprint(_netFootprint), // 🌟 Global precision formatter
+                    formatFootprint(_netFootprint), // 🌟 Formats positive (+2.500) or negative (-5.000) correctly
                     style: const TextStyle(color: Colors.white, fontSize: 48, fontWeight: FontWeight.w900, letterSpacing: -1),
                   ),
                   const SizedBox(width: 8),
@@ -870,8 +874,8 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
                 children: [
                   Text("Monthly Target: ${monthlyTarget.toStringAsFixed(0)} kg", style: const TextStyle(color: Colors.white, fontSize: 12)),
                   Text(
-                    "${(_netFootprint / monthlyTarget * 100).toStringAsFixed(0)}%", // 🌟 Uncapped percentage so they see true overflow
-                    style: TextStyle(color: isExceeded ? Colors.redAccent.shade100 : Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
+                    "${(_netFootprint / monthlyTarget * 100).toStringAsFixed(0)}%",
+                    style: TextStyle(color: isExceeded ? Colors.redAccent.shade100 : (isNegative ? Colors.greenAccent.shade100 : Colors.white), fontWeight: FontWeight.bold, fontSize: 12),
                   ),
                 ],
               ),
@@ -882,7 +886,6 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
                   value: progress,
                   minHeight: 8,
                   backgroundColor: Colors.white.withOpacity(0.2),
-                  // 🌟 Turns red if the target is exceeded
                   valueColor: AlwaysStoppedAnimation<Color>(isExceeded ? Colors.redAccent : Colors.white),
                 ),
               ),
@@ -890,7 +893,7 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
               Center(
                 child: Column(
                   children: [
-                    // 🌟 Dynamic Warning Message
+                    // 🌟 1. Dynamic Exceeded Warning Message
                     if (isExceeded) ...[
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -909,6 +912,27 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
                       ),
                       const SizedBox(height: 12),
                     ],
+
+                    // 🌟 2. Dynamic Net Carbon Negative Badge
+                    if (isNegative) ...[
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), borderRadius: BorderRadius.circular(20)),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.stars_rounded, color: Colors.amberAccent, size: 14),
+                            const SizedBox(width: 6),
+                            Text(
+                              "Net Negative! You've offset ${formatFootprint(_netFootprint.abs())} kg",
+                              style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                    ],
+
                     // Existing tap action chip
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
