@@ -165,7 +165,7 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
       backgroundColor: Colors.transparent,
       builder: (context) {
         return Container(
-          padding: const EdgeInsets.only(left: 24, top: 24, right: 24, bottom: 40),
+          padding: const EdgeInsets.only(left: 24, top: 24, right: 24, bottom: 120),
           decoration: const BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
