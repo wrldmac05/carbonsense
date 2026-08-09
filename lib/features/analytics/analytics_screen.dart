@@ -24,6 +24,18 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
     });
   }
 
+  // 🌅 Dynamic Time of Day Watermark Icon Helper
+  IconData _getTimeOfDayWatermarkIcon() {
+    final hour = DateTime.now().hour;
+    if (hour < 12) {
+      return Icons.wb_twilight; // Morning
+    } else if (hour < 17) {
+      return Icons.wb_sunny_rounded; // Afternoon
+    } else {
+      return Icons.nights_stay_rounded; // Evening
+    }
+  }
+
   Future<void> _runSmartSync() async {
     try {
       final userId = Supabase.instance.client.auth.currentUser!.id;
@@ -355,161 +367,179 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
 
     return Scaffold(
       backgroundColor: const Color(0xFFF9FFF9),
-      body: SafeArea(
-        bottom: false,
-        child: logsAsync.when(
-          loading: () => const Center(child: CircularProgressIndicator(color: AppTheme.primaryColor)),
-          error: (err, stack) => Center(
-            child: Padding(
-              padding: const EdgeInsets.all(32.0),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.cloud_off_rounded, color: Colors.grey.shade400, size: 64),
-                  const SizedBox(height: 16),
-                  const Text(
-                    "Connection lost",
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.black87),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    "We couldn't load your analytics right now. Please check your internet connection and try again.",
-                    textAlign: TextAlign.center,
-                    style: TextStyle(color: Colors.grey.shade600, fontSize: 14, height: 1.4),
-                  ),
-                  const SizedBox(height: 24),
-                  ElevatedButton.icon(
-                    onPressed: () {
-                      ref.invalidate(activityLogsStreamProvider);
-                      ref.invalidate(generalAiInsightProvider);
-                      ref.invalidate(monthlyAiInsightProvider);
-                      _runSmartSync();
-                    },
-                    icon: const Icon(Icons.refresh, size: 18),
-                    label: const Text("Try Again"),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.primaryColor,
-                      foregroundColor: Colors.white,
-                      elevation: 0,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    ),
-                  ),
-                ],
+      body: Stack(
+        children: [
+          // 🌟 Subtle Dynamic Background Watermark based on Time of Day
+          Positioned(
+            top: -30,
+            right: -40,
+            child: IgnorePointer(
+              child: Icon(
+                _getTimeOfDayWatermarkIcon(),
+                size: 260,
+                color: AppTheme.primaryColor.withOpacity(0.04), // Subtle opacity matching theme color
               ),
             ),
           ),
-          data: (logs) {
-            if (logs.isEmpty) {
-              return const Center(
+
+          // Main Content
+          SafeArea(
+            bottom: false,
+            child: logsAsync.when(
+              loading: () => const Center(child: CircularProgressIndicator(color: AppTheme.primaryColor)),
+              error: (err, stack) => Center(
                 child: Padding(
-                  padding: EdgeInsets.all(32.0),
-                  child: Text(
-                    "Welcome to CarbonSense!\n\nLog your first activity today to wake up your personal AI Eco-Coach.",
-                    textAlign: TextAlign.center,
-                    style: TextStyle(fontSize: 16, color: Colors.grey, height: 1.5),
+                  padding: const EdgeInsets.all(32.0),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.cloud_off_rounded, color: Colors.grey.shade400, size: 64),
+                      const SizedBox(height: 16),
+                      const Text(
+                        "Connection lost",
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.black87),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        "We couldn't load your analytics right now. Please check your internet connection and try again.",
+                        textAlign: TextAlign.center,
+                        style: TextStyle(color: Colors.grey.shade600, fontSize: 14, height: 1.4),
+                      ),
+                      const SizedBox(height: 24),
+                      ElevatedButton.icon(
+                        onPressed: () {
+                          ref.invalidate(activityLogsStreamProvider);
+                          ref.invalidate(generalAiInsightProvider);
+                          ref.invalidate(monthlyAiInsightProvider);
+                          _runSmartSync();
+                        },
+                        icon: const Icon(Icons.refresh, size: 18),
+                        label: const Text("Try Again"),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppTheme.primaryColor,
+                          foregroundColor: Colors.white,
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-              );
-            }
-
-            final yearlyData = _getYearlyData(logs);
-            final totalYearlyImpact = yearlyData.fold(0.0, (sum, item) => sum + item);
-            final selectedMonthImpact = yearlyData[_selectedMonthIndex];
-            final monthLogs = _getMonthlyLogs(logs);
-            final categoryTotals = _getCategoryTotals(monthLogs);
-
-            return RefreshIndicator(
-              color: AppTheme.primaryColor,
-              onRefresh: () async {
-                ref.invalidate(activityLogsStreamProvider);
-                ref.invalidate(generalAiInsightProvider);
-                ref.invalidate(monthlyAiInsightProvider);
-                await _runSmartSync();
-              },
-              child: SingleChildScrollView(
-                physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Padding(padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 8.0), child: _buildHeader()),
-                    const SizedBox(height: 16),
-
-                    // 1. GENERAL AI INSIGHT
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 10),
-                      child: generalAiAsync.when(
-                        loading: () => Container(
-                          height: 120,
-                          width: double.infinity,
-                          padding: const EdgeInsets.all(20),
-                          decoration: BoxDecoration(color: Colors.grey.shade100, borderRadius: BorderRadius.circular(24)),
-                          child: const Center(child: CircularProgressIndicator(color: AppTheme.primaryColor)),
-                        ),
-                        error: (err, _) => const SizedBox.shrink(),
-                        data: (text) => _buildAiCard("GENERAL ECO-COACH", text, isGeneral: true),
-                      ),
-                    ),
-
-                    // 2. YEARLY OVERVIEW GRAPH
-                    Padding(padding: const EdgeInsets.all(20.0), child: _buildYearlyChartCard(yearlyData, totalYearlyImpact)),
-
-                    const Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 24.0, vertical: 8.0),
-                      child: Text("Monthly Deep Dive", style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18)),
-                    ),
-
-                    // 3. MONTH SELECTOR
-                    _buildMonthSelector(),
-
-                    const SizedBox(height: 16),
-
-                    // 4. MONTHLY SUMMARY & QUICK METRICS
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 24.0),
-                      child: Column(children: [_buildMonthSummaryCard(selectedMonthImpact), const SizedBox(height: 16), _buildQuickMetricsGrid(selectedMonthImpact, monthLogs, categoryTotals)]),
-                    ),
-
-                    const SizedBox(height: 20),
-
-                    // 5. CATEGORY BREAKDOWN PIE CHART
-                    Padding(padding: const EdgeInsets.symmetric(horizontal: 24.0), child: _buildCategoryBreakdownCard(categoryTotals, selectedMonthImpact)),
-
-                    const SizedBox(height: 20),
-
-                    // 6. MONTHLY AI INSIGHT CARD
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 24.0),
-                      child: monthlyAiAsync.when(
-                        loading: () => Container(
-                          height: 120,
-                          width: double.infinity,
-                          padding: const EdgeInsets.all(20),
-                          decoration: BoxDecoration(color: Colors.grey.shade100, borderRadius: BorderRadius.circular(24)),
-                          child: const Center(child: CircularProgressIndicator(color: AppTheme.primaryColor)),
-                        ),
-                        error: (err, _) => const SizedBox.shrink(),
-                        data: (text) {
-                          if (_selectedMonthIndex == DateTime.now().month - 1) {
-                            text = "Activity tracking in progress... Your full AI summary will be generated on the 1st of next month!";
-                          }
-
-                          return _buildAiCard("${DateFormat('MMMM').format(DateTime(DateTime.now().year, _selectedMonthIndex + 1)).toUpperCase()} INSIGHT", text, isGeneral: false);
-                        },
-                      ),
-                    ),
-
-                    const SizedBox(height: 28),
-
-                    // 7. MONTHLY ACTIVITY LOGS LIST
-                    Padding(padding: const EdgeInsets.symmetric(horizontal: 24.0), child: _buildMonthlyActivitySection(monthLogs)),
-
-                    const SizedBox(height: 120),
-                  ],
-                ),
               ),
-            );
-          },
-        ),
+              data: (logs) {
+                if (logs.isEmpty) {
+                  return const Center(
+                    child: Padding(
+                      padding: EdgeInsets.all(32.0),
+                      child: Text(
+                        "Welcome to CarbonSense!\n\nLog your first activity today to wake up your personal AI Eco-Coach.",
+                        textAlign: TextAlign.center,
+                        style: TextStyle(fontSize: 16, color: Colors.grey, height: 1.5),
+                      ),
+                    ),
+                  );
+                }
+
+                final yearlyData = _getYearlyData(logs);
+                final totalYearlyImpact = yearlyData.fold(0.0, (sum, item) => sum + item);
+                final selectedMonthImpact = yearlyData[_selectedMonthIndex];
+                final monthLogs = _getMonthlyLogs(logs);
+                final categoryTotals = _getCategoryTotals(monthLogs);
+
+                return RefreshIndicator(
+                  color: AppTheme.primaryColor,
+                  onRefresh: () async {
+                    ref.invalidate(activityLogsStreamProvider);
+                    ref.invalidate(generalAiInsightProvider);
+                    ref.invalidate(monthlyAiInsightProvider);
+                    await _runSmartSync();
+                  },
+                  child: SingleChildScrollView(
+                    physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Padding(padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 8.0), child: _buildHeader()),
+                        const SizedBox(height: 16),
+
+                        // 1. GENERAL AI INSIGHT
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 10),
+                          child: generalAiAsync.when(
+                            loading: () => Container(
+                              height: 120,
+                              width: double.infinity,
+                              padding: const EdgeInsets.all(20),
+                              decoration: BoxDecoration(color: Colors.grey.shade100, borderRadius: BorderRadius.circular(24)),
+                              child: const Center(child: CircularProgressIndicator(color: AppTheme.primaryColor)),
+                            ),
+                            error: (err, _) => const SizedBox.shrink(),
+                            data: (text) => _buildAiCard("GENERAL ECO-COACH", text, isGeneral: true),
+                          ),
+                        ),
+
+                        // 2. YEARLY OVERVIEW GRAPH
+                        Padding(padding: const EdgeInsets.all(20.0), child: _buildYearlyChartCard(yearlyData, totalYearlyImpact)),
+
+                        const Padding(
+                          padding: EdgeInsets.symmetric(horizontal: 24.0, vertical: 8.0),
+                          child: Text("Monthly Deep Dive", style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18)),
+                        ),
+
+                        // 3. MONTH SELECTOR
+                        _buildMonthSelector(),
+
+                        const SizedBox(height: 16),
+
+                        // 4. MONTHLY SUMMARY & QUICK METRICS
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                          child: Column(children: [_buildMonthSummaryCard(selectedMonthImpact), const SizedBox(height: 16), _buildQuickMetricsGrid(selectedMonthImpact, monthLogs, categoryTotals)]),
+                        ),
+
+                        const SizedBox(height: 20),
+
+                        // 5. CATEGORY BREAKDOWN PIE CHART
+                        Padding(padding: const EdgeInsets.symmetric(horizontal: 24.0), child: _buildCategoryBreakdownCard(categoryTotals, selectedMonthImpact)),
+
+                        const SizedBox(height: 20),
+
+                        // 6. MONTHLY AI INSIGHT CARD
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                          child: monthlyAiAsync.when(
+                            loading: () => Container(
+                              height: 120,
+                              width: double.infinity,
+                              padding: const EdgeInsets.all(20),
+                              decoration: BoxDecoration(color: Colors.grey.shade100, borderRadius: BorderRadius.circular(24)),
+                              child: const Center(child: CircularProgressIndicator(color: AppTheme.primaryColor)),
+                            ),
+                            error: (err, _) => const SizedBox.shrink(),
+                            data: (text) {
+                              if (_selectedMonthIndex == DateTime.now().month - 1) {
+                                text = "Activity tracking in progress... Your full AI summary will be generated on the 1st of next month!";
+                              }
+
+                              return _buildAiCard("${DateFormat('MMMM').format(DateTime(DateTime.now().year, _selectedMonthIndex + 1)).toUpperCase()} INSIGHT", text, isGeneral: false);
+                            },
+                          ),
+                        ),
+
+                        const SizedBox(height: 28),
+
+                        // 7. MONTHLY ACTIVITY LOGS LIST
+                        Padding(padding: const EdgeInsets.symmetric(horizontal: 24.0), child: _buildMonthlyActivitySection(monthLogs)),
+
+                        const SizedBox(height: 120),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
       ),
     );
   }

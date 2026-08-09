@@ -4,10 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:carbonsense/widgets/quick_start_guide_dialog.dart';
-import 'package:carbonsense/features/activity/log_activity_screen.dart';
-import 'package:carbonsense/features/activity/food_camera_screen.dart';
 import 'package:carbonsense/features/activity/mission_camera_screen.dart';
-import 'package:carbonsense/features/activity/bill_scanner_screen.dart';
+import 'package:go_router/go_router.dart'; // 👈 Add this import!
 import 'package:carbonsense/services/notification_service.dart';
 import 'package:carbonsense/features/utils/global_provider.dart';
 import 'package:carbonsense/features/utils/formatters.dart'; // 🌟 Using global precision formatters
@@ -83,6 +81,18 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
     setState(() {
       _timeLeftString = '${days}d ${hours}h ${minutes}m left';
     });
+  }
+
+  // 🌅 Dynamic Time of Day Watermark Icon Helper
+  IconData _getTimeOfDayWatermarkIcon() {
+    final hour = DateTime.now().hour;
+    if (hour < 12) {
+      return Icons.wb_twilight; // Morning
+    } else if (hour < 17) {
+      return Icons.wb_sunny_rounded; // Afternoon
+    } else {
+      return Icons.nights_stay_rounded; // Evening
+    }
   }
 
   Future<void> _initializeDashboard({bool showLoader = true}) async {
@@ -589,7 +599,7 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
       );
     }
 
-    // 🌟 Main Dashboard UI (Everything below is your exact original layout)
+    // 🌟 Main Dashboard UI
     return profileAsync.when(
       loading: () => const Scaffold(
         backgroundColor: Color(0xFFF9FFF9),
@@ -599,94 +609,112 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
       data: (profile) {
         return Scaffold(
           backgroundColor: Colors.transparent,
-          body: SafeArea(
-            bottom: false,
-            child: RefreshIndicator(
-              color: AppTheme.primaryColor,
-              onRefresh: () => _initializeDashboard(showLoader: false),
-              child: SingleChildScrollView(
-                // 🌟 Kept BouncingScrollPhysics but wrapped in AlwaysScrollable to ensure pull-to-refresh works even on short screens
-                physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
-                child: Padding(
-                  padding: const EdgeInsets.only(left: 24, top: 24, right: 24, bottom: 120),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _buildHeader(),
-                      const SizedBox(height: 24),
-                      _buildOnboardingCard(),
-                      _buildImpactHeroCard(),
-                      const SizedBox(height: 32),
-                      const Text(
-                        "Quick Log",
-                        style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18, color: Colors.black87),
-                      ),
-                      const SizedBox(height: 16),
-                      _buildActionStrip(),
-                      const SizedBox(height: 32),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              const Text(
-                                "Weekly Missions",
-                                style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18, color: Colors.black87),
-                              ),
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                                decoration: BoxDecoration(
-                                  color: Colors.amber.shade50,
-                                  borderRadius: BorderRadius.circular(12),
-                                  border: Border.all(color: Colors.amber.shade200),
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Icon(Icons.hourglass_top_rounded, size: 13, color: Colors.amber.shade800),
-                                    const SizedBox(width: 4),
-                                    Text(
-                                      _timeLeftString,
-                                      style: TextStyle(color: Colors.amber.shade900, fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: -0.2),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 12),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                'Focus: $_selectedPreset Layout',
-                                style: TextStyle(color: Colors.grey.shade500, fontSize: 13, fontWeight: FontWeight.bold),
-                              ),
-                              TextButton.icon(
-                                onPressed: _openLifestyleCustomizationSheet,
-                                icon: const Icon(Icons.tune, size: 16, color: AppTheme.primaryColor),
-                                label: Text(
-                                  _selectedPreset == 'All' ? 'Customize' : _selectedPreset,
-                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.primaryColor),
-                                ),
-                                style: TextButton.styleFrom(
-                                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                                  backgroundColor: AppTheme.primaryColor.withOpacity(0.1),
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-                      _buildModernTasksList(),
-                    ],
+          body: Stack(
+            children: [
+              // 🌟 Subtle Dynamic Background Watermark based on Time of Day
+              Positioned(
+                top: -30,
+                right: -40,
+                child: IgnorePointer(
+                  child: Icon(
+                    _getTimeOfDayWatermarkIcon(),
+                    size: 260,
+                    color: AppTheme.primaryColor.withOpacity(0.04), // Keeping original theme color with subtle opacity
                   ),
                 ),
               ),
-            ),
+
+              // Main Content
+              SafeArea(
+                bottom: false,
+                child: RefreshIndicator(
+                  color: AppTheme.primaryColor,
+                  onRefresh: () => _initializeDashboard(showLoader: false),
+                  child: SingleChildScrollView(
+                    // 🌟 Kept BouncingScrollPhysics but wrapped in AlwaysScrollable to ensure pull-to-refresh works even on short screens
+                    physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
+                    child: Padding(
+                      padding: const EdgeInsets.only(left: 24, top: 24, right: 24, bottom: 120),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _buildHeader(),
+                          const SizedBox(height: 24),
+                          _buildOnboardingCard(),
+                          _buildImpactHeroCard(),
+                          const SizedBox(height: 32),
+                          const Text(
+                            "Quick Log",
+                            style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18, color: Colors.black87),
+                          ),
+                          const SizedBox(height: 16),
+                          _buildActionStrip(),
+                          const SizedBox(height: 32),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  const Text(
+                                    "Weekly Missions",
+                                    style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18, color: Colors.black87),
+                                  ),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                    decoration: BoxDecoration(
+                                      color: Colors.amber.shade50,
+                                      borderRadius: BorderRadius.circular(12),
+                                      border: Border.all(color: Colors.amber.shade200),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(Icons.hourglass_top_rounded, size: 13, color: Colors.amber.shade800),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          _timeLeftString,
+                                          style: TextStyle(color: Colors.amber.shade900, fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: -0.2),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 12),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    'Focus: $_selectedPreset Layout',
+                                    style: TextStyle(color: Colors.grey.shade500, fontSize: 13, fontWeight: FontWeight.bold),
+                                  ),
+                                  TextButton.icon(
+                                    onPressed: _openLifestyleCustomizationSheet,
+                                    icon: const Icon(Icons.tune, size: 16, color: AppTheme.primaryColor),
+                                    label: Text(
+                                      _selectedPreset == 'All' ? 'Customize' : _selectedPreset,
+                                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.primaryColor),
+                                    ),
+                                    style: TextButton.styleFrom(
+                                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                                      backgroundColor: AppTheme.primaryColor.withOpacity(0.1),
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 16),
+                          _buildModernTasksList(),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
         );
       },
@@ -970,19 +998,22 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
     );
   }
 
+  // home_dashboard.dart
+
   Widget _buildModernActionButton(IconData icon, String label, String categoryKey) {
     return GestureDetector(
       onTap: () {
         if (categoryKey == 'Diet') {
-          Navigator.push(context, MaterialPageRoute(builder: (context) => const FoodCameraScreen())).then((_) {
+          context.pushNamed('food-scanner').then((_) {
             _initializeDashboard(showLoader: false);
           });
         } else if (categoryKey == 'Energy') {
-          Navigator.push(context, MaterialPageRoute(builder: (context) => const BillScannerScreen())).then((_) {
+          context.pushNamed('bill-scanner').then((_) {
             _initializeDashboard(showLoader: false);
           });
         } else {
-          Navigator.push(context, MaterialPageRoute(builder: (context) => LogActivityScreen(category: categoryKey))).then((_) {
+          // 🌟 Replaced Navigator.push with context.pushNamed
+          context.pushNamed('log-activity', extra: categoryKey).then((_) {
             _initializeDashboard(showLoader: false);
           });
         }

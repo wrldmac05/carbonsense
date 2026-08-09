@@ -1,4 +1,3 @@
-import 'package:carbonsense/features/activity/log_activity_screen.dart';
 import 'package:carbonsense/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -17,6 +16,18 @@ class _ActivityLogScreenState extends ConsumerState<ActivityLogScreen> {
   DateTime _selectedDate = DateTime.now();
 
   DateTime _focusedMonth = DateTime(DateTime.now().year, DateTime.now().month, 1);
+
+  // 🌅 Dynamic Time of Day Watermark Icon Helper
+  IconData _getTimeOfDayWatermarkIcon() {
+    final hour = DateTime.now().hour;
+    if (hour < 12) {
+      return Icons.wb_twilight; // Morning
+    } else if (hour < 17) {
+      return Icons.wb_sunny_rounded; // Afternoon
+    } else {
+      return Icons.nights_stay_rounded; // Evening
+    }
+  }
 
   // 📝 Helper to show detailed information when a log is tapped
   void _showLogDetails(Map<String, dynamic> log, Map<String, dynamic>? factorData) {
@@ -225,13 +236,16 @@ class _ActivityLogScreenState extends ConsumerState<ActivityLogScreen> {
     );
   }
 
+  // activity_log_screen.dart
+
   void _openCategory(String categoryName) async {
     if (categoryName == 'Diet') {
       await context.pushNamed('food-scanner');
     } else if (categoryName == 'Energy') {
       await context.pushNamed('bill-scanner');
     } else {
-      await Navigator.push(context, MaterialPageRoute(builder: (context) => LogActivityScreen(category: categoryName)));
+      // 🌟 Replaced Navigator.push with context.pushNamed
+      await context.pushNamed('log-activity', extra: categoryName);
     }
   }
 
@@ -248,172 +262,189 @@ class _ActivityLogScreenState extends ConsumerState<ActivityLogScreen> {
 
     return Scaffold(
       backgroundColor: const Color(0xFFF9FFF9),
-      body: SafeArea(
-        bottom: false,
-        child: logsAsync.when(
-          loading: () => const Center(child: CircularProgressIndicator(color: AppTheme.primaryColor)),
-
-          // 🌟 REPLACED: Modern full-page offline/error UI
-          error: (err, stack) => Center(
-            child: Padding(
-              padding: const EdgeInsets.all(32.0),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.cloud_off_rounded, color: Colors.grey.shade400, size: 64),
-                  const SizedBox(height: 16),
-                  const Text(
-                    "Connection lost",
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.black87),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    "We couldn't load your activity logs right now. Please check your internet connection and try again.",
-                    textAlign: TextAlign.center,
-                    style: TextStyle(color: Colors.grey.shade600, fontSize: 14, height: 1.4),
-                  ),
-                  const SizedBox(height: 24),
-                  ElevatedButton.icon(
-                    onPressed: () {
-                      // 🌟 Refresh the stream when pressed
-                      ref.invalidate(activityLogsStreamProvider);
-                    },
-                    icon: const Icon(Icons.refresh, size: 18),
-                    label: const Text("Try Again"),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.primaryColor,
-                      foregroundColor: Colors.white,
-                      elevation: 0,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    ),
-                  ),
-                ],
+      body: Stack(
+        children: [
+          // 🌟 Subtle Dynamic Background Watermark based on Time of Day
+          Positioned(
+            top: -30,
+            right: -40,
+            child: IgnorePointer(
+              child: Icon(
+                _getTimeOfDayWatermarkIcon(),
+                size: 260,
+                color: AppTheme.primaryColor.withOpacity(0.04), // Subtle opacity matching theme color
               ),
             ),
           ),
 
-          // 🌟 KEPT: Your exact original data handling and layout logic
-          data: (allLogs) {
-            // 🌟 1. Filter logs for the currently selected calendar day timeline
-            final selectedDayLogs = allLogs.where((log) {
-              if (log['logged_at'] == null) return false;
-              final logDate = DateTime.parse(log['logged_at']).toLocal();
-              return logDate.year == _selectedDate.year && logDate.month == _selectedDate.month && logDate.day == _selectedDate.day;
-            }).toList()..sort((a, b) => b['logged_at'].compareTo(a['logged_at']));
+          // Main Content
+          SafeArea(
+            bottom: false,
+            child: logsAsync.when(
+              loading: () => const Center(child: CircularProgressIndicator(color: AppTheme.primaryColor)),
 
-            // 🌟 2. Extract active days for the calendar overview dots
-            final Set<int> daysWithData = {};
-            final startOfMonth = DateTime(_focusedMonth.year, _focusedMonth.month, 1);
-            final endOfMonth = DateTime(_focusedMonth.year, _focusedMonth.month + 1, 0, 23, 59, 59);
+              // 🌟 Modern full-page offline/error UI
+              error: (err, stack) => Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(32.0),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.cloud_off_rounded, color: Colors.grey.shade400, size: 64),
+                      const SizedBox(height: 16),
+                      const Text(
+                        "Connection lost",
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.black87),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        "We couldn't load your activity logs right now. Please check your internet connection and try again.",
+                        textAlign: TextAlign.center,
+                        style: TextStyle(color: Colors.grey.shade600, fontSize: 14, height: 1.4),
+                      ),
+                      const SizedBox(height: 24),
+                      ElevatedButton.icon(
+                        onPressed: () {
+                          // 🌟 Refresh the stream when pressed
+                          ref.invalidate(activityLogsStreamProvider);
+                        },
+                        icon: const Icon(Icons.refresh, size: 18),
+                        label: const Text("Try Again"),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppTheme.primaryColor,
+                          foregroundColor: Colors.white,
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
 
-            for (var log in allLogs) {
-              if (log['logged_at'] == null) continue;
-              final logDate = DateTime.parse(log['logged_at']).toLocal();
-              if (logDate.isAfter(startOfMonth.subtract(const Duration(seconds: 1))) && logDate.isBefore(endOfMonth.add(const Duration(seconds: 1)))) {
-                daysWithData.add(logDate.day);
-              }
-            }
+              // 🌟 Main layout data stream handling
+              data: (allLogs) {
+                // 🌟 1. Filter logs for the currently selected calendar day timeline
+                final selectedDayLogs = allLogs.where((log) {
+                  if (log['logged_at'] == null) return false;
+                  final logDate = DateTime.parse(log['logged_at']).toLocal();
+                  return logDate.year == _selectedDate.year && logDate.month == _selectedDate.month && logDate.day == _selectedDate.day;
+                }).toList()..sort((a, b) => b['logged_at'].compareTo(a['logged_at']));
 
-            // 🌟 CRITICAL FIX: Make sure to explicitly return the widget tree here!
-            return RefreshIndicator(
-              color: AppTheme.primaryColor,
-              onRefresh: () async {
-                ref.invalidate(activityLogsStreamProvider);
-              },
-              child: CustomScrollView(
-                physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
-                slivers: [
-                  SliverPadding(
-                    padding: const EdgeInsets.only(left: 24, top: 24, right: 24, bottom: 120),
-                    sliver: SliverList(
-                      delegate: SliverChildListDelegate([
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
+                // 🌟 2. Extract active days for the calendar overview dots
+                final Set<int> daysWithData = {};
+                final startOfMonth = DateTime(_focusedMonth.year, _focusedMonth.month, 1);
+                final endOfMonth = DateTime(_focusedMonth.year, _focusedMonth.month + 1, 0, 23, 59, 59);
+
+                for (var log in allLogs) {
+                  if (log['logged_at'] == null) continue;
+                  final logDate = DateTime.parse(log['logged_at']).toLocal();
+                  if (logDate.isAfter(startOfMonth.subtract(const Duration(seconds: 1))) && logDate.isBefore(endOfMonth.add(const Duration(seconds: 1)))) {
+                    daysWithData.add(logDate.day);
+                  }
+                }
+
+                return RefreshIndicator(
+                  color: AppTheme.primaryColor,
+                  onRefresh: () async {
+                    ref.invalidate(activityLogsStreamProvider);
+                  },
+                  child: CustomScrollView(
+                    physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
+                    slivers: [
+                      SliverPadding(
+                        padding: const EdgeInsets.only(left: 24, top: 24, right: 24, bottom: 120),
+                        sliver: SliverList(
+                          delegate: SliverChildListDelegate([
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                Text(
-                                  'Track Activity',
-                                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(color: Colors.black87, fontWeight: FontWeight.w900, letterSpacing: -0.5),
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Track Activity',
+                                      style: Theme.of(context).textTheme.headlineSmall?.copyWith(color: Colors.black87, fontWeight: FontWeight.w900, letterSpacing: -0.5),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text('What did you do today?', style: TextStyle(color: Colors.grey.shade600, fontSize: 14)),
+                                  ],
                                 ),
-                                const SizedBox(height: 4),
-                                Text('What did you do today?', style: TextStyle(color: Colors.grey.shade600, fontSize: 14)),
                               ],
                             ),
-                          ],
-                        ),
-                        const SizedBox(height: 32),
-                        Row(
-                          children: [
-                            Expanded(child: _buildModernCategoryCard(Icons.directions_car, 'Transport', Colors.blue)),
-                            const SizedBox(width: 16),
-                            Expanded(child: _buildModernCategoryCard(Icons.restaurant, 'Diet', Colors.orange)),
-                            const SizedBox(width: 16),
-                            Expanded(child: _buildModernCategoryCard(Icons.bolt, 'Energy', Colors.amber)),
-                          ],
-                        ),
-                        const SizedBox(height: 48),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          crossAxisAlignment: CrossAxisAlignment.end,
-                          children: [
-                            Text(
-                              'Daily Timeline',
-                              style: Theme.of(context).textTheme.titleLarge?.copyWith(color: Colors.black87, fontWeight: FontWeight.w900, letterSpacing: -0.5),
+                            const SizedBox(height: 32),
+                            Row(
+                              children: [
+                                Expanded(child: _buildModernCategoryCard(Icons.directions_car, 'Transport', Colors.blue)),
+                                const SizedBox(width: 16),
+                                Expanded(child: _buildModernCategoryCard(Icons.restaurant, 'Diet', Colors.orange)),
+                                const SizedBox(width: 16),
+                                Expanded(child: _buildModernCategoryCard(Icons.bolt, 'Energy', Colors.amber)),
+                              ],
                             ),
-                            Text(
-                              DateFormat('MMM d, yyyy').format(_selectedDate),
-                              style: TextStyle(color: Colors.grey.shade500, fontWeight: FontWeight.bold, fontSize: 13),
+                            const SizedBox(height: 48),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: [
+                                Text(
+                                  'Daily Timeline',
+                                  style: Theme.of(context).textTheme.titleLarge?.copyWith(color: Colors.black87, fontWeight: FontWeight.w900, letterSpacing: -0.5),
+                                ),
+                                Text(
+                                  DateFormat('MMM d, yyyy').format(_selectedDate),
+                                  style: TextStyle(color: Colors.grey.shade500, fontWeight: FontWeight.bold, fontSize: 13),
+                                ),
+                              ],
                             ),
-                          ],
+                            const SizedBox(height: 16),
+                            _buildDateSelector(daysWithData),
+                            const SizedBox(height: 24),
+                            selectedDayLogs.isEmpty
+                                ? _buildEmptyState()
+                                : Container(
+                                    decoration: BoxDecoration(
+                                      color: Colors.white,
+                                      borderRadius: BorderRadius.circular(24),
+                                      border: Border.all(color: AppTheme.primaryColor.withOpacity(0.1)),
+                                      boxShadow: [BoxShadow(color: AppTheme.primaryColor.withOpacity(0.03), blurRadius: 10, offset: const Offset(0, 4))],
+                                    ),
+                                    child: ListView.separated(
+                                      shrinkWrap: true,
+                                      physics: const NeverScrollableScrollPhysics(),
+                                      padding: EdgeInsets.zero,
+                                      itemCount: selectedDayLogs.length,
+                                      separatorBuilder: (context, index) => Divider(height: 1, color: Colors.grey.shade100, indent: 70),
+                                      itemBuilder: (context, index) {
+                                        final log = selectedDayLogs[index];
+                                        final factorData = log['emission_factors'] as Map<String, dynamic>?;
+
+                                        final activityName = log['food_name'] ?? factorData?['activity_name'] ?? 'Unknown';
+                                        final category = factorData?['category'] ?? 'General';
+                                        final unit = factorData?['unit'] ?? '';
+                                        final inputValue = log['input_value']?.toString() ?? '0';
+                                        final totalCo2 = (log['total_co2e'] as num?)?.toStringAsFixed(2) ?? '0.00';
+
+                                        return _buildModernListTile(
+                                          title: activityName,
+                                          category: category,
+                                          subtitle: '$inputValue $unit',
+                                          co2Value: totalCo2,
+                                          onTap: () => _showLogDetails(log, factorData),
+                                        );
+                                      },
+                                    ),
+                                  ),
+                          ]),
                         ),
-                        const SizedBox(height: 16),
-                        _buildDateSelector(daysWithData),
-                        const SizedBox(height: 24),
-                        selectedDayLogs.isEmpty
-                            ? _buildEmptyState()
-                            : Container(
-                                decoration: BoxDecoration(
-                                  color: Colors.white,
-                                  borderRadius: BorderRadius.circular(24),
-                                  border: Border.all(color: AppTheme.primaryColor.withOpacity(0.1)),
-                                  boxShadow: [BoxShadow(color: AppTheme.primaryColor.withOpacity(0.03), blurRadius: 10, offset: const Offset(0, 4))],
-                                ),
-                                child: ListView.separated(
-                                  shrinkWrap: true,
-                                  physics: const NeverScrollableScrollPhysics(),
-                                  padding: EdgeInsets.zero,
-                                  itemCount: selectedDayLogs.length,
-                                  separatorBuilder: (context, index) => Divider(height: 1, color: Colors.grey.shade100, indent: 70),
-                                  itemBuilder: (context, index) {
-                                    final log = selectedDayLogs[index];
-                                    final factorData = log['emission_factors'] as Map<String, dynamic>?;
-
-                                    final activityName = log['food_name'] ?? factorData?['activity_name'] ?? 'Unknown';
-                                    final category = factorData?['category'] ?? 'General';
-                                    final unit = factorData?['unit'] ?? '';
-                                    final inputValue = log['input_value']?.toString() ?? '0';
-                                    final totalCo2 = (log['total_co2e'] as num?)?.toStringAsFixed(2) ?? '0.00';
-
-                                    return _buildModernListTile(
-                                      title: activityName,
-                                      category: category,
-                                      subtitle: '$inputValue $unit',
-                                      co2Value: totalCo2,
-                                      onTap: () => _showLogDetails(log, factorData),
-                                    );
-                                  },
-                                ),
-                              ),
-                      ]),
-                    ),
+                      ),
+                    ],
                   ),
-                ],
-              ),
-            );
-          },
-        ),
+                );
+              },
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -521,7 +552,6 @@ class _ActivityLogScreenState extends ConsumerState<ActivityLogScreen> {
   }
 
   Widget _buildModernCategoryCard(IconData icon, String title, MaterialColor themeColor) {
-    // Define custom subtle color pairings for a modern aesthetic
     Color baseColor;
     Color lightGradient;
     Color accentColor;
@@ -554,7 +584,7 @@ class _ActivityLogScreenState extends ConsumerState<ActivityLogScreen> {
         onTap: () => _openCategory(title),
         borderRadius: BorderRadius.circular(22),
         child: Container(
-          height: 140, // Uniform height for all cards
+          height: 140,
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(22),
             gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [Colors.white, lightGradient]),
@@ -565,10 +595,7 @@ class _ActivityLogScreenState extends ConsumerState<ActivityLogScreen> {
             borderRadius: BorderRadius.circular(22),
             child: Stack(
               children: [
-                // 🎨 Background Watermark Graphic (Adds depth without visual clutter)
                 Positioned(right: -12, bottom: -12, child: Icon(icon, size: 80, color: baseColor.withOpacity(0.06))),
-
-                // 🌟 Top Color Accent Bar
                 Positioned(
                   top: 0,
                   left: 16,
@@ -581,14 +608,11 @@ class _ActivityLogScreenState extends ConsumerState<ActivityLogScreen> {
                     ),
                   ),
                 ),
-
-                // 📦 Card Content Layout
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 14),
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      // Icon inside soft circular container
                       Container(
                         padding: const EdgeInsets.all(10),
                         decoration: BoxDecoration(
@@ -599,14 +623,10 @@ class _ActivityLogScreenState extends ConsumerState<ActivityLogScreen> {
                         ),
                         child: Icon(icon, size: 24, color: baseColor),
                       ),
-
-                      // Title
                       Text(
                         title,
                         style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14, color: Colors.black87, letterSpacing: -0.2),
                       ),
-
-                      // Motivating Action Indicator
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                         decoration: BoxDecoration(color: baseColor.withOpacity(0.08), borderRadius: BorderRadius.circular(10)),

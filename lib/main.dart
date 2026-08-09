@@ -1,4 +1,5 @@
 import 'package:carbonsense/features/activity/activity_log_screen.dart';
+import 'package:carbonsense/features/activity/log_activity_screen.dart';
 import 'package:carbonsense/features/network/network_provider.dart';
 import 'package:carbonsense/features/tasks/daily_tasks_screen.dart';
 import 'package:carbonsense/features/auth/forgot_password_screen.dart';
@@ -25,36 +26,52 @@ import 'package:carbonsense/features/auth/auth_screen.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 final ValueNotifier<ThemeMode> themeNotifier = ValueNotifier(ThemeMode.light);
+
+// 1. Declare a GlobalKey for the root navigator
+final GlobalKey<NavigatorState> _rootNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'root');
+
 final _router = GoRouter(
-  // 🌟 2. Changed initial location to trigger the new unified screen
+  // 2. Attach the root navigator key
+  navigatorKey: _rootNavigatorKey,
   initialLocation: '/login',
   routes: [
-    // --- AUTH ROUTES (FULL SCREEN) ---
-    // 🌟 3. Removed /welcome and /register routes, mapped /login to AuthScreen
+    // --- AUTH & STANDALONE ROUTES (FULL SCREEN) ---
     GoRoute(path: '/login', builder: (context, state) => const AuthScreen()),
     GoRoute(path: '/forgot-password', builder: (context, state) => const ForgotPasswordScreen()),
     GoRoute(path: '/reset-password', builder: (context, state) => const ResetPasswordScreen()),
     GoRoute(path: '/edit-profile', builder: (context, state) => const EditProfileScreen()),
     GoRoute(path: '/profile', builder: (context, state) => const ProfileScreen()),
     GoRoute(path: '/help-support', builder: (context, state) => const HelpSupportScreen()),
+
     // --- SHELL ROUTE (BOTTOM NAVIGATION BAR) ---
     StatefulShellRoute.indexedStack(
       builder: (context, state, navigationShell) {
         return MainNavigation(navigationShell: navigationShell);
       },
       branches: [
-        // BRANCH 0: Activity
+        // BRANCH 0: Activity Tab
         StatefulShellBranch(
           routes: [
             GoRoute(
               path: '/activity',
               builder: (context, state) => const ActivityLogScreen(),
               routes: [
-                GoRoute(path: 'score-history', builder: (context, state) => const ScoreHistoryScreen()),
-                GoRoute(path: 'food-scanner', name: 'food-scanner', builder: (context, state) => const FoodCameraScreen()),
-                GoRoute(path: 'manual-food', builder: (context, state) => const ManualFoodLogScreen()),
-                GoRoute(path: 'manual-bill', builder: (context, state) => const ManualBillScreen()),
-                GoRoute(path: 'bill-scanner', name: 'bill-scanner', builder: (context, state) => const BillScannerScreen()),
+                // 3. Add parentNavigatorKey to push full screen on top of MainNavigation
+                GoRoute(path: 'score-history', parentNavigatorKey: _rootNavigatorKey, builder: (context, state) => const ScoreHistoryScreen()),
+                // 🌟 Add the log-activity route here with parentNavigatorKey
+                GoRoute(
+                  path: 'log-activity',
+                  name: 'log-activity',
+                  parentNavigatorKey: _rootNavigatorKey,
+                  builder: (context, state) {
+                    final category = state.extra as String?;
+                    return LogActivityScreen(category: category);
+                  },
+                ),
+                GoRoute(path: 'food-scanner', name: 'food-scanner', parentNavigatorKey: _rootNavigatorKey, builder: (context, state) => const FoodCameraScreen()),
+                GoRoute(path: 'manual-food', parentNavigatorKey: _rootNavigatorKey, builder: (context, state) => const ManualFoodLogScreen()),
+                GoRoute(path: 'manual-bill', parentNavigatorKey: _rootNavigatorKey, builder: (context, state) => const ManualBillScreen()),
+                GoRoute(path: 'bill-scanner', name: 'bill-scanner', parentNavigatorKey: _rootNavigatorKey, builder: (context, state) => const BillScannerScreen()),
               ],
             ),
           ],
@@ -66,10 +83,17 @@ final _router = GoRouter(
             GoRoute(
               path: '/home',
               builder: (context, state) => const HomeDashboard(),
-              routes: [GoRoute(path: 'daily-tasks', builder: (context, state) => const DailyTasksScreen())],
+              routes: [
+                GoRoute(
+                  path: 'daily-tasks',
+                  parentNavigatorKey: _rootNavigatorKey, // Added here as well if daily-tasks should also be full screen
+                  builder: (context, state) => const DailyTasksScreen(),
+                ),
+              ],
             ),
           ],
         ),
+
         // BRANCH 2: Analytics
         StatefulShellBranch(
           routes: [GoRoute(path: '/analytics', builder: (context, state) => const AnalyticsScreen())],
@@ -82,8 +106,8 @@ final _router = GoRouter(
     final urlString = state.uri.toString();
     final isResetRoute = urlString.contains('reset-password');
     final path = state.uri.path;
-    //🌟 4. Updated isAuthRoute to only check the remaining auth routes
     final isAuthRoute = path == '/login' || path == '/forgot-password';
+
     if (isResetRoute) {
       if (state.matchedLocation != '/reset-password') {
         return '/reset-password';

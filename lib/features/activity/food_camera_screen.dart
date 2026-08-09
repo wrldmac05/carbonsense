@@ -375,62 +375,114 @@ class _FoodCameraScreenState extends State<FoodCameraScreen> {
     );
   }
 
+  Future<bool> _showExitConfirmationDialog() async {
+    final bool? shouldExit = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: const Text('Analysis in Progress', style: TextStyle(fontWeight: FontWeight.bold)),
+          content: const Text('Gemini AI is currently analyzing your food image. Leaving this page now will cancel the process. Are you sure you want to exit?'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false), // Stay on screen
+              child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.redAccent,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+              onPressed: () => Navigator.of(context).pop(true), // Confirm exit
+              child: const Text('Exit & Cancel', style: TextStyle(color: Colors.white)),
+            ),
+          ],
+        );
+      },
+    );
+
+    return shouldExit ?? false;
+  }
+
   // --- UI BUILDER ---
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF9FFF9),
-      appBar: AppBar(
-        title: const Text('Food Carbon Scanner', style: TextStyle(fontWeight: FontWeight.bold)),
-        centerTitle: true,
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-      ),
-      body: SafeArea(
-        bottom: false,
-        child: SingleChildScrollView(
-          child: Padding(
-            padding: const EdgeInsets.only(left: 24, top: 24, right: 24, bottom: 120),
-            child: ConstrainedBox(
-              constraints: BoxConstraints(minHeight: MediaQuery.of(context).size.height - kToolbarHeight - MediaQuery.of(context).padding.top),
-              child: IntrinsicHeight(
-                child: Column(
-                  children: [
-                    // TOP: Clean Image Preview or Placeholder
-                    SizedBox(
-                      height: MediaQuery.of(context).size.height * 0.35,
-                      child: Container(
-                        width: double.infinity,
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(24),
-                          border: Border.all(color: Colors.grey.shade300, width: 2),
-                        ),
-                        child: _selectedImage != null
-                            ? ClipRRect(
-                                borderRadius: BorderRadius.circular(22),
-                                child: Image.file(_selectedImage!, fit: BoxFit.cover),
-                              )
-                            : _buildScannerPlaceholder(),
-                      ),
-                    ),
-                    const SizedBox(height: 24),
+    return PopScope(
+      // Allow normal back navigation only when Gemini AI is NOT analyzing
+      canPop: !_isAnalyzing,
+      onPopInvokedWithResult: (didPop, result) async {
+        // If the page already popped (e.g. _isAnalyzing was false), do nothing
+        if (didPop) return;
 
-                    // BOTTOM: Dynamic Content
-                    if (_isAnalyzing) ...[
-                      const CircularProgressIndicator(color: AppTheme.primaryColor),
-                      const SizedBox(height: 12),
-                      const Text("CarbonSense is analyzing ingredients and portion size...", style: TextStyle(fontWeight: FontWeight.w500)),
-                      const Spacer(),
-                    ] else if (_foodName != null) ...[
-                      _buildResultsCard(),
-                    ] else ...[
-                      // 🌟 NEW: Separated Instructions aligned with Bill Scanner design
-                      _buildPhotoInstructions(),
-                      const SizedBox(height: 20),
-                      _buildCaptureButtons(),
+        // Show confirmation dialog if an AI analysis is active
+        final shouldPop = await _showExitConfirmationDialog();
+
+        if (shouldPop && context.mounted) {
+          // Reset state and exit safely
+          setState(() => _isAnalyzing = false);
+
+          if (Navigator.canPop(context)) {
+            Navigator.of(context).pop();
+          } else {
+            context.pop();
+          }
+        }
+      },
+      child: Scaffold(
+        backgroundColor: const Color(0xFFF9FFF9),
+        appBar: AppBar(
+          title: const Text('Food Carbon Scanner', style: TextStyle(fontWeight: FontWeight.bold)),
+          centerTitle: true,
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+        ),
+        body: SafeArea(
+          // ... rest of your existing body layout ...
+          bottom: false,
+          child: SingleChildScrollView(
+            child: Padding(
+              padding: const EdgeInsets.only(left: 24, top: 24, right: 24, bottom: 120),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(minHeight: MediaQuery.of(context).size.height - kToolbarHeight - MediaQuery.of(context).padding.top),
+                child: IntrinsicHeight(
+                  child: Column(
+                    children: [
+                      // TOP: Clean Image Preview or Placeholder
+                      SizedBox(
+                        height: MediaQuery.of(context).size.height * 0.35,
+                        child: Container(
+                          width: double.infinity,
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(24),
+                            border: Border.all(color: Colors.grey.shade300, width: 2),
+                          ),
+                          child: _selectedImage != null
+                              ? ClipRRect(
+                                  borderRadius: BorderRadius.circular(22),
+                                  child: Image.file(_selectedImage!, fit: BoxFit.cover),
+                                )
+                              : _buildScannerPlaceholder(),
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+
+                      // BOTTOM: Dynamic Content
+                      if (_isAnalyzing) ...[
+                        const CircularProgressIndicator(color: AppTheme.primaryColor),
+                        const SizedBox(height: 12),
+                        const Text("CarbonSense is analyzing ingredients and portion size...", style: TextStyle(fontWeight: FontWeight.w500)),
+                        const Spacer(),
+                      ] else if (_foodName != null) ...[
+                        _buildResultsCard(),
+                      ] else ...[
+                        // 🌟 NEW: Separated Instructions aligned with Bill Scanner design
+                        _buildPhotoInstructions(),
+                        const SizedBox(height: 20),
+                        _buildCaptureButtons(),
+                      ],
                     ],
-                  ],
+                  ),
                 ),
               ),
             ),

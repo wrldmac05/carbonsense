@@ -272,67 +272,118 @@ class _BillScannerScreenState extends State<BillScannerScreen> {
     );
   }
 
+  Future<bool> _showExitConfirmationDialog() async {
+    final bool? shouldExit = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: const Text('Analysis in Progress', style: TextStyle(fontWeight: FontWeight.bold)),
+          content: const Text('Gemini AI is currently analyzing your electricity bill. Leaving this page now will cancel the process. Are you sure you want to exit?'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false), // Stay on screen
+              child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.redAccent,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+              onPressed: () => Navigator.of(context).pop(true), // Confirm exit
+              child: const Text('Exit & Cancel', style: TextStyle(color: Colors.white)),
+            ),
+          ],
+        );
+      },
+    );
+
+    return shouldExit ?? false;
+  }
+
   // --- UI BUILDER ---
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF9FFF9),
-      appBar: AppBar(
-        title: const Text('Electricity Bill Scanner', style: TextStyle(fontWeight: FontWeight.bold)),
-        centerTitle: true,
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-      ),
-      body: SafeArea(
-        bottom: false,
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            return SingleChildScrollView(
-              padding: const EdgeInsets.only(left: 24, top: 24, right: 24, bottom: 120),
-              child: ConstrainedBox(
-                constraints: BoxConstraints(minHeight: constraints.maxHeight),
-                child: IntrinsicHeight(
-                  child: Column(
-                    children: [
-                      // TOP: Image Preview or Visual Aid
-                      SizedBox(
-                        height: constraints.maxHeight * 0.40,
-                        child: Container(
-                          width: double.infinity,
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(24),
-                            border: Border.all(color: Colors.grey.shade300, width: 2),
+    return PopScope(
+      // Allow immediate back navigation only when NOT analyzing
+      canPop: !_isAnalyzing,
+      onPopInvokedWithResult: (didPop, result) async {
+        // If the system already popped the route automatically, do nothing
+        if (didPop) return;
+
+        // Prompt user for confirmation while analysis is running
+        final shouldPop = await _showExitConfirmationDialog();
+
+        if (shouldPop && context.mounted) {
+          setState(() => _isAnalyzing = false);
+
+          if (Navigator.canPop(context)) {
+            Navigator.of(context).pop();
+          } else {
+            context.pop();
+          }
+        }
+      },
+      child: Scaffold(
+        backgroundColor: const Color(0xFFF9FFF9),
+        appBar: AppBar(
+          title: const Text('Electricity Bill Scanner', style: TextStyle(fontWeight: FontWeight.bold)),
+          centerTitle: true,
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+        ),
+        body: SafeArea(
+          bottom: false,
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              // ... rest of your build layout remains unchanged ...
+              return SingleChildScrollView(
+                padding: const EdgeInsets.only(left: 24, top: 24, right: 24, bottom: 120),
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                  child: IntrinsicHeight(
+                    child: Column(
+                      children: [
+                        // TOP: Image Preview or Visual Aid
+                        SizedBox(
+                          height: constraints.maxHeight * 0.40,
+                          child: Container(
+                            width: double.infinity,
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(24),
+                              border: Border.all(color: Colors.grey.shade300, width: 2),
+                            ),
+                            child: _selectedImage != null
+                                ? ClipRRect(
+                                    borderRadius: BorderRadius.circular(22),
+                                    child: Image.file(_selectedImage!, fit: BoxFit.cover),
+                                  )
+                                : _buildScannerPlaceholder(),
                           ),
-                          child: _selectedImage != null
-                              ? ClipRRect(
-                                  borderRadius: BorderRadius.circular(22),
-                                  child: Image.file(_selectedImage!, fit: BoxFit.cover),
-                                )
-                              : _buildScannerPlaceholder(),
                         ),
-                      ),
 
-                      const SizedBox(height: 24),
+                        const SizedBox(height: 24),
 
-                      // BOTTOM: Dynamic Content
-                      if (_isAnalyzing) ...[
-                        const CircularProgressIndicator(color: AppTheme.primaryColor),
-                        const SizedBox(height: 12),
-                        const Text("CarbonSense is reading the document...", style: TextStyle(fontWeight: FontWeight.w500)),
-                      ] else if (_kwhUsed != null) ...[
-                        _buildResultsCard(),
-                      ] else ...[
-                        _buildPrivacyInstructions(),
-                        const SizedBox(height: 20),
-                        _buildCaptureButtons(),
+                        // BOTTOM: Dynamic Content
+                        if (_isAnalyzing) ...[
+                          const CircularProgressIndicator(color: AppTheme.primaryColor),
+                          const SizedBox(height: 12),
+                          const Text("CarbonSense is reading the document...", style: TextStyle(fontWeight: FontWeight.w500)),
+                        ] else if (_kwhUsed != null) ...[
+                          _buildResultsCard(),
+                        ] else ...[
+                          _buildPrivacyInstructions(),
+                          const SizedBox(height: 20),
+                          _buildCaptureButtons(),
+                        ],
                       ],
-                    ],
+                    ),
                   ),
                 ),
-              ),
-            );
-          },
+              );
+            },
+          ),
         ),
       ),
     );

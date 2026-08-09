@@ -297,81 +297,138 @@ class _LogActivityScreenState extends State<LogActivityScreen> with SingleTicker
     }
   }
 
+  Future<bool> _showExitConfirmationDialog() async {
+    final bool? shouldExit = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: const Text('Ongoing Travel Tracking', style: TextStyle(fontWeight: FontWeight.bold)),
+          content: const Text('You have an active tracking session in progress. Leaving this page will stop and discard your current trip. Are you sure you want to exit?'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false), // Stay on screen
+              child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.redAccent,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+              onPressed: () => Navigator.of(context).pop(true), // Allow pop
+              child: const Text('Exit & Stop', style: TextStyle(color: Colors.white)),
+            ),
+          ],
+        );
+      },
+    );
+
+    return shouldExit ?? false;
+  }
+
   // --- UI BUILDER ---
   @override
   Widget build(BuildContext context) {
     final bool hasFinishedTrip = !_isTracking && _distanceKm > 0;
 
-    return Scaffold(
-      backgroundColor: const Color(0xFFF9FFF9),
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        iconTheme: const IconThemeData(color: Colors.black87),
-        title: const Text(
-          'Commute Tracker',
-          style: TextStyle(color: Colors.black87, fontWeight: FontWeight.bold),
+    return PopScope(
+      canPop: !_isTracking, // Allow immediate pop ONLY if tracking is inactive
+      onPopInvokedWithResult: (didPop, result) async {
+        // If the back action was allowed automatically, do nothing
+        if (didPop) return;
+
+        // Prompt confirmation dialog
+        final shouldPop = await _showExitConfirmationDialog();
+
+        if (shouldPop && context.mounted) {
+          // Stop tracking/timer before leaving
+          if (_isTracking) {
+            _stopTimer();
+            _bounceController.stop();
+            _positionStream?.cancel();
+            _positionStream = null;
+          }
+
+          // Navigate back using GoRouter or Navigator safely
+          if (Navigator.canPop(context)) {
+            Navigator.of(context).pop();
+          } else {
+            GoRouter.of(context).pop();
+          }
+        }
+      },
+      child: Scaffold(
+        backgroundColor: const Color(0xFFF9FFF9),
+        appBar: AppBar(
+          // ... rest of your Scaffold code ...
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          iconTheme: const IconThemeData(color: Colors.black87),
+          title: const Text(
+            'Commute Tracker',
+            style: TextStyle(color: Colors.black87, fontWeight: FontWeight.bold),
+          ),
+          centerTitle: true,
         ),
-        centerTitle: true,
-      ),
-      body: SafeArea(
-        bottom: false,
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            return SingleChildScrollView(
-              physics: const AlwaysScrollableScrollPhysics(),
-              padding: const EdgeInsets.only(left: 24, top: 16, right: 24, bottom: 120),
-              child: ConstrainedBox(
-                constraints: BoxConstraints(minHeight: constraints.maxHeight - 136 > 0 ? constraints.maxHeight - 136 : 0),
-                child: IntrinsicHeight(
-                  child: Column(
-                    children: [
-                      // 1. Selector Widget
-                      _buildVehicleSelector(),
+        body: SafeArea(
+          bottom: false,
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              return SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.only(left: 24, top: 16, right: 24, bottom: 120),
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(minHeight: constraints.maxHeight - 136 > 0 ? constraints.maxHeight - 136 : 0),
+                  child: IntrinsicHeight(
+                    child: Column(
+                      children: [
+                        // 1. Selector Widget
+                        _buildVehicleSelector(),
 
-                      const Spacer(),
+                        const Spacer(),
 
-                      // 2. Main Visual Metrics Hub
-                      _buildAnimatedVehicleIcon(),
-                      const SizedBox(height: 12),
-                      Text(
-                        _isTracking || hasFinishedTrip ? _formatDuration(_elapsedSeconds) : '00:00',
-                        style: TextStyle(
-                          fontSize: 60,
-                          fontWeight: FontWeight.w900,
-                          color: _isTracking ? AppTheme.primaryColor : Colors.grey.shade300,
-                          fontFeatures: const [FontFeature.tabularFigures()],
+                        // 2. Main Visual Metrics Hub
+                        _buildAnimatedVehicleIcon(),
+                        const SizedBox(height: 12),
+                        Text(
+                          _isTracking || hasFinishedTrip ? _formatDuration(_elapsedSeconds) : '00:00',
+                          style: TextStyle(
+                            fontSize: 60,
+                            fontWeight: FontWeight.w900,
+                            color: _isTracking ? AppTheme.primaryColor : Colors.grey.shade300,
+                            fontFeatures: const [FontFeature.tabularFigures()],
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 8),
-                      if (_isTracking)
-                        _buildGpsActiveBadge()
-                      else if (hasFinishedTrip)
-                        const Text(
-                          'Trip Completed',
-                          style: TextStyle(fontSize: 14, color: Colors.grey, fontWeight: FontWeight.w600),
-                        )
-                      else
-                        const Text(
-                          'Ready to depart',
-                          style: TextStyle(fontSize: 14, color: Colors.grey, fontWeight: FontWeight.w600),
-                        ),
+                        const SizedBox(height: 8),
+                        if (_isTracking)
+                          _buildGpsActiveBadge()
+                        else if (hasFinishedTrip)
+                          const Text(
+                            'Trip Completed',
+                            style: TextStyle(fontSize: 14, color: Colors.grey, fontWeight: FontWeight.w600),
+                          )
+                        else
+                          const Text(
+                            'Ready to depart',
+                            style: TextStyle(fontSize: 14, color: Colors.grey, fontWeight: FontWeight.w600),
+                          ),
 
-                      const Spacer(),
+                        const Spacer(),
 
-                      // 3. LIVE METRICS DASHBOARD / TIPS / SUMMARY
-                      if (_isTracking) _buildLiveMetricsDashboard() else if (!_isTracking && _distanceKm == 0) _buildTrackingTips() else if (hasFinishedTrip) _buildResultsCard(),
+                        // 3. LIVE METRICS DASHBOARD / TIPS / SUMMARY
+                        if (_isTracking) _buildLiveMetricsDashboard() else if (!_isTracking && _distanceKm == 0) _buildTrackingTips() else if (hasFinishedTrip) _buildResultsCard(),
 
-                      const Spacer(),
+                        const Spacer(),
 
-                      // 4. ACTION BUTTONS AT BOTTOM
-                      if (!_isTracking && !hasFinishedTrip) _buildHeroButton() else if (_isTracking) _buildActiveTripControls(),
-                    ],
+                        // 4. ACTION BUTTONS AT BOTTOM
+                        if (!_isTracking && !hasFinishedTrip) _buildHeroButton() else if (_isTracking) _buildActiveTripControls(),
+                      ],
+                    ),
                   ),
                 ),
-              ),
-            );
-          },
+              );
+            },
+          ),
         ),
       ),
     );
