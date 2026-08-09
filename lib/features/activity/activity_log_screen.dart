@@ -20,7 +20,7 @@ class _ActivityLogScreenState extends ConsumerState<ActivityLogScreen> {
 
   // 📝 Helper to show detailed information when a log is tapped
   void _showLogDetails(Map<String, dynamic> log, Map<String, dynamic>? factorData) {
-    final activityName = factorData?['activity_name'] ?? 'Unknown Activity';
+    final activityName = log['food_name'] ?? factorData?['activity_name'] ?? 'Unknown Activity';
     final category = factorData?['category'] ?? 'General';
     final unit = factorData?['unit'] ?? '';
     final inputValue = log['input_value']?.toString() ?? '0';
@@ -390,7 +390,7 @@ class _ActivityLogScreenState extends ConsumerState<ActivityLogScreen> {
                                     final log = selectedDayLogs[index];
                                     final factorData = log['emission_factors'] as Map<String, dynamic>?;
 
-                                    final activityName = factorData?['activity_name'] ?? 'Unknown';
+                                    final activityName = log['food_name'] ?? factorData?['activity_name'] ?? 'Unknown';
                                     final category = factorData?['category'] ?? 'General';
                                     final unit = factorData?['unit'] ?? '';
                                     final inputValue = log['input_value']?.toString() ?? '0';
@@ -521,33 +521,112 @@ class _ActivityLogScreenState extends ConsumerState<ActivityLogScreen> {
   }
 
   Widget _buildModernCategoryCard(IconData icon, String title, MaterialColor themeColor) {
+    // Define custom subtle color pairings for a modern aesthetic
+    Color baseColor;
+    Color lightGradient;
+    Color accentColor;
+
+    switch (title) {
+      case 'Transport':
+        baseColor = const Color.fromARGB(255, 30, 136, 229);
+        lightGradient = const Color.fromARGB(255, 240, 255, 242);
+        accentColor = const Color.fromARGB(255, 30, 136, 229);
+        break;
+      case 'Diet':
+        baseColor = const Color.fromARGB(255, 229, 57, 53);
+        lightGradient = const Color.fromARGB(255, 240, 255, 242);
+        accentColor = const Color.fromARGB(255, 229, 57, 53);
+        break;
+      case 'Energy':
+        baseColor = const Color.fromARGB(255, 255, 160, 0);
+        lightGradient = const Color.fromARGB(255, 240, 255, 242);
+        accentColor = const Color.fromARGB(255, 255, 160, 0);
+        break;
+      default:
+        baseColor = AppTheme.primaryColor;
+        lightGradient = const Color(0xFFF0FDF4);
+        accentColor = AppTheme.primaryColor;
+    }
+
     return Material(
       color: Colors.transparent,
       child: InkWell(
         onTap: () => _openCategory(title),
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(22),
         child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 8),
+          height: 140, // Uniform height for all cards
           decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: Colors.grey.shade200),
-            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 8, offset: const Offset(0, 4))],
+            borderRadius: BorderRadius.circular(22),
+            gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [Colors.white, lightGradient]),
+            border: Border.all(color: accentColor.withOpacity(0.18), width: 1.2),
+            boxShadow: [BoxShadow(color: accentColor.withOpacity(0.06), blurRadius: 12, offset: const Offset(0, 6))],
           ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(color: themeColor.shade50, shape: BoxShape.circle),
-                child: Icon(icon, size: 28, color: themeColor.shade600),
-              ),
-              const SizedBox(height: 12),
-              Text(
-                title,
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.black87),
-              ),
-            ],
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(22),
+            child: Stack(
+              children: [
+                // 🎨 Background Watermark Graphic (Adds depth without visual clutter)
+                Positioned(right: -12, bottom: -12, child: Icon(icon, size: 80, color: baseColor.withOpacity(0.06))),
+
+                // 🌟 Top Color Accent Bar
+                Positioned(
+                  top: 0,
+                  left: 16,
+                  right: 16,
+                  child: Container(
+                    height: 3,
+                    decoration: BoxDecoration(
+                      color: baseColor.withOpacity(0.4),
+                      borderRadius: const BorderRadius.vertical(bottom: Radius.circular(4)),
+                    ),
+                  ),
+                ),
+
+                // 📦 Card Content Layout
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 14),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      // Icon inside soft circular container
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          shape: BoxShape.circle,
+                          border: Border.all(color: accentColor.withOpacity(0.15)),
+                          boxShadow: [BoxShadow(color: accentColor.withOpacity(0.1), blurRadius: 6, offset: const Offset(0, 2))],
+                        ),
+                        child: Icon(icon, size: 24, color: baseColor),
+                      ),
+
+                      // Title
+                      Text(
+                        title,
+                        style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14, color: Colors.black87, letterSpacing: -0.2),
+                      ),
+
+                      // Motivating Action Indicator
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(color: baseColor.withOpacity(0.08), borderRadius: BorderRadius.circular(10)),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              "Log",
+                              style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: baseColor),
+                            ),
+                            const SizedBox(width: 2),
+                            Icon(Icons.add_circle_outline_rounded, size: 12, color: baseColor),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),

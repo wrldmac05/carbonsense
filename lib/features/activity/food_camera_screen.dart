@@ -217,6 +217,7 @@ class _FoodCameraScreenState extends State<FoodCameraScreen> {
         'input_value': double.parse(_weightG!.toStringAsFixed(2)),
         'total_co2e': double.parse(_co2e!.toStringAsFixed(4)),
         'ingredients': _ingredients, // 👇 NEW: Send the array to Supabase
+        'food_name': _foodName, // 👈 NEW: Save the AI detected food name
       });
 
       // 🚀 Run the Mission Engine silently
