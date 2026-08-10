@@ -1,9 +1,11 @@
+// auth_screen.dart
 import 'package:carbonsense/theme/app_theme.dart';
 import 'package:carbonsense/utils/constants.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 enum AuthState { splash, selection, login, register, forgotPassword }
 
@@ -216,7 +218,7 @@ class _AuthScreenState extends State<AuthScreen> with SingleTickerProviderStateM
 }
 
 // ============================================================================
-// SELECTION BUTTONS WIDGET (Direct Navigation to Screens)
+// SELECTION BUTTONS WIDGET
 // ============================================================================
 class _SelectionButtonsWidget extends StatefulWidget {
   final VoidCallback onGoToLogin;
@@ -336,6 +338,60 @@ class _LoginFormState extends State<_LoginForm> {
   String? _errorMessage;
   bool _obscurePassword = true;
 
+  void _showCustomBanDialog({required String title, required String message}) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        child: Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 64,
+                height: 64,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFF5F5),
+                  shape: BoxShape.circle,
+                  border: Border.all(color: const Color(0xFFFED7D7), width: 2),
+                ),
+                child: const Center(child: Text('🚫', style: TextStyle(fontSize: 28))),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                title,
+                style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFF1A202C)),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 12),
+              Text(
+                message,
+                style: const TextStyle(fontSize: 14, color: Color(0xFF718096), height: 1.5),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 24),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFE53E3E),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  onPressed: () => Navigator.of(dialogContext).pop(),
+                  child: const Text('Acknowledge', style: TextStyle(fontWeight: FontWeight.bold)),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Future<void> _login() async {
     if (!_formKey.currentState!.validate()) return;
 
@@ -345,8 +401,40 @@ class _LoginFormState extends State<_LoginForm> {
     });
 
     try {
-      await supabase.auth.signInWithPassword(email: _emailController.text.trim(), password: _passwordController.text.trim());
-      if (mounted) context.go('/home');
+      final response = await Supabase.instance.client.auth.signInWithPassword(email: _emailController.text.trim(), password: _passwordController.text.trim());
+
+      if (response.user != null) {
+        final profile = await Supabase.instance.client.from('user_profiles').select('is_banned, is_archived').eq('user_id', response.user!.id).maybeSingle();
+
+        if (profile != null) {
+          final isBanned = profile['is_banned'] as bool? ?? false;
+          final isArchived = profile['is_archived'] as bool? ?? false;
+
+          if (isBanned || isArchived) {
+            await Supabase.instance.client.auth.signOut();
+            if (mounted) {
+              _showCustomBanDialog(
+                title: isBanned ? 'Account Suspended' : 'Account Archived',
+                message: isBanned ? 'Your account has been suspended by an administrator due to violations of platform terms.' : 'Your account has been archived. Please contact support.',
+              );
+            }
+            return;
+          }
+        }
+
+        if (mounted) context.go('/home');
+      }
+    } on AuthException catch (e) {
+      if (mounted) {
+        final errorMsg = e.message.toLowerCase();
+        if (errorMsg.contains('banned') || e.statusCode == '400') {
+          _showCustomBanDialog(title: 'Account Suspended', message: 'Your account is currently suspended. Access is restricted by an administrator.');
+        } else {
+          setState(() {
+            _errorMessage = 'Incorrect email or password. Please try again.';
+          });
+        }
+      }
     } catch (error) {
       if (mounted) {
         setState(() {
@@ -485,7 +573,7 @@ class _LoginFormState extends State<_LoginForm> {
                 GestureDetector(
                   onTap: widget.onGoToRegister,
                   child: const Text(
-                    'SIGN UP',
+                    'LOG IN',
                     style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 14),
                   ),
                 ),
@@ -524,7 +612,7 @@ class _ForgotPasswordFormState extends State<_ForgotPasswordForm> {
     setState(() => _isLoading = true);
 
     try {
-      await supabase.auth.resetPasswordForEmail(email, redirectTo: 'io.supabase.carbonsense://reset-password');
+      await Supabase.instance.client.auth.resetPasswordForEmail(email, redirectTo: 'io.supabase.carbonsense://reset-password');
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Recovery link sent! Check your inbox.'), backgroundColor: Colors.green));
@@ -615,7 +703,7 @@ class _ForgotPasswordFormState extends State<_ForgotPasswordForm> {
 }
 
 // ============================================================================
-// REGISTER FORM WIDGET (Direct Navigation to Screens)
+// REGISTER FORM WIDGET
 // ============================================================================
 class _RegisterForm extends StatefulWidget {
   final VoidCallback onGoToLogin;
@@ -678,7 +766,7 @@ class _RegisterFormState extends State<_RegisterForm> {
     setState(() => _isLoading = true);
 
     try {
-      await supabase.auth.signUp(
+      await Supabase.instance.client.auth.signUp(
         email: _emailController.text.trim(),
         password: _passwordController.text.trim(),
         data: {'full_name': _fullNameController.text.trim()},

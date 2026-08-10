@@ -33,7 +33,6 @@ final ValueNotifier<ThemeMode> themeNotifier = ValueNotifier(ThemeMode.light);
 final GlobalKey<NavigatorState> _rootNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'root');
 
 final _router = GoRouter(
-  // 2. Attach the root navigator key
   navigatorKey: _rootNavigatorKey,
   initialLocation: '/login',
   routes: [
@@ -151,8 +150,130 @@ Future<void> main() async {
   runApp(const ProviderScope(child: CarbonSense()));
 }
 
-class CarbonSense extends StatelessWidget {
+class CarbonSense extends ConsumerStatefulWidget {
   const CarbonSense({super.key});
+
+  @override
+  ConsumerState<CarbonSense> createState() => _CarbonSenseState();
+}
+
+class _CarbonSenseState extends ConsumerState<CarbonSense> {
+  RealtimeChannel? _securityChannel;
+
+  @override
+  void initState() {
+    super.initState();
+    _listenToAuthChanges();
+  }
+
+  void _listenToAuthChanges() {
+    Supabase.instance.client.auth.onAuthStateChange.listen((data) {
+      final session = data.session;
+      if (session != null) {
+        _subscribeToSecurityChannel(session.user.id);
+      } else {
+        _unsubscribeSecurityChannel();
+      }
+    });
+  }
+
+  void _subscribeToSecurityChannel(String userId) {
+    _unsubscribeSecurityChannel();
+
+    _securityChannel = Supabase.instance.client
+        .channel('public:user_profiles:$userId')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.update,
+          schema: 'public',
+          table: 'user_profiles',
+          filter: PostgresChangeFilter(type: PostgresChangeFilterType.eq, column: 'user_id', value: userId),
+          callback: (payload) async {
+            final isBanned = payload.newRecord['is_banned'] as bool? ?? false;
+            final isArchived = payload.newRecord['is_archived'] as bool? ?? false;
+
+            if (isBanned || isArchived) {
+              await Supabase.instance.client.auth.signOut();
+              _router.go('/login');
+              _showCustomBanDialog(
+                title: isBanned ? 'Account Suspended' : 'Account Archived',
+                message: isBanned ? 'Your account has been suspended by an administrator due to policy violations.' : 'Your account has been archived by an administrator.',
+              );
+            }
+          },
+        )
+        .subscribe();
+  }
+
+  void _unsubscribeSecurityChannel() {
+    if (_securityChannel != null) {
+      Supabase.instance.client.removeChannel(_securityChannel!);
+      _securityChannel = null;
+    }
+  }
+
+  void _showCustomBanDialog({required String title, required String message}) {
+    final context = _rootNavigatorKey.currentContext;
+    if (context == null) return;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        child: Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 64,
+                height: 64,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFF5F5),
+                  shape: BoxShape.circle,
+                  border: Border.all(color: const Color(0xFFFED7D7), width: 2),
+                ),
+                child: const Center(child: Text('🚫', style: TextStyle(fontSize: 28))),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                title,
+                style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFF1A202C)),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 12),
+              Text(
+                message,
+                style: const TextStyle(fontSize: 14, color: Color(0xFF718096), height: 1.5),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 24),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFE53E3E),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  onPressed: () => Navigator.of(dialogContext).pop(),
+                  child: const Text('Acknowledge', style: TextStyle(fontWeight: FontWeight.bold)),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    _unsubscribeSecurityChannel();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     return ValueListenableBuilder<ThemeMode>(
