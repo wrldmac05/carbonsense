@@ -294,6 +294,7 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
   void _openMonthlyBreakdownSheet() {
     showModalBottomSheet(
       context: context,
+      useRootNavigator: true,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (BuildContext sheetContext) {
@@ -303,7 +304,7 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
             color: Colors.white,
             borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
           ),
-          padding: const EdgeInsets.only(left: 24, top: 24, right: 24, bottom: 120),
+          padding: const EdgeInsets.only(left: 24, top: 24, right: 24, bottom: 24),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -470,6 +471,7 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
   void _openLifestyleCustomizationSheet() {
     showModalBottomSheet(
       context: context,
+      useRootNavigator: true,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (BuildContext sheetContext) {
@@ -478,7 +480,7 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
             color: Colors.white,
             borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
           ),
-          padding: const EdgeInsets.only(left: 24, top: 24, right: 24, bottom: 120),
+          padding: const EdgeInsets.only(left: 24, top: 24, right: 24, bottom: 24),
           child: SafeArea(
             child: SingleChildScrollView(
               physics: const BouncingScrollPhysics(),

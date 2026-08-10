@@ -165,9 +165,6 @@ class _AuthScreenState extends State<AuthScreen> with SingleTickerProviderStateM
     }
   }
 
-  // ==========================================================================
-  // SHARED LOGO, TITLE & DESCRIPTION WIDGET
-  // ==========================================================================
   Widget _buildSharedTitleAndLogo({bool showDescription = false}) {
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -195,9 +192,6 @@ class _AuthScreenState extends State<AuthScreen> with SingleTickerProviderStateM
     );
   }
 
-  // ==========================================================================
-  // HEADERS
-  // ==========================================================================
   Widget _buildSplashHeader({Key? key}) {
     return Container(
       key: key,
@@ -215,14 +209,14 @@ class _AuthScreenState extends State<AuthScreen> with SingleTickerProviderStateM
       key: key,
       width: MediaQuery.of(context).size.width,
       alignment: Alignment.bottomCenter,
-      padding: const EdgeInsets.only(top: 350.0), // Moves logo & description closer to the drawer
+      padding: const EdgeInsets.only(top: 350.0),
       child: _buildSharedTitleAndLogo(showDescription: true),
     );
   }
 }
 
 // ============================================================================
-// SELECTION BUTTONS WIDGET (With Terms & Conditions)
+// SELECTION BUTTONS WIDGET (Direct Navigation to Screens)
 // ============================================================================
 class _SelectionButtonsWidget extends StatefulWidget {
   final VoidCallback onGoToLogin;
@@ -238,19 +232,17 @@ class _SelectionButtonsWidgetState extends State<_SelectionButtonsWidget> {
   late final TapGestureRecognizer _termsRecognizer;
   late final TapGestureRecognizer _privacyRecognizer;
 
-  final String _rawTermsContent = '''
-TERMS AND CONDITIONS
-Last updated: May 18, 2026
-
-AGREEMENT TO OUR LEGAL TERMS
-We are CarbonSense Corp. ("Company," "we," "us," "our")...
-''';
-
   @override
   void initState() {
     super.initState();
-    _termsRecognizer = TapGestureRecognizer()..onTap = _showTermsDialog;
-    _privacyRecognizer = TapGestureRecognizer()..onTap = _showPrivacyDialog;
+    _termsRecognizer = TapGestureRecognizer()
+      ..onTap = () {
+        context.push('/terms-of-use');
+      };
+    _privacyRecognizer = TapGestureRecognizer()
+      ..onTap = () {
+        context.push('/privacy-policy');
+      };
   }
 
   @override
@@ -258,71 +250,6 @@ We are CarbonSense Corp. ("Company," "we," "us," "our")...
     _termsRecognizer.dispose();
     _privacyRecognizer.dispose();
     super.dispose();
-  }
-
-  void _showTermsDialog() {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (sheetContext) {
-        return Container(
-          height: MediaQuery.of(context).size.height * 0.85,
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
-          ),
-          padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Center(
-                child: Container(
-                  width: 40,
-                  height: 5,
-                  decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(10)),
-                ),
-              ),
-              const SizedBox(height: 20),
-              const Text("Terms & Conditions", style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900)),
-              const SizedBox(height: 16),
-              const Divider(height: 1),
-              Expanded(
-                child: SingleChildScrollView(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 16.0),
-                    child: Text(_rawTermsContent, style: TextStyle(height: 1.6, color: Colors.grey.shade700)),
-                  ),
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                width: double.infinity,
-                child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryColor, padding: const EdgeInsets.symmetric(vertical: 16)),
-                  onPressed: () => Navigator.of(sheetContext).pop(),
-                  child: const Text(
-                    "I Accept",
-                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  void _showPrivacyDialog() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text("Data Privacy Act of 2012"),
-        content: const Text("Your data is encrypted and will never be sold.", style: TextStyle(height: 1.5)),
-        actions: [TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text("Close"))],
-      ),
-    );
   }
 
   @override
@@ -373,7 +300,7 @@ We are CarbonSense Corp. ("Company," "we," "us," "our")...
                   ),
                   const TextSpan(text: ' and '),
                   TextSpan(
-                    text: 'Privacy Act',
+                    text: 'Privacy Policy',
                     style: const TextStyle(color: AppTheme.primaryColor, fontWeight: FontWeight.bold),
                     recognizer: _privacyRecognizer,
                   ),
@@ -407,6 +334,7 @@ class _LoginFormState extends State<_LoginForm> {
   final _passwordController = TextEditingController();
   bool _isLoading = false;
   String? _errorMessage;
+  bool _obscurePassword = true;
 
   Future<void> _login() async {
     if (!_formKey.currentState!.validate()) return;
@@ -498,7 +426,7 @@ class _LoginFormState extends State<_LoginForm> {
             TextFormField(
               controller: _passwordController,
               style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-              obscureText: true,
+              obscureText: _obscurePassword,
               onChanged: (val) {
                 if (_errorMessage != null) setState(() => _errorMessage = null);
               },
@@ -510,6 +438,10 @@ class _LoginFormState extends State<_LoginForm> {
                 focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: AppTheme.primaryColor, width: 2)),
                 errorBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Colors.red, width: 1)),
                 focusedErrorBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Colors.red, width: 2)),
+                suffixIcon: IconButton(
+                  icon: Icon(_obscurePassword ? Icons.visibility_off : Icons.visibility, color: Colors.grey),
+                  onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                ),
               ),
               validator: (value) {
                 if (value == null || value.isEmpty) return 'Enter your password';
@@ -683,7 +615,7 @@ class _ForgotPasswordFormState extends State<_ForgotPasswordForm> {
 }
 
 // ============================================================================
-// REGISTER FORM WIDGET
+// REGISTER FORM WIDGET (Direct Navigation to Screens)
 // ============================================================================
 class _RegisterForm extends StatefulWidget {
   final VoidCallback onGoToLogin;
@@ -706,23 +638,24 @@ class _RegisterFormState extends State<_RegisterForm> {
   bool _hasUppercase = false;
   bool _hasNumber = false;
 
+  bool _obscurePassword = true;
+  bool _obscureConfirmPassword = true;
+
   late final TapGestureRecognizer _termsRecognizer;
   late final TapGestureRecognizer _privacyRecognizer;
-
-  final String _rawTermsContent = '''
-TERMS AND CONDITIONS
-Last updated: May 18, 2026
-
-AGREEMENT TO OUR LEGAL TERMS
-We are CarbonSense Corp. ("Company," "we," "us," "our")...
-''';
 
   @override
   void initState() {
     super.initState();
     _passwordController.addListener(_validatePassword);
-    _termsRecognizer = TapGestureRecognizer()..onTap = _showTermsDialog;
-    _privacyRecognizer = TapGestureRecognizer()..onTap = _showPrivacyDialog;
+    _termsRecognizer = TapGestureRecognizer()
+      ..onTap = () {
+        context.push('/terms-of-use');
+      };
+    _privacyRecognizer = TapGestureRecognizer()
+      ..onTap = () {
+        context.push('/privacy-policy');
+      };
   }
 
   void _validatePassword() {
@@ -759,71 +692,6 @@ We are CarbonSense Corp. ("Company," "we," "us," "our")...
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
-  }
-
-  void _showTermsDialog() {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (sheetContext) {
-        return Container(
-          height: MediaQuery.of(context).size.height * 0.85,
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
-          ),
-          padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Center(
-                child: Container(
-                  width: 40,
-                  height: 5,
-                  decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(10)),
-                ),
-              ),
-              const SizedBox(height: 20),
-              const Text("Terms & Conditions", style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900)),
-              const SizedBox(height: 16),
-              const Divider(height: 1),
-              Expanded(
-                child: SingleChildScrollView(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 16.0),
-                    child: Text(_rawTermsContent, style: TextStyle(height: 1.6, color: Colors.grey.shade700)),
-                  ),
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                width: double.infinity,
-                child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryColor, padding: const EdgeInsets.symmetric(vertical: 16)),
-                  onPressed: () => Navigator.of(sheetContext).pop(),
-                  child: const Text(
-                    "I Accept",
-                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  void _showPrivacyDialog() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text("Data Privacy Act of 2012"),
-        content: const Text("Your data is encrypted and will never be sold.", style: TextStyle(height: 1.5)),
-        actions: [TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text("Close"))],
-      ),
-    );
   }
 
   void _showSuccessDialog(String email) {
@@ -936,7 +804,7 @@ We are CarbonSense Corp. ("Company," "we," "us," "our")...
               controller: _passwordController,
               style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
               autovalidateMode: AutovalidateMode.onUserInteraction,
-              obscureText: true,
+              obscureText: _obscurePassword,
               decoration: InputDecoration(
                 labelText: 'Password',
                 floatingLabelBehavior: FloatingLabelBehavior.always,
@@ -945,6 +813,10 @@ We are CarbonSense Corp. ("Company," "we," "us," "our")...
                 focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: AppTheme.primaryColor, width: 2)),
                 errorBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Colors.red, width: 1)),
                 focusedErrorBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Colors.red, width: 2)),
+                suffixIcon: IconButton(
+                  icon: Icon(_obscurePassword ? Icons.visibility_off : Icons.visibility, color: Colors.grey),
+                  onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                ),
               ),
             ),
             const SizedBox(height: 8),
@@ -958,7 +830,7 @@ We are CarbonSense Corp. ("Company," "we," "us," "our")...
               controller: _confirmPasswordController,
               style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
               autovalidateMode: AutovalidateMode.onUserInteraction,
-              obscureText: true,
+              obscureText: _obscureConfirmPassword,
               decoration: InputDecoration(
                 labelText: 'Confirm Password',
                 floatingLabelBehavior: FloatingLabelBehavior.always,
@@ -967,6 +839,10 @@ We are CarbonSense Corp. ("Company," "we," "us," "our")...
                 focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: AppTheme.primaryColor, width: 2)),
                 errorBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Colors.red, width: 1)),
                 focusedErrorBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Colors.red, width: 2)),
+                suffixIcon: IconButton(
+                  icon: Icon(_obscureConfirmPassword ? Icons.visibility_off : Icons.visibility, color: Colors.grey),
+                  onPressed: () => setState(() => _obscureConfirmPassword = !_obscureConfirmPassword),
+                ),
               ),
               validator: (value) {
                 if (value != _passwordController.text) return 'Passwords do not match';
@@ -988,7 +864,7 @@ We are CarbonSense Corp. ("Company," "we," "us," "our")...
                   ),
                   const TextSpan(text: ' and '),
                   TextSpan(
-                    text: 'Privacy Act',
+                    text: 'Privacy Policy',
                     style: const TextStyle(color: AppTheme.primaryColor, fontWeight: FontWeight.bold),
                     recognizer: _privacyRecognizer,
                   ),

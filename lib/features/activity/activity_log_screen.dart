@@ -63,11 +63,12 @@ class _ActivityLogScreenState extends ConsumerState<ActivityLogScreen> {
 
     showModalBottomSheet(
       context: context,
+      useRootNavigator: true,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) {
         return Container(
-          padding: const EdgeInsets.only(left: 24, top: 24, right: 24, bottom: 120),
+          padding: const EdgeInsets.only(left: 24, top: 24, right: 24, bottom: 24),
           decoration: const BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
