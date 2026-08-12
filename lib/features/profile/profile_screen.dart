@@ -27,12 +27,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
       if (userId == null) return;
 
       final profileResponse = await Supabase.instance.client.from('user_profiles').select().eq('user_id', userId).maybeSingle();
-
       final lifestyleResponse = await Supabase.instance.client.from('lifestyle_profiles').select().eq('user_id', userId).maybeSingle();
 
-      // THE SMART ONBOARDING CHECK
       if (profileResponse != null) {
-        final rawLocation = profileResponse['avatar_url'];
+        final rawLocation = profileResponse['location']; // 👈 Fixed
         final bool hasLocation = rawLocation != null && rawLocation.toString().trim().isNotEmpty;
         final bool isObProfileDone = profileResponse['ob_profile'] == true;
 
@@ -670,6 +668,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
+  // Fix 2: Fixed Grid Card Text Truncation
   Widget _buildGridCard(String title, String value, IconData icon) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final cardBg = isDark ? Colors.grey[850] : Colors.white;
@@ -696,8 +695,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
           const SizedBox(height: 4),
           Text(
             value,
-            style: TextStyle(color: textColor, fontSize: 16, fontWeight: FontWeight.w800),
-            maxLines: 1,
+            style: TextStyle(color: textColor, fontSize: 15, fontWeight: FontWeight.w800, height: 1.2), // 👈 Allows 2 lines cleanly
+            maxLines: 2,
             overflow: TextOverflow.ellipsis,
           ),
         ],

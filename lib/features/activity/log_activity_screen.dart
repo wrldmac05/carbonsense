@@ -658,68 +658,154 @@ class _LogActivityScreenState extends State<LogActivityScreen> with SingleTicker
 
   Widget _buildVehicleSelector() {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final cardBg = isDark ? Colors.grey[850] : Colors.white;
+    final cardBg = isDark ? Colors.grey[850]! : Colors.white;
     final textColor = isDark ? Colors.white : Colors.black87;
     final primaryAccentColor = isDark ? Colors.white : AppTheme.primaryColor;
 
+    // Trip completed and summary is showing
+    final bool hasFinishedTrip = !_isTracking && _distanceKm > 0;
+
+    // Lock selector during tracking, summary review, or active saving
+    final bool isReadOnly = _isTracking || hasFinishedTrip || _isSavingLog;
+
     if (_isLoadingFactors) {
       return Container(
-        height: 56,
+        height: 60,
         decoration: BoxDecoration(
           color: cardBg,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(color: isDark ? Colors.grey[800]! : Colors.grey.shade300),
         ),
-        child: const Center(child: SizedBox(height: 24, width: 24, child: CircularProgressIndicator(strokeWidth: 2))),
+        child: const Center(child: SizedBox(height: 22, width: 22, child: CircularProgressIndicator(strokeWidth: 2))),
       );
     }
 
     if (_vehicleEmissionFactors.isEmpty) {
-      return const Text("No vehicles found in database.", style: TextStyle(color: Colors.red));
+      return Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Colors.redAccent.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.redAccent.withOpacity(0.3)),
+        ),
+        child: const Row(
+          children: [
+            Icon(Icons.error_outline, color: Colors.redAccent, size: 20),
+            SizedBox(width: 8),
+            Text(
+              "No vehicle factors found in database.",
+              style: TextStyle(color: Colors.redAccent, fontSize: 13, fontWeight: FontWeight.w600),
+            ),
+          ],
+        ),
+      );
     }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          "Select Transport Mode",
-          style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: isDark ? Colors.grey[400] : Colors.grey),
+        // Section Header & Status Indicator
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              "TRANSPORT MODE",
+              style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 1.1, color: isDark ? Colors.grey[400] : Colors.grey[600]),
+            ),
+            if (isReadOnly)
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 300),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: Colors.orangeAccent.withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.orangeAccent.withOpacity(0.4), width: 1),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.lock_rounded, size: 12, color: Colors.orangeAccent),
+                    const SizedBox(width: 4),
+                    Text(
+                      _isTracking
+                          ? "LOCKED DURING TRIP"
+                          : hasFinishedTrip
+                          ? "LOCKED FOR REVIEW"
+                          : "LOCKED",
+                      style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: Colors.orangeAccent, letterSpacing: 0.5),
+                    ),
+                  ],
+                ),
+              ),
+          ],
         ),
         const SizedBox(height: 8),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-          decoration: BoxDecoration(
-            color: cardBg,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: isDark ? Colors.grey[800]! : Colors.grey.shade300),
-            boxShadow: [BoxShadow(color: Colors.black.withOpacity(isDark ? 0.2 : 0.03), blurRadius: 10, offset: const Offset(0, 4))],
-          ),
-          child: DropdownButtonHideUnderline(
-            child: DropdownButton<String>(
-              value: _selectedVehicle,
-              dropdownColor: cardBg,
-              isExpanded: true,
-              icon: Icon(Icons.keyboard_arrow_down, color: primaryAccentColor),
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: textColor),
-              onChanged: _isTracking ? null : (String? newValue) => setState(() => _selectedVehicle = newValue),
-              items: _vehicleEmissionFactors.keys.map<DropdownMenuItem<String>>((String value) {
-                return DropdownMenuItem<String>(
-                  value: value,
-                  child: Row(
-                    children: [
-                      Icon(_getIconForVehicle(value), color: primaryAccentColor, size: 20),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          value,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(color: textColor),
+
+        // Dropdown Box Container
+        AnimatedOpacity(
+          duration: const Duration(milliseconds: 250),
+          opacity: isReadOnly ? 0.65 : 1.0,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+            decoration: BoxDecoration(
+              color: isReadOnly ? (isDark ? Colors.grey[900] : Colors.grey.shade100) : cardBg,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: isReadOnly ? (isDark ? Colors.grey[800]! : Colors.grey.shade300) : primaryAccentColor.withOpacity(0.35), width: 1.5),
+              boxShadow: isReadOnly ? [] : [BoxShadow(color: primaryAccentColor.withOpacity(0.08), blurRadius: 12, offset: const Offset(0, 4))],
+            ),
+            child: DropdownButtonHideUnderline(
+              child: DropdownButton<String>(
+                value: _selectedVehicle,
+                dropdownColor: cardBg,
+                isExpanded: true,
+                // Lock icon displayed when interactive mode is disabled
+                icon: isReadOnly
+                    ? Icon(Icons.lock_outline_rounded, color: isDark ? Colors.grey[500] : Colors.grey[400], size: 20)
+                    : Icon(Icons.keyboard_arrow_down_rounded, color: primaryAccentColor, size: 24),
+                // Strictly null when read-only to prevent opening the dropdown menu
+                onChanged: isReadOnly
+                    ? null
+                    : (String? newValue) {
+                        if (newValue != null) {
+                          setState(() => _selectedVehicle = newValue);
+                        }
+                      },
+                items: _vehicleEmissionFactors.keys.map<DropdownMenuItem<String>>((String vehicleName) {
+                  final vehicleData = _vehicleEmissionFactors[vehicleName];
+                  final double factor = vehicleData?.factor ?? 0.0;
+
+                  return DropdownMenuItem<String>(
+                    value: vehicleName,
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(color: primaryAccentColor.withOpacity(isDark ? 0.15 : 0.08), borderRadius: BorderRadius.circular(10)),
+                          child: Icon(_getIconForVehicle(vehicleName), color: primaryAccentColor, size: 20),
                         ),
-                      ),
-                    ],
-                  ),
-                );
-              }).toList(),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                vehicleName,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: textColor),
+                              ),
+                              Text(
+                                '${factor.toStringAsFixed(3)} kg CO₂e / km',
+                                style: TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: isDark ? Colors.grey[400] : Colors.grey[600]),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }).toList(),
+              ),
             ),
           ),
         ),

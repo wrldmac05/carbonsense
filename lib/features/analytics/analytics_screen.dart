@@ -5,6 +5,17 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'analytics_providers.dart';
+import 'package:flutter_markdown/flutter_markdown.dart';
+
+// 🌟 Riverpod Provider to fetch Lifestyle Profile directly from Supabase
+final lifestyleProfileProvider = FutureProvider.autoDispose<Map<String, dynamic>?>((ref) async {
+  final userId = Supabase.instance.client.auth.currentUser?.id;
+  if (userId == null) return null;
+
+  final response = await Supabase.instance.client.from('lifestyle_profiles').select().eq('user_id', userId).maybeSingle();
+
+  return response;
+});
 
 class AnalyticsScreen extends ConsumerStatefulWidget {
   const AnalyticsScreen({super.key});
@@ -62,27 +73,21 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
 
   // 🌟 HELPER 2: Robust resolution for activity names with multiple fallbacks
   String _extractActivityName(Map<String, dynamic> log, Map<String, dynamic>? factorData) {
-    // 1. Food scanner AI item name
     if (log['food_name'] != null && log['food_name'].toString().trim().isNotEmpty) {
       return log['food_name'].toString();
     }
-
-    // 2. Joined emission factor attributes
     if (factorData != null) {
       final name = factorData['activity_name'] ?? factorData['name'] ?? factorData['title'];
       if (name != null && name.toString().trim().isNotEmpty) {
         return name.toString();
       }
     }
-
-    // 3. Top-level log fields
     if (log['activity_name'] != null && log['activity_name'].toString().trim().isNotEmpty) {
       return log['activity_name'].toString();
     }
     if (log['title'] != null && log['title'].toString().trim().isNotEmpty) {
       return log['title'].toString();
     }
-
     return 'Activity Log';
   }
 
@@ -146,6 +151,22 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
     }
   }
 
+  IconData _getCommuteIcon(String commute) {
+    if (commute.contains('Transit')) return Icons.directions_transit;
+    if (commute.contains('Cycling') || commute.contains('Walking')) return Icons.directions_bike;
+    if (commute.contains('Motorcycle')) return Icons.two_wheeler;
+    if (commute.contains('Analyzing')) return Icons.sync;
+    return Icons.directions_car;
+  }
+
+  IconData _getDietIcon(String diet) {
+    if (diet.contains('Plant') || diet.contains('Vegan')) return Icons.eco;
+    if (diet.contains('Pescatarian')) return Icons.set_meal;
+    if (diet.contains('Beef') || diet.contains('Meat')) return Icons.kebab_dining;
+    if (diet.contains('Analyzing')) return Icons.sync;
+    return Icons.restaurant;
+  }
+
   // 📝 Helper to show detailed information when a log is tapped
   void _showLogDetails(Map<String, dynamic> log, Map<String, dynamic>? factorData) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -183,7 +204,7 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
       backgroundColor: Colors.transparent,
       builder: (context) {
         return Container(
-          padding: const EdgeInsets.only(left: 24, top: 24, right: 24, bottom: 24),
+          padding: const EdgeInsets.all(24),
           decoration: BoxDecoration(
             color: sheetBg,
             borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
@@ -384,19 +405,17 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
     final logsAsync = ref.watch(activityLogsStreamProvider);
     final generalAiAsync = ref.watch(generalAiInsightProvider);
     final monthlyAiAsync = ref.watch(monthlyAiInsightProvider(_selectedMonthIndex));
+    final lifestyleAsync = ref.watch(lifestyleProfileProvider);
 
     return Scaffold(
       backgroundColor: scaffoldBg,
       body: Stack(
         children: [
-          // 🌟 Subtle Dynamic Background Watermark based on Time of Day
           Positioned(
             top: -30,
             right: -40,
             child: IgnorePointer(child: Icon(_getTimeOfDayWatermarkIcon(), size: 260, color: isDark ? Colors.white.withOpacity(0.03) : AppTheme.primaryColor.withOpacity(0.04))),
           ),
-
-          // Main Content
           SafeArea(
             bottom: false,
             child: logsAsync.when(
@@ -425,6 +444,7 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
                           ref.invalidate(activityLogsStreamProvider);
                           ref.invalidate(generalAiInsightProvider);
                           ref.invalidate(monthlyAiInsightProvider);
+                          ref.invalidate(lifestyleProfileProvider);
                           _runSmartSync();
                         },
                         icon: const Icon(Icons.refresh, size: 18),
@@ -466,6 +486,7 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
                     ref.invalidate(activityLogsStreamProvider);
                     ref.invalidate(generalAiInsightProvider);
                     ref.invalidate(monthlyAiInsightProvider);
+                    ref.invalidate(lifestyleProfileProvider);
                     await _runSmartSync();
                   },
                   child: SingleChildScrollView(
@@ -492,7 +513,13 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
                           ),
                         ),
 
-                        // 2. YEARLY OVERVIEW GRAPH
+                        // 2. NEW: DETAILED LIFESTYLE PROFILE & IMPACT SECTION
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 10),
+                          child: lifestyleAsync.when(loading: () => const SizedBox.shrink(), error: (_, __) => const SizedBox.shrink(), data: (lifestyle) => _buildDetailedLifestyleSection(lifestyle)),
+                        ),
+
+                        // 3. YEARLY OVERVIEW GRAPH
                         Padding(padding: const EdgeInsets.all(20.0), child: _buildYearlyChartCard(yearlyData, totalYearlyImpact)),
 
                         Padding(
@@ -503,12 +530,12 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
                           ),
                         ),
 
-                        // 3. MONTH SELECTOR
+                        // 4. MONTH SELECTOR
                         _buildMonthSelector(),
 
                         const SizedBox(height: 16),
 
-                        // 4. MONTHLY SUMMARY & QUICK METRICS
+                        // 5. MONTHLY SUMMARY & QUICK METRICS
                         Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 24.0),
                           child: Column(children: [_buildMonthSummaryCard(selectedMonthImpact), const SizedBox(height: 16), _buildQuickMetricsGrid(selectedMonthImpact, monthLogs, categoryTotals)]),
@@ -516,12 +543,12 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
 
                         const SizedBox(height: 20),
 
-                        // 5. CATEGORY BREAKDOWN PIE CHART
+                        // 6. CATEGORY BREAKDOWN PIE CHART
                         Padding(padding: const EdgeInsets.symmetric(horizontal: 24.0), child: _buildCategoryBreakdownCard(categoryTotals, selectedMonthImpact)),
 
                         const SizedBox(height: 20),
 
-                        // 6. MONTHLY AI INSIGHT CARD
+                        // 7. MONTHLY AI INSIGHT CARD
                         Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 24.0),
                           child: monthlyAiAsync.when(
@@ -545,7 +572,7 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
 
                         const SizedBox(height: 28),
 
-                        // 7. MONTHLY ACTIVITY LOGS LIST
+                        // 8. MONTHLY ACTIVITY LOGS LIST
                         Padding(padding: const EdgeInsets.symmetric(horizontal: 24.0), child: _buildMonthlyActivitySection(monthLogs)),
 
                         const SizedBox(height: 120),
@@ -561,39 +588,121 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
     );
   }
 
-  // --- UI COMPONENTS ---
+  // --- NEW: LIFESTYLE PROFILE DETAILED CARD ---
 
-  Widget _buildAiCard(String title, String text, {required bool isGeneral}) {
+  Widget _buildDetailedLifestyleSection(Map<String, dynamic>? lifestyle) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final cardBg = isGeneral ? (isDark ? Colors.grey[850] : Colors.white) : const Color(0xFF1A1A1A);
-    final cardTextColor = isGeneral ? (isDark ? Colors.white : Colors.black87) : Colors.white;
+    final cardBg = isDark ? Colors.grey[850] : Colors.white;
+    final textColor = isDark ? Colors.white : Colors.black87;
+    final subtitleColor = isDark ? Colors.grey[400]! : Colors.grey.shade600;
+
+    final dietType = lifestyle?['diet_type'] ?? 'Analyzing...';
+    final commuteType = lifestyle?['commute_type'] ?? 'Analyzing...';
 
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(20), // Responsive padding
       decoration: BoxDecoration(
         color: cardBg,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: AppTheme.primaryColor.withOpacity(0.2)),
-        boxShadow: [BoxShadow(color: AppTheme.primaryColor.withOpacity(0.08), blurRadius: 20, offset: const Offset(0, 10))],
+        borderRadius: BorderRadius.circular(28),
+        border: Border.all(color: AppTheme.primaryColor.withOpacity(0.15)),
+        boxShadow: [BoxShadow(color: AppTheme.primaryColor.withOpacity(isDark ? 0.1 : 0.05), blurRadius: 20, offset: const Offset(0, 8))],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // 🌟 Header Row (Wrapped Title in Expanded to prevent right overflow)
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(color: AppTheme.primaryColor.withOpacity(0.12), borderRadius: BorderRadius.circular(12)),
+                child: const Icon(Icons.psychology, color: AppTheme.primaryColor, size: 22),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  "Lifestyle & Habit Profile",
+                  style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: textColor),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis, // Cleanly handles ultra-small screens
+                ),
+              ),
+              const SizedBox(width: 8),
+            ],
+          ),
+          const SizedBox(height: 18),
+
+          // Habit Badge Row
+          Row(
+            children: [
+              Expanded(child: _buildHabitBadge("Diet Habit", dietType, _getDietIcon(dietType), Colors.red.shade600)),
+              const SizedBox(width: 10),
+              Expanded(child: _buildHabitBadge("Commute Habit", commuteType, _getCommuteIcon(commuteType), Colors.blue.shade600)),
+            ],
+          ),
+
+          const SizedBox(height: 18),
+          Divider(color: isDark ? Colors.grey[800] : Colors.grey.shade200, height: 1),
+          const SizedBox(height: 14),
+
+          // 🌟 Abstracted Explanation (Conveys algorithmic detection without exposing internal math)
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(Icons.info_outline_rounded, size: 16, color: subtitleColor),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  "How this works: Your profile dynamically adapts based on smart analysis of your recent activity patterns. As your daily habits shift, your lifestyle tags update automatically.",
+                  style: TextStyle(fontSize: 12, height: 1.4, color: subtitleColor, fontWeight: FontWeight.w500),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHabitBadge(String label, String value, IconData icon, Color color) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: color.withOpacity(isDark ? 0.15 : 0.08),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: color.withOpacity(0.3)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Icon(Icons.auto_awesome, color: isGeneral ? (isDark ? Colors.white : AppTheme.primaryColor) : Colors.greenAccent, size: 20),
-              const SizedBox(width: 8),
+              Icon(icon, size: 18, color: color),
+              const SizedBox(width: 6),
               Text(
-                title,
-                style: TextStyle(color: isGeneral ? (isDark ? Colors.white : AppTheme.primaryColor) : Colors.greenAccent, fontWeight: FontWeight.w900, fontSize: 11, letterSpacing: 1.2),
+                label,
+                style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: isDark ? Colors.grey[400] : Colors.grey.shade700),
               ),
             ],
           ),
-          const SizedBox(height: 12),
-          Text(text, style: TextStyle(fontSize: 15, height: 1.5, color: cardTextColor)),
+          const SizedBox(height: 8),
+          Text(
+            value,
+            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w900, color: isDark ? Colors.white : Colors.black87, height: 1.2),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
         ],
       ),
     );
+  }
+
+  // --- 🌟 ANIMATED AI CARD IMPLEMENTATION ---
+
+  Widget _buildAiCard(String title, String text, {required bool isGeneral}) {
+    return AnimatedAiCard(title: title, text: text, isGeneral: isGeneral);
   }
 
   Widget _buildYearlyChartCard(List<double> data, double total) {
@@ -1076,6 +1185,110 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
                 ),
               ),
       ],
+    );
+  }
+}
+
+// 🌟 ANIMATED STATEFUL AI CARD WIDGET
+class AnimatedAiCard extends StatefulWidget {
+  final String title;
+  final String text;
+  final bool isGeneral;
+
+  const AnimatedAiCard({super.key, required this.title, required this.text, required this.isGeneral});
+
+  @override
+  State<AnimatedAiCard> createState() => _AnimatedAiCardState();
+}
+
+class _AnimatedAiCardState extends State<AnimatedAiCard> with TickerProviderStateMixin {
+  late AnimationController _entranceController;
+  late Animation<double> _fadeAnimation;
+  late Animation<Offset> _slideAnimation;
+
+  late AnimationController _pulseController;
+  late Animation<double> _pulseAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+
+    // Entrance Animation (Slide + Fade)
+    _entranceController = AnimationController(vsync: this, duration: const Duration(milliseconds: 650));
+
+    _fadeAnimation = CurvedAnimation(parent: _entranceController, curve: Curves.easeOut);
+
+    _slideAnimation = Tween<Offset>(begin: const Offset(0.0, 0.08), end: Offset.zero).animate(CurvedAnimation(parent: _entranceController, curve: Curves.easeOutCubic));
+
+    // Pulse Animation for the AI Sparkle Icon
+    _pulseController = AnimationController(vsync: this, duration: const Duration(milliseconds: 1200))..repeat(reverse: true);
+
+    _pulseAnimation = Tween<double>(begin: 0.9, end: 1.15).animate(CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut));
+
+    _entranceController.forward();
+  }
+
+  @override
+  void dispose() {
+    _entranceController.dispose();
+    _pulseController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardBg = widget.isGeneral ? (isDark ? Colors.grey[850] : Colors.white) : const Color(0xFF1A1A1A);
+    final cardTextColor = widget.isGeneral ? (isDark ? Colors.white : Colors.black87) : Colors.white;
+
+    return FadeTransition(
+      opacity: _fadeAnimation,
+      child: SlideTransition(
+        position: _slideAnimation,
+        child: Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: cardBg,
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(color: AppTheme.primaryColor.withOpacity(0.2)),
+            boxShadow: [BoxShadow(color: AppTheme.primaryColor.withOpacity(0.08), blurRadius: 20, offset: const Offset(0, 10))],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Header with Pulsing AI Sparkle Icon
+              Row(
+                children: [
+                  ScaleTransition(
+                    scale: _pulseAnimation,
+                    child: Icon(Icons.auto_awesome, color: widget.isGeneral ? (isDark ? Colors.white : AppTheme.primaryColor) : Colors.greenAccent, size: 20),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    widget.title,
+                    style: TextStyle(color: widget.isGeneral ? (isDark ? Colors.white : AppTheme.primaryColor) : Colors.greenAccent, fontWeight: FontWeight.w900, fontSize: 11, letterSpacing: 1.2),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 14),
+
+              // Smooth text cross-fade when text updates
+              AnimatedSwitcher(
+                duration: const Duration(milliseconds: 400),
+                child: MarkdownBody(
+                  key: ValueKey<String>(widget.text),
+                  data: widget.text,
+                  styleSheet: MarkdownStyleSheet(
+                    p: TextStyle(fontSize: 14, height: 1.5, color: cardTextColor),
+                    strong: TextStyle(fontWeight: FontWeight.w900, color: cardTextColor),
+                    blockSpacing: 14.0,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
