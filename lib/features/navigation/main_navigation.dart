@@ -1,7 +1,7 @@
 import 'dart:ui';
 import 'package:carbonsense/theme/app_theme.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart'; // Required for status bar dark icons
+import 'package:flutter/services.dart'; // Required for status bar dark/light icons
 import 'package:go_router/go_router.dart';
 import 'package:carbonsense/widgets/custom_drawer.dart';
 import 'package:carbonsense/widgets/quick_start_guide_dialog.dart';
@@ -16,10 +16,10 @@ class MainNavigation extends StatelessWidget {
 
     return Scaffold(
       extendBody: true,
-      backgroundColor: const Color(0xFFF9FFF9),
+      backgroundColor: isDark ? const Color(0xFF121212) : const Color(0xFFF9FFF9),
       drawer: const CustomDrawer(),
       appBar: AppBar(
-        systemOverlayStyle: SystemUiOverlayStyle.dark, // Makes status bar icons dark/visible
+        systemOverlayStyle: isDark ? SystemUiOverlayStyle.light : SystemUiOverlayStyle.dark, // Adapts status bar icons
         backgroundColor: Colors.transparent,
         elevation: 0,
         centerTitle: true,
@@ -32,7 +32,7 @@ class MainNavigation extends StatelessWidget {
               const SizedBox(width: 4),
               Text(
                 'CarbonSense',
-                style: TextStyle(color: Colors.grey.shade900, fontWeight: FontWeight.w900, fontSize: 20, letterSpacing: -0.5),
+                style: TextStyle(color: isDark ? Colors.white : Colors.grey.shade900, fontWeight: FontWeight.w900, fontSize: 20, letterSpacing: -0.5),
               ),
             ],
           ),
@@ -59,7 +59,6 @@ class MainNavigation extends StatelessWidget {
             child: SafeArea(
               top: false, // Ensures top inset isn't calculated here
               child: Padding(
-                // 👈 Changed bottom from 16.0 to 4.0 to lower the pill
                 padding: const EdgeInsets.only(left: 24.0, right: 24.0, bottom: 4.0),
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(30),
@@ -68,9 +67,9 @@ class MainNavigation extends StatelessWidget {
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                       decoration: BoxDecoration(
-                        color: isDark ? Colors.black.withOpacity(0.4) : Colors.white.withOpacity(0.6),
+                        color: isDark ? const Color(0xFF1E1E1E).withOpacity(0.8) : Colors.white.withOpacity(0.6),
                         borderRadius: BorderRadius.circular(30),
-                        border: Border.all(color: isDark ? Colors.white.withOpacity(0.1) : Colors.black.withOpacity(0.05)),
+                        border: Border.all(color: isDark ? Colors.white.withOpacity(0.12) : Colors.black.withOpacity(0.05)),
                       ),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -101,6 +100,7 @@ class _NavItem extends StatelessWidget {
   final String label;
   final bool isSelected;
   final VoidCallback onTap;
+
   const _NavItem({required this.icon, required this.label, required this.isSelected, required this.onTap});
 
   @override
@@ -118,7 +118,7 @@ class _NavItem extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, color: isSelected ? Colors.white : (isDark ? Colors.white70 : Colors.black54)),
+            Icon(icon, color: isSelected ? Colors.white : (isDark ? Colors.grey[400] : Colors.black54)),
             ClipRect(
               child: AnimatedSize(
                 duration: const Duration(milliseconds: 300),

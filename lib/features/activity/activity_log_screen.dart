@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:go_router/go_router.dart';
-import 'package:carbonsense/features/utils/global_provider.dart'; // 🌟 Import your global providers file
+import 'package:carbonsense/features/utils/global_provider.dart';
 
 class ActivityLogScreen extends ConsumerStatefulWidget {
   const ActivityLogScreen({super.key});
@@ -14,39 +14,39 @@ class ActivityLogScreen extends ConsumerStatefulWidget {
 
 class _ActivityLogScreenState extends ConsumerState<ActivityLogScreen> {
   DateTime _selectedDate = DateTime.now();
-
   DateTime _focusedMonth = DateTime(DateTime.now().year, DateTime.now().month, 1);
 
   // 🌅 Dynamic Time of Day Watermark Icon Helper
   IconData _getTimeOfDayWatermarkIcon() {
     final hour = DateTime.now().hour;
     if (hour < 12) {
-      return Icons.wb_twilight; // Morning
+      return Icons.wb_twilight;
     } else if (hour < 17) {
-      return Icons.wb_sunny_rounded; // Afternoon
+      return Icons.wb_sunny_rounded;
     } else {
-      return Icons.nights_stay_rounded; // Evening
+      return Icons.nights_stay_rounded;
     }
   }
 
   // 📝 Helper to show detailed information when a log is tapped
   void _showLogDetails(Map<String, dynamic> log, Map<String, dynamic>? factorData) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final sheetBg = isDark ? const Color(0xFF1E1E1E) : Colors.white;
+    final textColor = isDark ? Colors.white : Colors.black87;
+    final subtitleColor = isDark ? Colors.grey[400] : Colors.grey.shade600;
+
     final activityName = log['food_name'] ?? factorData?['activity_name'] ?? 'Unknown Activity';
     final category = factorData?['category'] ?? 'General';
     final unit = factorData?['unit'] ?? '';
     final inputValue = log['input_value']?.toString() ?? '0';
 
-    // 🌟 Dynamic precision helper: preserves up to 4 decimal places without trailing zeros
     String formatCo2(num? rawCo2) {
       if (rawCo2 == null || rawCo2 == 0) return '0.00';
       final double value = rawCo2.toDouble();
 
-      // For small decimals, keep up to 4 decimal places and remove extra trailing zeros
       if (value.abs() < 0.1) {
         return value.toStringAsFixed(4).replaceAll(RegExp(r"([.]*0+)(?!.*\d)"), "");
       }
-
-      // For standard values, display 2 decimal places
       return value.toStringAsFixed(2);
     }
 
@@ -69,9 +69,9 @@ class _ActivityLogScreenState extends ConsumerState<ActivityLogScreen> {
       builder: (context) {
         return Container(
           padding: const EdgeInsets.only(left: 24, top: 24, right: 24, bottom: 24),
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          decoration: BoxDecoration(
+            color: sheetBg,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
           ),
           child: SafeArea(
             child: Column(
@@ -82,7 +82,7 @@ class _ActivityLogScreenState extends ConsumerState<ActivityLogScreen> {
                   children: [
                     Container(
                       padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(color: AppTheme.primaryColor.withOpacity(0.1), borderRadius: BorderRadius.circular(16)),
+                      decoration: BoxDecoration(color: AppTheme.primaryColor.withOpacity(0.12), borderRadius: BorderRadius.circular(16)),
                       child: Icon(_getIconForCategory(category), color: AppTheme.primaryColor, size: 32),
                     ),
                     const SizedBox(width: 16),
@@ -92,12 +92,12 @@ class _ActivityLogScreenState extends ConsumerState<ActivityLogScreen> {
                         children: [
                           Text(
                             activityName,
-                            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: Colors.black87),
+                            style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: textColor),
                           ),
                           const SizedBox(height: 4),
                           Text(
                             category,
-                            style: TextStyle(color: Colors.grey.shade600, fontWeight: FontWeight.w600, fontSize: 14),
+                            style: TextStyle(color: subtitleColor, fontWeight: FontWeight.w600, fontSize: 14),
                           ),
                         ],
                       ),
@@ -105,20 +105,20 @@ class _ActivityLogScreenState extends ConsumerState<ActivityLogScreen> {
                   ],
                 ),
                 const SizedBox(height: 24),
-                Divider(color: Colors.grey.shade200),
+                Divider(color: isDark ? Colors.grey[800] : Colors.grey.shade200),
                 const SizedBox(height: 16),
-                _buildDetailRow('Input Amount', '$inputValue $unit'),
+                _buildDetailRow(context, 'Input Amount', '$inputValue $unit'),
                 const SizedBox(height: 16),
-                _buildDetailRow('Time Logged', formattedTime),
+                _buildDetailRow(context, 'Time Logged', formattedTime),
                 const SizedBox(height: 24),
                 if (category == 'Transport' && startLocation != null && endLocation != null) ...[
                   const SizedBox(height: 8),
                   Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      color: Colors.blue.shade50.withOpacity(0.5),
+                      color: isDark ? Colors.blue.withOpacity(0.15) : Colors.blue.shade50.withOpacity(0.5),
                       borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: Colors.blue.shade100),
+                      border: Border.all(color: isDark ? Colors.blue.withOpacity(0.3) : Colors.blue.shade100),
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -135,7 +135,7 @@ class _ActivityLogScreenState extends ConsumerState<ActivityLogScreen> {
                             Expanded(
                               child: Text(
                                 startLocation,
-                                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.black87),
+                                style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: textColor),
                               ),
                             ),
                           ],
@@ -151,7 +151,7 @@ class _ActivityLogScreenState extends ConsumerState<ActivityLogScreen> {
                             Expanded(
                               child: Text(
                                 endLocation,
-                                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.black87),
+                                style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: textColor),
                               ),
                             ),
                           ],
@@ -162,9 +162,9 @@ class _ActivityLogScreenState extends ConsumerState<ActivityLogScreen> {
                   const SizedBox(height: 16),
                 ],
                 if (ingredients.isNotEmpty) ...[
-                  const Text(
+                  Text(
                     'Detected Ingredients',
-                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.black54),
+                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: isDark ? Colors.grey[400] : Colors.black54),
                   ),
                   const SizedBox(height: 12),
                   Wrap(
@@ -175,13 +175,13 @@ class _ActivityLogScreenState extends ConsumerState<ActivityLogScreen> {
                           (ingredient) => Container(
                             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                             decoration: BoxDecoration(
-                              color: Colors.grey.shade50,
+                              color: isDark ? Colors.grey[850] : Colors.grey.shade50,
                               borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: Colors.grey.shade200),
+                              border: Border.all(color: isDark ? Colors.grey[800]! : Colors.grey.shade200),
                             ),
                             child: Text(
                               ingredient,
-                              style: TextStyle(fontSize: 13, color: Colors.grey.shade800, fontWeight: FontWeight.w500),
+                              style: TextStyle(fontSize: 13, color: isDark ? Colors.grey[300] : Colors.grey.shade800, fontWeight: FontWeight.w500),
                             ),
                           ),
                         )
@@ -192,11 +192,11 @@ class _ActivityLogScreenState extends ConsumerState<ActivityLogScreen> {
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: AppTheme.primaryColor.withOpacity(0.05),
+                    color: AppTheme.primaryColor.withOpacity(0.08),
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(color: AppTheme.primaryColor.withOpacity(0.2)),
                   ),
-                  child: _buildDetailRow('Carbon Footprint', '$totalCo2 kg CO₂', isHighlight: true),
+                  child: _buildDetailRow(context, 'Carbon Footprint', '$totalCo2 kg CO₂', isHighlight: true),
                 ),
                 const SizedBox(height: 32),
                 SizedBox(
@@ -221,23 +221,25 @@ class _ActivityLogScreenState extends ConsumerState<ActivityLogScreen> {
     );
   }
 
-  Widget _buildDetailRow(String label, String value, {bool isHighlight = false}) {
+  Widget _buildDetailRow(BuildContext context, String label, String value, {bool isHighlight = false}) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final textColor = isDark ? Colors.white : Colors.black87;
+    final subtitleColor = isDark ? Colors.grey[400] : Colors.grey.shade600;
+
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         Text(
           label,
-          style: TextStyle(color: Colors.grey.shade600, fontSize: 15, fontWeight: FontWeight.w500),
+          style: TextStyle(color: subtitleColor, fontSize: 15, fontWeight: FontWeight.w500),
         ),
         Text(
           value,
-          style: TextStyle(color: isHighlight ? AppTheme.primaryColor : Colors.black87, fontSize: isHighlight ? 18 : 16, fontWeight: isHighlight ? FontWeight.w900 : FontWeight.bold),
+          style: TextStyle(color: isHighlight ? AppTheme.primaryColor : textColor, fontSize: isHighlight ? 18 : 16, fontWeight: isHighlight ? FontWeight.w900 : FontWeight.bold),
         ),
       ],
     );
   }
-
-  // activity_log_screen.dart
 
   void _openCategory(String categoryName) async {
     if (categoryName == 'Diet') {
@@ -245,7 +247,6 @@ class _ActivityLogScreenState extends ConsumerState<ActivityLogScreen> {
     } else if (categoryName == 'Energy') {
       await context.pushNamed('bill-scanner');
     } else {
-      // 🌟 Replaced Navigator.push with context.pushNamed
       await context.pushNamed('log-activity', extra: categoryName);
     }
   }
@@ -260,53 +261,45 @@ class _ActivityLogScreenState extends ConsumerState<ActivityLogScreen> {
   @override
   Widget build(BuildContext context) {
     final logsAsync = ref.watch(activityLogsStreamProvider);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final scaffoldBg = isDark ? const Color(0xFF121212) : const Color(0xFFF9FFF9);
+    final textColor = isDark ? Colors.white : Colors.black87;
+    final subtitleColor = isDark ? Colors.grey[400] : Colors.grey.shade600;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF9FFF9),
+      backgroundColor: scaffoldBg,
       body: Stack(
         children: [
-          // 🌟 Subtle Dynamic Background Watermark based on Time of Day
           Positioned(
             top: -30,
             right: -40,
-            child: IgnorePointer(
-              child: Icon(
-                _getTimeOfDayWatermarkIcon(),
-                size: 260,
-                color: AppTheme.primaryColor.withOpacity(0.04), // Subtle opacity matching theme color
-              ),
-            ),
+            child: IgnorePointer(child: Icon(_getTimeOfDayWatermarkIcon(), size: 260, color: AppTheme.primaryColor.withOpacity(isDark ? 0.08 : 0.04))),
           ),
-
-          // Main Content
           SafeArea(
             bottom: false,
             child: logsAsync.when(
               loading: () => const Center(child: CircularProgressIndicator(color: AppTheme.primaryColor)),
-
-              // 🌟 Modern full-page offline/error UI
               error: (err, stack) => Center(
                 child: Padding(
                   padding: const EdgeInsets.all(32.0),
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(Icons.cloud_off_rounded, color: Colors.grey.shade400, size: 64),
+                      Icon(Icons.cloud_off_rounded, color: isDark ? Colors.grey[600] : Colors.grey.shade400, size: 64),
                       const SizedBox(height: 16),
-                      const Text(
+                      Text(
                         "Connection lost",
-                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.black87),
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: textColor),
                       ),
                       const SizedBox(height: 8),
                       Text(
                         "We couldn't load your activity logs right now. Please check your internet connection and try again.",
                         textAlign: TextAlign.center,
-                        style: TextStyle(color: Colors.grey.shade600, fontSize: 14, height: 1.4),
+                        style: TextStyle(color: subtitleColor, fontSize: 14, height: 1.4),
                       ),
                       const SizedBox(height: 24),
                       ElevatedButton.icon(
                         onPressed: () {
-                          // 🌟 Refresh the stream when pressed
                           ref.invalidate(activityLogsStreamProvider);
                         },
                         icon: const Icon(Icons.refresh, size: 18),
@@ -322,17 +315,13 @@ class _ActivityLogScreenState extends ConsumerState<ActivityLogScreen> {
                   ),
                 ),
               ),
-
-              // 🌟 Main layout data stream handling
               data: (allLogs) {
-                // 🌟 1. Filter logs for the currently selected calendar day timeline
                 final selectedDayLogs = allLogs.where((log) {
                   if (log['logged_at'] == null) return false;
                   final logDate = DateTime.parse(log['logged_at']).toLocal();
                   return logDate.year == _selectedDate.year && logDate.month == _selectedDate.month && logDate.day == _selectedDate.day;
                 }).toList()..sort((a, b) => b['logged_at'].compareTo(a['logged_at']));
 
-                // 🌟 2. Extract active days for the calendar overview dots
                 final Set<int> daysWithData = {};
                 final startOfMonth = DateTime(_focusedMonth.year, _focusedMonth.month, 1);
                 final endOfMonth = DateTime(_focusedMonth.year, _focusedMonth.month + 1, 0, 23, 59, 59);
@@ -365,10 +354,10 @@ class _ActivityLogScreenState extends ConsumerState<ActivityLogScreen> {
                                   children: [
                                     Text(
                                       'Track Activity',
-                                      style: Theme.of(context).textTheme.headlineSmall?.copyWith(color: Colors.black87, fontWeight: FontWeight.w900, letterSpacing: -0.5),
+                                      style: Theme.of(context).textTheme.headlineSmall?.copyWith(color: textColor, fontWeight: FontWeight.w900, letterSpacing: -0.5),
                                     ),
                                     const SizedBox(height: 4),
-                                    Text('What did you do today?', style: TextStyle(color: Colors.grey.shade600, fontSize: 14)),
+                                    Text('What did you do today?', style: TextStyle(color: subtitleColor, fontSize: 14)),
                                   ],
                                 ),
                               ],
@@ -390,11 +379,11 @@ class _ActivityLogScreenState extends ConsumerState<ActivityLogScreen> {
                               children: [
                                 Text(
                                   'Daily Timeline',
-                                  style: Theme.of(context).textTheme.titleLarge?.copyWith(color: Colors.black87, fontWeight: FontWeight.w900, letterSpacing: -0.5),
+                                  style: Theme.of(context).textTheme.titleLarge?.copyWith(color: textColor, fontWeight: FontWeight.w900, letterSpacing: -0.5),
                                 ),
                                 Text(
                                   DateFormat('MMM d, yyyy').format(_selectedDate),
-                                  style: TextStyle(color: Colors.grey.shade500, fontWeight: FontWeight.bold, fontSize: 13),
+                                  style: TextStyle(color: isDark ? Colors.grey[400] : Colors.grey.shade500, fontWeight: FontWeight.bold, fontSize: 13),
                                 ),
                               ],
                             ),
@@ -405,17 +394,17 @@ class _ActivityLogScreenState extends ConsumerState<ActivityLogScreen> {
                                 ? _buildEmptyState()
                                 : Container(
                                     decoration: BoxDecoration(
-                                      color: Colors.white,
+                                      color: isDark ? Colors.grey[850] : Colors.white,
                                       borderRadius: BorderRadius.circular(24),
-                                      border: Border.all(color: AppTheme.primaryColor.withOpacity(0.1)),
-                                      boxShadow: [BoxShadow(color: AppTheme.primaryColor.withOpacity(0.03), blurRadius: 10, offset: const Offset(0, 4))],
+                                      border: Border.all(color: AppTheme.primaryColor.withOpacity(0.15)),
+                                      boxShadow: [BoxShadow(color: Colors.black.withOpacity(isDark ? 0.2 : 0.03), blurRadius: 10, offset: const Offset(0, 4))],
                                     ),
                                     child: ListView.separated(
                                       shrinkWrap: true,
                                       physics: const NeverScrollableScrollPhysics(),
                                       padding: EdgeInsets.zero,
                                       itemCount: selectedDayLogs.length,
-                                      separatorBuilder: (context, index) => Divider(height: 1, color: Colors.grey.shade100, indent: 70),
+                                      separatorBuilder: (context, index) => Divider(height: 1, color: isDark ? Colors.grey[800] : Colors.grey.shade100, indent: 70),
                                       itemBuilder: (context, index) {
                                         final log = selectedDayLogs[index];
                                         final factorData = log['emission_factors'] as Map<String, dynamic>?;
@@ -452,8 +441,9 @@ class _ActivityLogScreenState extends ConsumerState<ActivityLogScreen> {
 
   Widget _buildDateSelector(Set<int> daysWithData) {
     final int daysInMonth = DateTime(_focusedMonth.year, _focusedMonth.month + 1, 0).day;
-
     final now = DateTime.now();
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final textColor = isDark ? Colors.white : Colors.black87;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -462,7 +452,7 @@ class _ActivityLogScreenState extends ConsumerState<ActivityLogScreen> {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             IconButton(
-              icon: Icon(Icons.chevron_left, color: Colors.grey.shade700),
+              icon: Icon(Icons.chevron_left, color: isDark ? Colors.grey[400] : Colors.grey.shade700),
               onPressed: () {
                 setState(() {
                   _focusedMonth = DateTime(_focusedMonth.year, _focusedMonth.month - 1, 1);
@@ -471,10 +461,10 @@ class _ActivityLogScreenState extends ConsumerState<ActivityLogScreen> {
             ),
             Text(
               DateFormat('MMMM yyyy').format(_focusedMonth),
-              style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: Colors.black87),
+              style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: textColor),
             ),
             IconButton(
-              icon: Icon(Icons.chevron_right, color: Colors.grey.shade700),
+              icon: Icon(Icons.chevron_right, color: isDark ? Colors.grey[400] : Colors.grey.shade700),
               onPressed: (_focusedMonth.month == now.month && _focusedMonth.year == now.year)
                   ? null
                   : () {
@@ -504,6 +494,9 @@ class _ActivityLogScreenState extends ConsumerState<ActivityLogScreen> {
               final hasData = daysWithData.contains(dayNumber);
               String dayLabel = isToday ? "Today" : DateFormat('EEE').format(date);
 
+              final unselectedBg = isDark ? Colors.grey[850] : Colors.white;
+              final unselectedBorder = isDark ? Colors.grey[800]! : Colors.grey.shade200;
+
               return GestureDetector(
                 onTap: isFuture
                     ? null
@@ -517,9 +510,9 @@ class _ActivityLogScreenState extends ConsumerState<ActivityLogScreen> {
                     width: 65,
                     margin: const EdgeInsets.only(right: 12),
                     decoration: BoxDecoration(
-                      color: isSelected ? AppTheme.primaryColor : Colors.white,
+                      color: isSelected ? AppTheme.primaryColor : unselectedBg,
                       borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: isSelected ? AppTheme.primaryColor : Colors.grey.shade200),
+                      border: Border.all(color: isSelected ? AppTheme.primaryColor : unselectedBorder),
                       boxShadow: isSelected ? [BoxShadow(color: AppTheme.primaryColor.withOpacity(0.3), blurRadius: 10, offset: const Offset(0, 4))] : [],
                     ),
                     child: Column(
@@ -527,12 +520,12 @@ class _ActivityLogScreenState extends ConsumerState<ActivityLogScreen> {
                       children: [
                         Text(
                           dayLabel,
-                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: isSelected ? Colors.white70 : Colors.grey.shade500),
+                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: isSelected ? Colors.white70 : (isDark ? Colors.grey[400] : Colors.grey.shade500)),
                         ),
                         const SizedBox(height: 2),
                         Text(
                           date.day.toString(),
-                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: isSelected ? Colors.white : Colors.black87),
+                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: isSelected ? Colors.white : textColor),
                         ),
                         const SizedBox(height: 4),
                         Container(
@@ -553,6 +546,8 @@ class _ActivityLogScreenState extends ConsumerState<ActivityLogScreen> {
   }
 
   Widget _buildModernCategoryCard(IconData icon, String title, MaterialColor themeColor) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     Color baseColor;
     Color lightGradient;
     Color accentColor;
@@ -560,24 +555,27 @@ class _ActivityLogScreenState extends ConsumerState<ActivityLogScreen> {
     switch (title) {
       case 'Transport':
         baseColor = const Color.fromARGB(255, 30, 136, 229);
-        lightGradient = const Color.fromARGB(255, 240, 255, 242);
+        lightGradient = isDark ? Colors.grey[850]! : const Color.fromARGB(255, 240, 255, 242);
         accentColor = const Color.fromARGB(255, 30, 136, 229);
         break;
       case 'Diet':
         baseColor = const Color.fromARGB(255, 229, 57, 53);
-        lightGradient = const Color.fromARGB(255, 240, 255, 242);
+        lightGradient = isDark ? Colors.grey[850]! : const Color.fromARGB(255, 240, 255, 242);
         accentColor = const Color.fromARGB(255, 229, 57, 53);
         break;
       case 'Energy':
         baseColor = const Color.fromARGB(255, 255, 160, 0);
-        lightGradient = const Color.fromARGB(255, 240, 255, 242);
+        lightGradient = isDark ? Colors.grey[850]! : const Color.fromARGB(255, 240, 255, 242);
         accentColor = const Color.fromARGB(255, 255, 160, 0);
         break;
       default:
         baseColor = AppTheme.primaryColor;
-        lightGradient = const Color(0xFFF0FDF4);
+        lightGradient = isDark ? Colors.grey[850]! : const Color(0xFFF0FDF4);
         accentColor = AppTheme.primaryColor;
     }
+
+    final cardBgStart = isDark ? Colors.grey[900]! : Colors.white;
+    final textColor = isDark ? Colors.white : Colors.black87;
 
     return Material(
       color: Colors.transparent,
@@ -588,15 +586,15 @@ class _ActivityLogScreenState extends ConsumerState<ActivityLogScreen> {
           height: 140,
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(22),
-            gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [Colors.white, lightGradient]),
-            border: Border.all(color: accentColor.withOpacity(0.18), width: 1.2),
-            boxShadow: [BoxShadow(color: accentColor.withOpacity(0.06), blurRadius: 12, offset: const Offset(0, 6))],
+            gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [cardBgStart, lightGradient]),
+            border: Border.all(color: accentColor.withOpacity(isDark ? 0.3 : 0.18), width: 1.2),
+            boxShadow: [BoxShadow(color: Colors.black.withOpacity(isDark ? 0.2 : 0.04), blurRadius: 12, offset: const Offset(0, 6))],
           ),
           child: ClipRRect(
             borderRadius: BorderRadius.circular(22),
             child: Stack(
               children: [
-                Positioned(right: -12, bottom: -12, child: Icon(icon, size: 80, color: baseColor.withOpacity(0.06))),
+                Positioned(right: -12, bottom: -12, child: Icon(icon, size: 80, color: baseColor.withOpacity(isDark ? 0.12 : 0.06))),
                 Positioned(
                   top: 0,
                   left: 16,
@@ -617,20 +615,20 @@ class _ActivityLogScreenState extends ConsumerState<ActivityLogScreen> {
                       Container(
                         padding: const EdgeInsets.all(10),
                         decoration: BoxDecoration(
-                          color: Colors.white,
+                          color: isDark ? Colors.grey[800] : Colors.white,
                           shape: BoxShape.circle,
-                          border: Border.all(color: accentColor.withOpacity(0.15)),
+                          border: Border.all(color: accentColor.withOpacity(0.2)),
                           boxShadow: [BoxShadow(color: accentColor.withOpacity(0.1), blurRadius: 6, offset: const Offset(0, 2))],
                         ),
                         child: Icon(icon, size: 24, color: baseColor),
                       ),
                       Text(
                         title,
-                        style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14, color: Colors.black87, letterSpacing: -0.2),
+                        style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14, color: textColor, letterSpacing: -0.2),
                       ),
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                        decoration: BoxDecoration(color: baseColor.withOpacity(0.08), borderRadius: BorderRadius.circular(10)),
+                        decoration: BoxDecoration(color: baseColor.withOpacity(0.15), borderRadius: BorderRadius.circular(10)),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
@@ -655,6 +653,9 @@ class _ActivityLogScreenState extends ConsumerState<ActivityLogScreen> {
   }
 
   Widget _buildModernListTile({required String title, required String category, required String subtitle, required String co2Value, required VoidCallback onTap}) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final textColor = isDark ? Colors.white : Colors.black87;
+
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -665,7 +666,7 @@ class _ActivityLogScreenState extends ConsumerState<ActivityLogScreen> {
             children: [
               Container(
                 padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(color: AppTheme.primaryColor.withOpacity(0.1), borderRadius: BorderRadius.circular(16)),
+                decoration: BoxDecoration(color: AppTheme.primaryColor.withOpacity(0.12), borderRadius: BorderRadius.circular(16)),
                 child: Icon(_getIconForCategory(category), color: AppTheme.primaryColor, size: 24),
               ),
               const SizedBox(width: 16),
@@ -675,14 +676,14 @@ class _ActivityLogScreenState extends ConsumerState<ActivityLogScreen> {
                   children: [
                     Text(
                       title,
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Colors.black87),
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: textColor),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
                     const SizedBox(height: 4),
                     Text(
                       subtitle,
-                      style: TextStyle(color: Colors.grey.shade500, fontSize: 13, fontWeight: FontWeight.w500),
+                      style: TextStyle(color: isDark ? Colors.grey[400] : Colors.grey.shade500, fontSize: 13, fontWeight: FontWeight.w500),
                     ),
                   ],
                 ),
@@ -698,7 +699,7 @@ class _ActivityLogScreenState extends ConsumerState<ActivityLogScreen> {
                   const SizedBox(height: 2),
                   Text(
                     'kg CO₂',
-                    style: TextStyle(color: Colors.grey.shade500, fontSize: 11, fontWeight: FontWeight.bold),
+                    style: TextStyle(color: isDark ? Colors.grey[400] : Colors.grey.shade500, fontSize: 11, fontWeight: FontWeight.bold),
                   ),
                 ],
               ),
@@ -710,27 +711,30 @@ class _ActivityLogScreenState extends ConsumerState<ActivityLogScreen> {
   }
 
   Widget _buildEmptyState() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final textColor = isDark ? Colors.white : Colors.black87;
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(32),
       decoration: BoxDecoration(
         color: AppTheme.primaryColor.withOpacity(0.05),
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: AppTheme.primaryColor.withOpacity(0.1), style: BorderStyle.solid),
+        border: Border.all(color: AppTheme.primaryColor.withOpacity(0.15), style: BorderStyle.solid),
       ),
       child: Column(
         children: [
           Icon(Icons.eco_outlined, size: 48, color: AppTheme.primaryColor.withOpacity(0.5)),
           const SizedBox(height: 16),
-          const Text(
+          Text(
             'No activities yet',
-            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.black87),
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: textColor),
           ),
           const SizedBox(height: 8),
           Text(
             'Log your first commute or meal to start tracking your footprint.',
             textAlign: TextAlign.center,
-            style: TextStyle(color: Colors.grey.shade600, fontSize: 13, height: 1.5),
+            style: TextStyle(color: isDark ? Colors.grey[400] : Colors.grey.shade600, fontSize: 13, height: 1.5),
           ),
         ],
       ),

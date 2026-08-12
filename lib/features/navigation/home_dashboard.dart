@@ -1,15 +1,16 @@
+import 'dart:async';
 import 'dart:math';
-import 'package:carbonsense/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:carbonsense/widgets/quick_start_guide_dialog.dart';
+
 import 'package:carbonsense/features/activity/mission_camera_screen.dart';
-import 'package:go_router/go_router.dart'; // 👈 Add this import!
-import 'package:carbonsense/services/notification_service.dart';
+import 'package:carbonsense/features/utils/formatters.dart';
 import 'package:carbonsense/features/utils/global_provider.dart';
-import 'package:carbonsense/features/utils/formatters.dart'; // 🌟 Using global precision formatters
-import 'dart:async';
+import 'package:carbonsense/services/notification_service.dart';
+import 'package:carbonsense/theme/app_theme.dart';
+import 'package:carbonsense/widgets/quick_start_guide_dialog.dart';
 
 class HomeDashboard extends ConsumerStatefulWidget {
   const HomeDashboard({super.key});
@@ -22,11 +23,9 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
   bool _isLoading = true;
   double _netFootprint = 0.0;
 
-  // 🌟 Live-tracking properties for the weekly timer
   Timer? _weeklyCountdownTimer;
   String _timeLeftString = 'Loading timer...';
 
-  // 🌟 Active lifestyle preference filter preset
   String _selectedPreset = 'All';
   late final String _userId;
 
@@ -36,10 +35,7 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
     _startWeeklyResetTimer();
     if (Supabase.instance.client.auth.currentUser != null) {
       _userId = Supabase.instance.client.auth.currentUser!.id;
-
-      // Initialize notifications immediately on login/app open
       NotificationService().initNotifications();
-
       _initializeDashboard(showLoader: true);
     } else {
       setState(() => _isLoading = false);
@@ -52,10 +48,8 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
     super.dispose();
   }
 
-  // ⏰ THE WEEKLY LIVE TIMER MOTOR
   void _startWeeklyResetTimer() {
     _updateCountdownString();
-
     _weeklyCountdownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (mounted) {
         _updateCountdownString();
@@ -65,7 +59,6 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
 
   void _updateCountdownString() {
     final now = DateTime.now();
-
     int daysUntilMonday = DateTime.monday - now.weekday;
     if (daysUntilMonday <= 0) {
       daysUntilMonday += 7;
@@ -83,15 +76,14 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
     });
   }
 
-  // 🌅 Dynamic Time of Day Watermark Icon Helper
   IconData _getTimeOfDayWatermarkIcon() {
     final hour = DateTime.now().hour;
     if (hour < 12) {
-      return Icons.wb_twilight; // Morning
+      return Icons.wb_twilight;
     } else if (hour < 17) {
-      return Icons.wb_sunny_rounded; // Afternoon
+      return Icons.wb_sunny_rounded;
     } else {
-      return Icons.nights_stay_rounded; // Evening
+      return Icons.nights_stay_rounded;
     }
   }
 
@@ -169,8 +161,6 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
 
       if (accountAgeDays >= 7 || logCount >= requiredLogs) {
         needsRegeneration = true;
-      } else {
-        debugPrint('⏳ User not yet eligible for missions. Age: $accountAgeDays days, Logs: $logCount/$requiredLogs');
       }
     } else {
       final firstTaskTimestamp = response.first['created_at'];
@@ -179,18 +169,14 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
 
         if (taskCreationDate.isBefore(startOfThisWeek)) {
           needsRegeneration = true;
-          debugPrint("📆 Stale weekly tasks detected. Clearing old records...");
           await Supabase.instance.client.from('user_tasks').delete().eq('user_id', _userId);
         }
       }
     }
 
     if (needsRegeneration) {
-      debugPrint("⚡ Running generate_smart_tasks RPC for the new week...");
       await Supabase.instance.client.rpc('generate_smart_tasks', params: {'current_user_id': _userId});
     }
-
-    debugPrint("✅ Weekly task validation complete.");
   }
 
   Future<void> _calculateNetFootprint() async {
@@ -225,7 +211,6 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
 
     if (mounted) {
       setState(() {
-        // 🌟 Allow negative numbers so saved CO2 > logged CO2 displays properly
         _netFootprint = totalEmissions - totalSaved;
       });
     }
@@ -292,6 +277,10 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
   }
 
   void _openMonthlyBreakdownSheet() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final sheetBg = isDark ? const Color(0xFF1E1E1E) : Colors.white;
+    final textColor = isDark ? Colors.white : Colors.black87;
+
     showModalBottomSheet(
       context: context,
       useRootNavigator: true,
@@ -300,9 +289,9 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
       builder: (BuildContext sheetContext) {
         return Container(
           height: MediaQuery.of(context).size.height * 0.85,
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
+          decoration: BoxDecoration(
+            color: sheetBg,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
           ),
           padding: const EdgeInsets.only(left: 24, top: 24, right: 24, bottom: 24),
           child: Column(
@@ -312,15 +301,18 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
                 child: Container(
                   width: 40,
                   height: 5,
-                  decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(10)),
+                  decoration: BoxDecoration(color: isDark ? (Colors.grey[700] ?? Colors.grey) : Colors.grey.shade300, borderRadius: BorderRadius.circular(10)),
                 ),
               ),
               const SizedBox(height: 20),
-              const Text("Monthly Footprint Breakdown", style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900, letterSpacing: -0.5)),
+              Text(
+                "Monthly Footprint Breakdown",
+                style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900, letterSpacing: -0.5, color: textColor),
+              ),
               const SizedBox(height: 4),
               Text(
                 "Your emissions vs. savings for this month.",
-                style: TextStyle(fontSize: 14, color: Colors.grey.shade600, fontWeight: FontWeight.w500),
+                style: TextStyle(fontSize: 14, color: isDark ? (Colors.grey[400] ?? Colors.grey) : Colors.grey.shade600, fontWeight: FontWeight.w500),
               ),
               const SizedBox(height: 20),
               Expanded(
@@ -340,10 +332,10 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
                     final tasks = snapshot.data!['tasks']!;
 
                     if (logs.isEmpty && tasks.isEmpty) {
-                      return const Center(
+                      return Center(
                         child: Text(
                           "No activity logged this month yet.",
-                          style: TextStyle(color: Colors.grey, fontStyle: FontStyle.italic),
+                          style: TextStyle(color: isDark ? (Colors.grey[500] ?? Colors.grey) : Colors.grey, fontStyle: FontStyle.italic),
                         ),
                       );
                     }
@@ -361,22 +353,21 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
                                 const SizedBox(width: 8),
                                 Text(
                                   "Emissions Logged (${logs.length})",
-                                  style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: Colors.black87),
+                                  style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: textColor),
                                 ),
                               ],
                             ),
                             const SizedBox(height: 12),
                             if (logs.isEmpty)
-                              const Text(
+                              Text(
                                 "No emissions logged.",
-                                style: TextStyle(color: Colors.grey, fontStyle: FontStyle.italic),
+                                style: TextStyle(color: isDark ? (Colors.grey[500] ?? Colors.grey) : Colors.grey, fontStyle: FontStyle.italic),
                               ),
                             ...logs.map((log) {
                               final factorData = log['emission_factors'] ?? {};
                               final activityName = factorData['activity_name'] ?? 'Custom Logged Activity';
                               final category = factorData['category'] ?? 'General';
 
-                              // 🌟 Updated to use global precision formatter
                               final co2e = formatFootprint(log['total_co2e'] as num?);
                               final dateStr = log['logged_at'] != null ? log['logged_at'].toString().split('T').first : '';
                               final dynamicIcon = _getIconForActivity(category, activityName);
@@ -384,16 +375,16 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
                               return ListTile(
                                 contentPadding: EdgeInsets.zero,
                                 leading: CircleAvatar(
-                                  backgroundColor: Colors.red.shade50,
+                                  backgroundColor: Colors.red.withOpacity(0.12),
                                   child: Icon(dynamicIcon, color: Colors.redAccent, size: 18),
                                 ),
                                 title: Text(
                                   activityName,
-                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: textColor),
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                 ),
-                                subtitle: Text('$category • $dateStr', style: const TextStyle(fontSize: 12)),
+                                subtitle: Text('$category • $dateStr', style: TextStyle(fontSize: 12, color: isDark ? (Colors.grey[400] ?? Colors.grey) : Colors.grey.shade600)),
                                 trailing: Text(
                                   "+$co2e kg",
                                   style: const TextStyle(fontWeight: FontWeight.w900, color: Colors.redAccent),
@@ -407,36 +398,35 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
                                 const SizedBox(width: 8),
                                 Text(
                                   "Completed Tasks (${tasks.length})",
-                                  style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: Colors.black87),
+                                  style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: textColor),
                                 ),
                               ],
                             ),
                             const SizedBox(height: 12),
                             if (tasks.isEmpty)
-                              const Text(
+                              Text(
                                 "No tasks completed.",
-                                style: TextStyle(color: Colors.grey, fontStyle: FontStyle.italic),
+                                style: TextStyle(color: isDark ? (Colors.grey[500] ?? Colors.grey) : Colors.grey, fontStyle: FontStyle.italic),
                               ),
                             ...tasks.map((task) {
                               final details = task['tasks_dictionary'] ?? {};
                               final desc = details['description'] ?? 'Unnamed Task';
 
-                              // 🌟 Updated to use global precision formatter
                               final co2Saved = formatFootprint(details['co2_saved_estimate'] as num?);
                               final dateStr = task['completed_at'] != null ? task['completed_at'].toString().split('T').first : '';
                               return ListTile(
                                 contentPadding: EdgeInsets.zero,
                                 leading: CircleAvatar(
-                                  backgroundColor: Colors.green.shade50,
+                                  backgroundColor: Colors.green.withOpacity(0.12),
                                   child: const Icon(Icons.check_circle, color: Colors.green, size: 18),
                                 ),
                                 title: Text(
                                   desc,
-                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: textColor),
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                 ),
-                                subtitle: Text(dateStr, style: const TextStyle(fontSize: 12)),
+                                subtitle: Text(dateStr, style: TextStyle(fontSize: 12, color: isDark ? (Colors.grey[400] ?? Colors.grey) : Colors.grey.shade600)),
                                 trailing: Text(
                                   "-$co2Saved kg",
                                   style: const TextStyle(fontWeight: FontWeight.w900, color: Colors.green),
@@ -469,6 +459,10 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
   }
 
   void _openLifestyleCustomizationSheet() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final sheetBg = isDark ? const Color(0xFF1E1E1E) : Colors.white;
+    final textColor = isDark ? Colors.white : Colors.black87;
+
     showModalBottomSheet(
       context: context,
       useRootNavigator: true,
@@ -476,9 +470,9 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
       backgroundColor: Colors.transparent,
       builder: (BuildContext sheetContext) {
         return Container(
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
+          decoration: BoxDecoration(
+            color: sheetBg,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
           ),
           padding: const EdgeInsets.only(left: 24, top: 24, right: 24, bottom: 24),
           child: SafeArea(
@@ -492,15 +486,18 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
                     child: Container(
                       width: 40,
                       height: 5,
-                      decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(10)),
+                      decoration: BoxDecoration(color: isDark ? (Colors.grey[700] ?? Colors.grey) : Colors.grey.shade300, borderRadius: BorderRadius.circular(10)),
                     ),
                   ),
                   const SizedBox(height: 20),
-                  const Text('Lifestyle Presets', style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900, letterSpacing: -0.5)),
+                  Text(
+                    'Lifestyle Presets',
+                    style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900, letterSpacing: -0.5, color: textColor),
+                  ),
                   const SizedBox(height: 4),
                   Text(
                     'Customize your mission queue to match your daily routine.',
-                    style: TextStyle(fontSize: 14, color: Colors.grey.shade600, fontWeight: FontWeight.w500),
+                    style: TextStyle(fontSize: 14, color: isDark ? (Colors.grey[400] ?? Colors.grey) : Colors.grey.shade600, fontWeight: FontWeight.w500),
                   ),
                   const SizedBox(height: 20),
                   _buildPresetTile(sheetContext, 'All', Icons.public, 'Balanced Eco', 'Display every available global environmental mission.'),
@@ -518,6 +515,8 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
 
   Widget _buildPresetTile(BuildContext sheetCtx, String presetKey, IconData icon, String title, String subtitle) {
     final bool isCurrent = _selectedPreset == presetKey;
+    final isDark = Theme.of(sheetCtx).brightness == Brightness.dark;
+    final textColor = isDark ? Colors.white : Colors.black87;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
@@ -533,11 +532,14 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
         },
         leading: Container(
           padding: const EdgeInsets.all(10),
-          decoration: BoxDecoration(color: isCurrent ? AppTheme.primaryColor : Colors.grey.shade100, shape: BoxShape.circle),
-          child: Icon(icon, color: isCurrent ? Colors.white : Colors.grey.shade600, size: 20),
+          decoration: BoxDecoration(color: isCurrent ? AppTheme.primaryColor : (isDark ? (Colors.grey[800] ?? Colors.grey) : Colors.grey.shade100), shape: BoxShape.circle),
+          child: Icon(icon, color: isCurrent ? Colors.white : (isDark ? (Colors.grey[400] ?? Colors.grey) : Colors.grey.shade600), size: 20),
         ),
-        title: Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-        subtitle: Text(subtitle, style: TextStyle(color: Colors.grey.shade500, fontSize: 12)),
+        title: Text(
+          title,
+          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: textColor),
+        ),
+        subtitle: Text(subtitle, style: TextStyle(color: isDark ? (Colors.grey[400] ?? Colors.grey) : Colors.grey.shade500, fontSize: 12)),
         trailing: isCurrent ? const Icon(Icons.check_circle, color: AppTheme.primaryColor) : null,
       ),
     );
@@ -546,19 +548,20 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
   @override
   Widget build(BuildContext context) {
     final profileAsync = ref.watch(userProfileStreamProvider);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final scaffoldBg = isDark ? const Color(0xFF121212) : const Color(0xFFF9FFF9);
+    final textColor = isDark ? Colors.white : Colors.black87;
 
-    // 🌟 Check for errors or manual loading state first to prevent crashes
     if (profileAsync.hasError || _isLoading) {
       if (_isLoading) {
-        return const Scaffold(
-          backgroundColor: Color(0xFFF9FFF9),
-          body: Center(child: CircularProgressIndicator(color: AppTheme.primaryColor)),
+        return Scaffold(
+          backgroundColor: scaffoldBg,
+          body: const Center(child: CircularProgressIndicator(color: AppTheme.primaryColor)),
         );
       }
 
-      // Modern offline error screen
       return Scaffold(
-        backgroundColor: const Color(0xFFF9FFF9),
+        backgroundColor: scaffoldBg,
         body: SafeArea(
           child: Center(
             child: Padding(
@@ -566,17 +569,17 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.cloud_off_rounded, color: Colors.grey.shade400, size: 64),
+                  Icon(Icons.cloud_off_rounded, color: isDark ? (Colors.grey[600] ?? Colors.grey) : Colors.grey.shade400, size: 64),
                   const SizedBox(height: 16),
-                  const Text(
+                  Text(
                     "Connection lost",
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.black87),
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: textColor),
                   ),
                   const SizedBox(height: 8),
                   Text(
                     "We couldn't connect to the server. Please check your internet connection and try again.",
                     textAlign: TextAlign.center,
-                    style: TextStyle(color: Colors.grey.shade600, fontSize: 14, height: 1.4),
+                    style: TextStyle(color: isDark ? (Colors.grey[400] ?? Colors.grey) : Colors.grey.shade600, fontSize: 14, height: 1.4),
                   ),
                   const SizedBox(height: 24),
                   ElevatedButton.icon(
@@ -601,39 +604,28 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
       );
     }
 
-    // 🌟 Main Dashboard UI
     return profileAsync.when(
-      loading: () => const Scaffold(
-        backgroundColor: Color(0xFFF9FFF9),
-        body: Center(child: CircularProgressIndicator(color: AppTheme.primaryColor)),
+      loading: () => Scaffold(
+        backgroundColor: scaffoldBg,
+        body: const Center(child: CircularProgressIndicator(color: AppTheme.primaryColor)),
       ),
-      error: (err, stack) => const SizedBox.shrink(), // Handled safely above by profileAsync.hasError
+      error: (err, stack) => const SizedBox.shrink(),
       data: (profile) {
         return Scaffold(
-          backgroundColor: Colors.transparent,
+          backgroundColor: scaffoldBg,
           body: Stack(
             children: [
-              // 🌟 Subtle Dynamic Background Watermark based on Time of Day
               Positioned(
                 top: -30,
                 right: -40,
-                child: IgnorePointer(
-                  child: Icon(
-                    _getTimeOfDayWatermarkIcon(),
-                    size: 260,
-                    color: AppTheme.primaryColor.withOpacity(0.04), // Keeping original theme color with subtle opacity
-                  ),
-                ),
+                child: IgnorePointer(child: Icon(_getTimeOfDayWatermarkIcon(), size: 260, color: AppTheme.primaryColor.withOpacity(isDark ? 0.08 : 0.04))),
               ),
-
-              // Main Content
               SafeArea(
                 bottom: false,
                 child: RefreshIndicator(
                   color: AppTheme.primaryColor,
                   onRefresh: () => _initializeDashboard(showLoader: false),
                   child: SingleChildScrollView(
-                    // 🌟 Kept BouncingScrollPhysics but wrapped in AlwaysScrollable to ensure pull-to-refresh works even on short screens
                     physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
                     child: Padding(
                       padding: const EdgeInsets.only(left: 24, top: 24, right: 24, bottom: 120),
@@ -645,12 +637,12 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
                           _buildOnboardingCard(),
                           _buildImpactHeroCard(),
                           const SizedBox(height: 32),
-                          const Text(
+                          Text(
                             "Quick Log",
-                            style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18, color: Colors.black87),
+                            style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18, color: textColor),
                           ),
                           const SizedBox(height: 16),
-                          _buildActionStrip(),
+                          _buildActionStrip(context),
                           const SizedBox(height: 32),
                           Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -658,25 +650,25 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
                               Row(
                                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
-                                  const Text(
+                                  Text(
                                     "Weekly Missions",
-                                    style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18, color: Colors.black87),
+                                    style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18, color: textColor),
                                   ),
                                   Container(
                                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                                     decoration: BoxDecoration(
-                                      color: Colors.amber.shade50,
+                                      color: isDark ? Colors.amber.withOpacity(0.15) : Colors.amber.shade50,
                                       borderRadius: BorderRadius.circular(12),
-                                      border: Border.all(color: Colors.amber.shade200),
+                                      border: Border.all(color: isDark ? Colors.amber.withOpacity(0.3) : Colors.amber.shade200),
                                     ),
                                     child: Row(
                                       mainAxisSize: MainAxisSize.min,
                                       children: [
-                                        Icon(Icons.hourglass_top_rounded, size: 13, color: Colors.amber.shade800),
+                                        Icon(Icons.hourglass_top_rounded, size: 13, color: isDark ? Colors.amber[300] : Colors.amber.shade800),
                                         const SizedBox(width: 4),
                                         Text(
                                           _timeLeftString,
-                                          style: TextStyle(color: Colors.amber.shade900, fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: -0.2),
+                                          style: TextStyle(color: isDark ? Colors.amber[300] : Colors.amber.shade900, fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: -0.2),
                                         ),
                                       ],
                                     ),
@@ -689,7 +681,7 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
                                 children: [
                                   Text(
                                     'Focus: $_selectedPreset Layout',
-                                    style: TextStyle(color: Colors.grey.shade500, fontSize: 13, fontWeight: FontWeight.bold),
+                                    style: TextStyle(color: isDark ? (Colors.grey[400] ?? Colors.grey) : Colors.grey.shade500, fontSize: 13, fontWeight: FontWeight.bold),
                                   ),
                                   TextButton.icon(
                                     onPressed: _openLifestyleCustomizationSheet,
@@ -724,6 +716,7 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
   }
 
   Widget _buildHeader() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final hour = DateTime.now().hour;
     String greeting;
     if (hour < 12) {
@@ -744,18 +737,21 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
         const SizedBox(height: 6),
         Text(
           "Let's make an impact today",
-          style: TextStyle(fontSize: 32, fontWeight: FontWeight.w900, letterSpacing: -1.0, color: Colors.grey.shade900),
+          style: TextStyle(fontSize: 32, fontWeight: FontWeight.w900, letterSpacing: -1.0, color: isDark ? Colors.white : Colors.grey.shade900),
         ),
         const SizedBox(height: 4),
         Text(
           "Here is your environmental status checkpoint.",
-          style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: Colors.grey.shade600),
+          style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: isDark ? (Colors.grey[400] ?? Colors.grey) : Colors.grey.shade600),
         ),
       ],
     );
   }
 
   Widget _buildOnboardingCard() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardBg = isDark ? (Colors.grey[850] ?? const Color(0xFF2C2C2C)) : Colors.white;
+
     final profile = ref.watch(userProfileStreamProvider).value;
     final obProfile = profile?['ob_profile'] ?? false;
     final obGuide = profile?['ob_guide'] ?? false;
@@ -769,7 +765,7 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
       padding: const EdgeInsets.all(20),
       margin: const EdgeInsets.only(bottom: 24),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: cardBg,
         borderRadius: BorderRadius.circular(24),
         border: Border.all(color: AppTheme.primaryColor.withOpacity(0.3)),
         boxShadow: [BoxShadow(color: AppTheme.primaryColor.withOpacity(0.05), blurRadius: 15, offset: const Offset(0, 8))],
@@ -817,6 +813,9 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
   }
 
   Widget _buildOnboardingTile(String title, bool isDone, VoidCallback onTap) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final textColor = isDone ? (isDark ? Colors.white70 : Colors.black87) : (isDark ? (Colors.grey[400] ?? Colors.grey) : Colors.black54);
+
     return InkWell(
       onTap: isDone ? null : onTap,
       borderRadius: BorderRadius.circular(12),
@@ -824,17 +823,12 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
         padding: const EdgeInsets.symmetric(vertical: 8.0),
         child: Row(
           children: [
-            Icon(isDone ? Icons.check_circle : Icons.circle_outlined, color: isDone ? AppTheme.primaryColor : Colors.grey.shade400),
+            Icon(isDone ? Icons.check_circle : Icons.circle_outlined, color: isDone ? AppTheme.primaryColor : (isDark ? (Colors.grey[600] ?? Colors.grey) : Colors.grey.shade400)),
             const SizedBox(width: 12),
             Expanded(
               child: Text(
                 title,
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: isDone ? FontWeight.bold : FontWeight.w500,
-                  color: isDone ? Colors.black87 : Colors.black54,
-                  decoration: isDone ? TextDecoration.lineThrough : null,
-                ),
+                style: TextStyle(fontSize: 14, fontWeight: isDone ? FontWeight.bold : FontWeight.w500, color: textColor, decoration: isDone ? TextDecoration.lineThrough : null),
               ),
             ),
           ],
@@ -843,18 +837,15 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
     );
   }
 
-  // 🌟 Hero card with support for negative net footprints
   Widget _buildImpactHeroCard() {
     final profile = ref.watch(userProfileStreamProvider).value;
     final targetRaw = profile?['monthly_co2_target'];
     final monthlyTarget = (targetRaw != null && targetRaw > 0) ? (targetRaw as num).toDouble() : 1.0;
 
-    // 🌟 States: Exceeded target vs Net Negative (Carbon Positive status)
     final bool isExceeded = _netFootprint > monthlyTarget;
     final bool isNegative = _netFootprint < 0;
     final double excessAmount = _netFootprint - monthlyTarget;
 
-    // Clamp progress between 0.0 and 1.0 safely
     final progress = isNegative ? 0.0 : min(1.0, max(0.0, _netFootprint / monthlyTarget));
 
     return Material(
@@ -888,7 +879,7 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
                 textBaseline: TextBaseline.alphabetic,
                 children: [
                   Text(
-                    formatFootprint(_netFootprint), // 🌟 Formats positive (+2.500) or negative (-5.000) correctly
+                    formatFootprint(_netFootprint),
                     style: const TextStyle(color: Colors.white, fontSize: 48, fontWeight: FontWeight.w900, letterSpacing: -1),
                   ),
                   const SizedBox(width: 8),
@@ -923,7 +914,6 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
               Center(
                 child: Column(
                   children: [
-                    // 🌟 1. Dynamic Exceeded Warning Message
                     if (isExceeded) ...[
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -942,8 +932,6 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
                       ),
                       const SizedBox(height: 12),
                     ],
-
-                    // 🌟 2. Dynamic Net Carbon Negative Badge
                     if (isNegative) ...[
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -962,8 +950,6 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
                       ),
                       const SizedBox(height: 12),
                     ],
-
-                    // Existing tap action chip
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                       decoration: BoxDecoration(color: Colors.white.withOpacity(0.15), borderRadius: BorderRadius.circular(20)),
@@ -989,20 +975,22 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
     );
   }
 
-  Widget _buildActionStrip() {
+  Widget _buildActionStrip(BuildContext context) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
       children: [
-        _buildModernActionButton(Icons.lightbulb_outline, 'Energy', 'Energy'),
-        _buildModernActionButton(Icons.commute, 'Transport', 'Transport'),
-        _buildModernActionButton(Icons.restaurant, 'Diet', 'Diet'),
+        _buildModernActionButton(context, Icons.lightbulb_outline, 'Energy', 'Energy'),
+        _buildModernActionButton(context, Icons.commute, 'Transport', 'Transport'),
+        _buildModernActionButton(context, Icons.restaurant, 'Diet', 'Diet'),
       ],
     );
   }
 
-  // home_dashboard.dart
+  Widget _buildModernActionButton(BuildContext context, IconData icon, String label, String categoryKey) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardBg = isDark ? (Colors.grey[850] ?? const Color(0xFF2C2C2C)) : Colors.white;
+    final textColor = isDark ? Colors.white70 : Colors.black54;
 
-  Widget _buildModernActionButton(IconData icon, String label, String categoryKey) {
     return GestureDetector(
       onTap: () {
         if (categoryKey == 'Diet') {
@@ -1014,7 +1002,6 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
             _initializeDashboard(showLoader: false);
           });
         } else {
-          // 🌟 Replaced Navigator.push with context.pushNamed
           context.pushNamed('log-activity', extra: categoryKey).then((_) {
             _initializeDashboard(showLoader: false);
           });
@@ -1026,16 +1013,16 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
             height: 65,
             width: 65,
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: cardBg,
               borderRadius: BorderRadius.circular(22),
-              boxShadow: [BoxShadow(color: AppTheme.primaryColor.withOpacity(0.06), blurRadius: 15, offset: const Offset(0, 6))],
+              boxShadow: [BoxShadow(color: Colors.black.withOpacity(isDark ? 0.2 : 0.03), blurRadius: 15, offset: const Offset(0, 6))],
             ),
             child: Icon(icon, color: AppTheme.primaryColor, size: 28),
           ),
           const SizedBox(height: 8),
           Text(
             label,
-            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.black54),
+            style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: textColor),
           ),
         ],
       ),
@@ -1044,6 +1031,8 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
 
   Widget _buildModernTasksList() {
     final tasksAsync = ref.watch(userTasksStreamProvider);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final textColor = isDark ? Colors.white : Colors.black87;
 
     return tasksAsync.when(
       loading: () => const Center(child: CircularProgressIndicator(color: AppTheme.primaryColor)),
@@ -1053,17 +1042,17 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.cloud_off_rounded, color: Colors.grey.shade400, size: 48),
+              Icon(Icons.cloud_off_rounded, color: isDark ? (Colors.grey[600] ?? Colors.grey) : Colors.grey.shade400, size: 48),
               const SizedBox(height: 16),
-              const Text(
+              Text(
                 "Connection lost",
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.black87),
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: textColor),
               ),
               const SizedBox(height: 8),
               Text(
                 "We couldn't load your tasks right now. Please check your internet connection and try again.",
                 textAlign: TextAlign.center,
-                style: TextStyle(color: Colors.grey.shade600, fontSize: 13, height: 1.4),
+                style: TextStyle(color: isDark ? (Colors.grey[400] ?? Colors.grey) : Colors.grey.shade600, fontSize: 13, height: 1.4),
               ),
             ],
           ),
@@ -1071,13 +1060,13 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
       ),
       data: (tasks) {
         if (tasks.isEmpty) {
-          return const Center(
+          return Center(
             child: Padding(
-              padding: EdgeInsets.all(24.0),
+              padding: const EdgeInsets.all(24.0),
               child: Text(
                 "Establishing your activity baseline. Log some activities or wait 7 days to unlock your personalized weekly missions!",
                 textAlign: TextAlign.center,
-                style: TextStyle(color: Colors.grey, fontStyle: FontStyle.italic, fontSize: 13, height: 1.4),
+                style: TextStyle(color: isDark ? (Colors.grey[500] ?? Colors.grey) : Colors.grey, fontStyle: FontStyle.italic, fontSize: 13, height: 1.4),
               ),
             ),
           );
@@ -1101,7 +1090,7 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
               padding: const EdgeInsets.all(24.0),
               child: Text(
                 'No ongoing tasks under the "$_selectedPreset" focus.',
-                style: const TextStyle(color: Colors.grey, fontStyle: FontStyle.italic, fontSize: 13),
+                style: TextStyle(color: isDark ? (Colors.grey[500] ?? Colors.grey) : Colors.grey, fontStyle: FontStyle.italic, fontSize: 13),
               ),
             ),
           );
@@ -1119,10 +1108,8 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
             final description = taskDetails['description'] ?? 'Unnamed Task';
             final tier = taskDetails['tier']?.toString() ?? 'Standard';
             final visionCriteria = taskDetails['vision_criteria'] ?? '';
-
             final tag = taskDetails['target_lifestyle_tag']?.toString() ?? 'General';
 
-            // 🌟 2. Determine Tier Colors and Nature Elements
             Color tierMainColor;
             Color tierLightColor;
             IconData natureWatermark;
@@ -1130,18 +1117,18 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
             switch (tier.toLowerCase()) {
               case 'gold':
                 tierMainColor = Colors.amber.shade600;
-                tierLightColor = Colors.amber.shade50;
-                natureWatermark = Icons.wb_sunny_rounded; // Sun representing high tier
+                tierLightColor = isDark ? Colors.amber.withOpacity(0.15) : Colors.amber.shade50;
+                natureWatermark = Icons.wb_sunny_rounded;
                 break;
               case 'silver':
                 tierMainColor = Colors.blueGrey.shade400;
-                tierLightColor = Colors.blueGrey.shade50;
-                natureWatermark = Icons.water_drop_rounded; // Water element
+                tierLightColor = isDark ? Colors.blueGrey.withOpacity(0.15) : Colors.blueGrey.shade50;
+                natureWatermark = Icons.water_drop_rounded;
                 break;
               case 'bronze':
-                tierMainColor = const Color(0xFFCD7F32); // Bronze/Earth color
-                tierLightColor = const Color(0xFFFAF0E6);
-                natureWatermark = Icons.eco_rounded; // Leaf/Earth element
+                tierMainColor = const Color(0xFFCD7F32);
+                tierLightColor = isDark ? const Color(0xFFCD7F32).withOpacity(0.15) : const Color(0xFFFAF0E6);
+                natureWatermark = Icons.eco_rounded;
                 break;
               default:
                 tierMainColor = AppTheme.primaryColor;
@@ -1149,40 +1136,36 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
                 natureWatermark = Icons.local_florist_rounded;
             }
 
+            final Color cardBg = isCompleted
+                ? (isDark ? (Colors.grey[900] ?? const Color(0xFF212121)) : Colors.grey.shade100)
+                : (isDark ? (Colors.grey[850] ?? const Color(0xFF303030)) : Colors.white);
+
             return AnimatedContainer(
               duration: const Duration(milliseconds: 300),
               margin: const EdgeInsets.only(bottom: 12),
               decoration: BoxDecoration(
-                // Add a subtle gradient depending on the tier if not completed
-                gradient: isCompleted ? null : LinearGradient(colors: [Colors.white, tierLightColor.withOpacity(0.5)], begin: Alignment.topLeft, end: Alignment.bottomRight),
-                color: isCompleted ? Colors.grey.shade100 : Colors.white,
+                gradient: isCompleted ? null : LinearGradient(colors: <Color>[cardBg, tierLightColor.withOpacity(isDark ? 0.2 : 0.5)], begin: Alignment.topLeft, end: Alignment.bottomRight),
+                color: isCompleted ? cardBg : null,
                 borderRadius: BorderRadius.circular(24),
                 border: Border.all(color: isCompleted ? Colors.transparent : tierMainColor.withOpacity(0.3), width: 1.5),
-                boxShadow: isCompleted ? [] : [BoxShadow(color: tierMainColor.withOpacity(0.08), blurRadius: 15, offset: const Offset(0, 8))],
+                boxShadow: isCompleted ? [] : [BoxShadow(color: Colors.black.withOpacity(isDark ? 0.2 : 0.05), blurRadius: 15, offset: const Offset(0, 8))],
               ),
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(24),
                 child: Stack(
                   children: [
-                    // 🌟 3. Beautiful Nature Watermark injected into the background
-                    if (!isCompleted)
-                      Positioned(
-                        right: -15,
-                        bottom: -15,
-                        child: Icon(
-                          natureWatermark,
-                          size: 90,
-                          color: tierMainColor.withOpacity(0.06), // Very subtle watermark
-                        ),
-                      ),
-
-                    // 🌟 4. The actual list tile on top
+                    if (!isCompleted) Positioned(right: -15, bottom: -15, child: Icon(natureWatermark, size: 90, color: tierMainColor.withOpacity(0.06))),
                     CheckboxListTile(
                       controlAffinity: ListTileControlAffinity.leading,
                       contentPadding: const EdgeInsets.only(left: 12, right: 20, top: 8, bottom: 8),
                       title: Text(
                         description,
-                        style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: isCompleted ? Colors.grey : Colors.black87, decoration: isCompleted ? TextDecoration.lineThrough : null),
+                        style: TextStyle(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 14,
+                          color: isCompleted ? (isDark ? (Colors.grey[600] ?? Colors.grey) : Colors.grey) : textColor,
+                          decoration: isCompleted ? TextDecoration.lineThrough : null,
+                        ),
                       ),
                       subtitle: Padding(
                         padding: const EdgeInsets.only(top: 8.0),
@@ -1191,7 +1174,7 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                               decoration: BoxDecoration(
-                                color: isCompleted ? Colors.grey.shade200 : tierMainColor.withOpacity(0.15),
+                                color: isCompleted ? (isDark ? (Colors.grey[800] ?? Colors.grey) : Colors.grey.shade200) : tierMainColor.withOpacity(0.15),
                                 borderRadius: BorderRadius.circular(8),
                                 border: Border.all(color: isCompleted ? Colors.transparent : tierMainColor.withOpacity(0.3)),
                               ),
@@ -1202,7 +1185,7 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
                                   const SizedBox(width: 4),
                                   Text(
                                     tier.toUpperCase(),
-                                    style: TextStyle(color: isCompleted ? Colors.grey.shade600 : tierMainColor, fontSize: 9, fontWeight: FontWeight.w900, letterSpacing: 1.2),
+                                    style: TextStyle(color: isCompleted ? Colors.grey.shade500 : tierMainColor, fontSize: 9, fontWeight: FontWeight.w900, letterSpacing: 1.2),
                                   ),
                                 ],
                               ),
@@ -1218,7 +1201,6 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
                           final validationMethod = taskDetails['validation_method']?.toString() ?? 'telemetry';
 
                           if (validationMethod == 'vision') {
-                            // 👇 Add 'rootNavigator: true' here
                             Navigator.of(context, rootNavigator: true).push(
                               MaterialPageRoute(
                                 builder: (context) => MissionCameraScreen(taskDescription: description, visionCriteria: visionCriteria, userTaskId: userTaskId),

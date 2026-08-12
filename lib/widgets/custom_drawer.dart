@@ -1,3 +1,4 @@
+import 'package:carbonsense/main.dart';
 import 'package:carbonsense/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -76,18 +77,20 @@ class _CustomDrawerState extends State<CustomDrawer> {
   }
 
   Future<void> _showLogoutDialog(BuildContext context) async {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     final bool? shouldLogout = await showDialog<bool>(
       context: context,
       builder: (BuildContext dialogContext) {
         return AlertDialog(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-          backgroundColor: Colors.white,
+          backgroundColor: isDark ? Colors.grey[900] : Colors.white,
           titlePadding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
           actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-          title: const Text(
+          title: Text(
             'Log Out?',
             textAlign: TextAlign.center,
-            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: isDark ? Colors.white : Colors.black),
           ),
           actionsAlignment: MainAxisAlignment.center,
           actions: [
@@ -118,65 +121,24 @@ class _CustomDrawerState extends State<CustomDrawer> {
     );
 
     if (shouldLogout == true) {
-      // Clear drawer memory cache so the next user doesn't see old profile data
       CustomDrawer.clearCache();
-
       await Supabase.instance.client.auth.signOut();
       if (context.mounted) {
-        context.go('/welcome');
+        context.go('/login');
       }
     }
-  }
-
-  Widget _buildFullWidthCard(BuildContext context, {required IconData icon, required String title, required String subtitle, required VoidCallback onTap}) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      elevation: 2,
-      shadowColor: Colors.black12,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-      color: Colors.white,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(18),
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(color: AppTheme.primaryColor.withOpacity(0.08), borderRadius: BorderRadius.circular(12)),
-                child: Icon(icon, color: AppTheme.primaryColor, size: 22),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.black87),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(subtitle, style: TextStyle(color: Colors.grey.shade500, fontSize: 12)),
-                  ],
-                ),
-              ),
-              Icon(Icons.arrow_forward_ios_rounded, size: 14, color: Colors.grey.shade400),
-            ],
-          ),
-        ),
-      ),
-    );
   }
 
   @override
   Widget build(BuildContext context) {
     final drawerWidth = MediaQuery.of(context).size.width * 0.85;
     final topPadding = MediaQuery.of(context).padding.top;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final dividerColor = isDark ? Colors.grey[800] : Colors.grey[200];
 
     return Drawer(
       width: drawerWidth,
-      backgroundColor: const Color(0xFFF9FFF9),
+      backgroundColor: isDark ? const Color(0xFF141414) : const Color(0xFFF9FFF9),
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.only(topRight: Radius.circular(32), bottomRight: Radius.circular(32)),
       ),
@@ -228,12 +190,13 @@ class _CustomDrawerState extends State<CustomDrawer> {
               ),
             ),
 
+            // --- 2. DRAWER ITEMS ---
             Expanded(
               child: ListView(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                 physics: const BouncingScrollPhysics(),
                 children: [
-                  // Standard items above
+                  // SECTION 1: My Profile & Help Support
                   _buildDrawerTile(
                     context,
                     icon: Icons.person_outline,
@@ -255,10 +218,36 @@ class _CustomDrawerState extends State<CustomDrawer> {
                     },
                   ),
 
-                  const SizedBox(height: 12),
+                  // LINE BREAK 1
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    child: Divider(color: dividerColor, thickness: 1),
+                  ),
 
-                  // --- Legal Section Cards (Full Width Stacked) ---
-                  _buildFullWidthCard(
+                  // SECTION 2: Dark Mode
+                  ValueListenableBuilder<ThemeMode>(
+                    valueListenable: themeNotifier,
+                    builder: (context, currentMode, _) {
+                      final isDarkModeActive = currentMode == ThemeMode.dark || (currentMode == ThemeMode.system && MediaQuery.of(context).platformBrightness == Brightness.dark);
+
+                      return _buildThemeToggleTile(
+                        context,
+                        isDark: isDarkModeActive,
+                        onChanged: (bool value) {
+                          themeNotifier.value = value ? ThemeMode.dark : ThemeMode.light;
+                        },
+                      );
+                    },
+                  ),
+
+                  // LINE BREAK 2
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    child: Divider(color: dividerColor, thickness: 1),
+                  ),
+
+                  // SECTION 3: Legal Information (Same style as other tiles)
+                  _buildDrawerTile(
                     context,
                     icon: Icons.gavel_outlined,
                     title: 'Legal Information',
@@ -281,18 +270,18 @@ class _CustomDrawerState extends State<CustomDrawer> {
                 child: Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: Colors.red.shade50,
+                    color: isDark ? Colors.red.withOpacity(0.15) : Colors.red.shade50,
                     borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: Colors.red.shade100),
+                    border: Border.all(color: isDark ? Colors.red.withOpacity(0.3) : Colors.red.shade100),
                   ),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(Icons.logout, color: Colors.red.shade700, size: 20),
+                      Icon(Icons.logout, color: isDark ? Colors.redAccent : Colors.red.shade700, size: 20),
                       const SizedBox(width: 8),
                       Text(
                         'Log Out',
-                        style: TextStyle(color: Colors.red.shade700, fontWeight: FontWeight.bold, fontSize: 15),
+                        style: TextStyle(color: isDark ? Colors.redAccent : Colors.red.shade700, fontWeight: FontWeight.bold, fontSize: 15),
                       ),
                     ],
                   ),
@@ -305,9 +294,14 @@ class _CustomDrawerState extends State<CustomDrawer> {
     );
   }
 
+  // --- STANDARD DRAWER TILE ---
   Widget _buildDrawerTile(BuildContext context, {required IconData icon, required String title, required String subtitle, required VoidCallback onTap}) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final textColor = isDark ? Colors.white : Colors.black87;
+    final iconBg = isDark ? Colors.grey[850] : Colors.white;
+
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
+      margin: const EdgeInsets.only(bottom: 8),
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(20),
@@ -318,11 +312,11 @@ class _CustomDrawerState extends State<CustomDrawer> {
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: iconBg,
                   borderRadius: BorderRadius.circular(16),
-                  boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 8, offset: const Offset(0, 2))],
+                  boxShadow: [BoxShadow(color: Colors.black.withOpacity(isDark ? 0.2 : 0.03), blurRadius: 8, offset: const Offset(0, 2))],
                 ),
-                child: Icon(icon, color: Colors.black87, size: 24),
+                child: Icon(icon, color: isDark ? Colors.white : Colors.black87, size: 24),
               ),
               const SizedBox(width: 16),
               Expanded(
@@ -331,7 +325,7 @@ class _CustomDrawerState extends State<CustomDrawer> {
                   children: [
                     Text(
                       title,
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Colors.black87),
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: textColor),
                     ),
                     const SizedBox(height: 2),
                     Text(
@@ -344,6 +338,50 @@ class _CustomDrawerState extends State<CustomDrawer> {
               Icon(Icons.chevron_right, color: Colors.grey.shade400),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  // --- DARK MODE TOGGLE TILE ---
+  Widget _buildThemeToggleTile(BuildContext context, {required bool isDark, required ValueChanged<bool> onChanged}) {
+    final textColor = isDark ? Colors.white : Colors.black87;
+    final iconBg = isDark ? Colors.grey[850] : Colors.white;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      child: Padding(
+        padding: const EdgeInsets.all(12.0),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: iconBg,
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [BoxShadow(color: Colors.black.withOpacity(isDark ? 0.2 : 0.03), blurRadius: 8, offset: const Offset(0, 2))],
+              ),
+              child: Icon(isDark ? Icons.dark_mode_outlined : Icons.light_mode_outlined, color: isDark ? Colors.amber : Colors.orangeAccent, size: 24),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Dark Mode',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: textColor),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    isDark ? 'Dark theme enabled' : 'Light theme enabled',
+                    style: TextStyle(color: Colors.grey.shade500, fontSize: 12, fontWeight: FontWeight.w500),
+                  ),
+                ],
+              ),
+            ),
+            Switch.adaptive(value: isDark, onChanged: onChanged, activeColor: AppTheme.primaryColor),
+          ],
         ),
       ),
     );

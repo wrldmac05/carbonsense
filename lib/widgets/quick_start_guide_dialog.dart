@@ -39,6 +39,7 @@ class _QuickStartCarouselDialogState extends State<QuickStartCarouselDialog> {
     {
       "icon": Icons.co2_rounded,
       "color": Colors.teal.shade600,
+      "darkColor": Colors.teal[300]!,
       "badge": "THE BASICS",
       "title": "What is a Carbon Footprint?",
       "subtitle": "Your daily environmental footprint",
@@ -48,6 +49,7 @@ class _QuickStartCarouselDialogState extends State<QuickStartCarouselDialog> {
     {
       "icon": Icons.public_rounded,
       "color": Colors.amber.shade800,
+      "darkColor": Colors.amber[400]!,
       "badge": "WHY IT MATTERS",
       "title": "Why Does It Matter?",
       "subtitle": "Small actions, big planetary impact",
@@ -57,6 +59,7 @@ class _QuickStartCarouselDialogState extends State<QuickStartCarouselDialog> {
     {
       "icon": Icons.pie_chart_outline_rounded,
       "color": Colors.blue.shade600,
+      "darkColor": Colors.blue[300]!,
       "badge": "YOUR ASSISTANT",
       "title": "Understand Your Impact",
       "subtitle": "Track energy, transport, and meals effortlessly",
@@ -66,6 +69,7 @@ class _QuickStartCarouselDialogState extends State<QuickStartCarouselDialog> {
     {
       "icon": Icons.auto_awesome_rounded,
       "color": AppTheme.primaryColor,
+      "darkColor": Colors.white,
       "badge": "SMART ACTION",
       "title": "Take Action with AI",
       "subtitle": "Personalized habits that make a difference",
@@ -76,11 +80,17 @@ class _QuickStartCarouselDialogState extends State<QuickStartCarouselDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final dialogBg = isDark ? Colors.grey[900]! : Colors.white;
+    final textColor = isDark ? Colors.white : Colors.black87;
+    final descriptionColor = isDark ? Colors.grey[300]! : Colors.grey.shade700;
+    final secondaryButtonColor = isDark ? Colors.grey[400]! : Colors.grey;
+
     bool isLastPage = _currentPage == _pages.length - 1;
 
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
-      backgroundColor: Colors.white,
+      backgroundColor: dialogBg,
       child: Container(
         padding: const EdgeInsets.all(24),
         constraints: const BoxConstraints(maxWidth: 460, maxHeight: 540),
@@ -94,22 +104,25 @@ class _QuickStartCarouselDialogState extends State<QuickStartCarouselDialog> {
                   children: [
                     Container(
                       padding: const EdgeInsets.all(6),
-                      decoration: BoxDecoration(color: AppTheme.primaryColor.withOpacity(0.12), shape: BoxShape.circle),
-                      child: const Icon(Icons.auto_awesome, color: AppTheme.primaryColor, size: 18),
+                      decoration: BoxDecoration(color: isDark ? Colors.white.withOpacity(0.1) : AppTheme.primaryColor.withOpacity(0.12), shape: BoxShape.circle),
+                      child: Icon(Icons.auto_awesome, color: isDark ? Colors.white : AppTheme.primaryColor, size: 18),
                     ),
                     const SizedBox(width: 10),
-                    const Text("Quick Start Guide", style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, letterSpacing: -0.5)),
+                    Text(
+                      "Quick Start Guide",
+                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, letterSpacing: -0.5, color: textColor),
+                    ),
                   ],
                 ),
                 // 🔒 HIDE CLOSE BUTTON IF ONBOARDING
                 if (!widget.isOnboarding)
                   IconButton(
-                    icon: const Icon(Icons.close, size: 20, color: Colors.grey),
+                    icon: Icon(Icons.close, size: 20, color: secondaryButtonColor),
                     onPressed: () => Navigator.pop(context),
                   ),
               ],
             ),
-            const Divider(height: 20),
+            Divider(height: 20, color: isDark ? Colors.grey[800] : Colors.grey.shade200),
 
             // PageView Carousel Content
             Expanded(
@@ -122,7 +135,7 @@ class _QuickStartCarouselDialogState extends State<QuickStartCarouselDialog> {
                 itemCount: _pages.length,
                 itemBuilder: (context, index) {
                   final page = _pages[index];
-                  final Color themeColor = page["color"];
+                  final Color themeColor = isDark ? (page["darkColor"] ?? page["color"]) : page["color"];
 
                   return Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 8.0),
@@ -133,7 +146,7 @@ class _QuickStartCarouselDialogState extends State<QuickStartCarouselDialog> {
                         Container(
                           width: 80,
                           height: 80,
-                          decoration: BoxDecoration(color: themeColor.withOpacity(0.12), shape: BoxShape.circle),
+                          decoration: BoxDecoration(color: themeColor.withOpacity(isDark ? 0.2 : 0.12), shape: BoxShape.circle),
                           child: Icon(page["icon"], size: 44, color: themeColor),
                         ),
                         const SizedBox(height: 16),
@@ -141,7 +154,7 @@ class _QuickStartCarouselDialogState extends State<QuickStartCarouselDialog> {
                         // Badge Tag
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-                          decoration: BoxDecoration(color: themeColor.withOpacity(0.15), borderRadius: BorderRadius.circular(8)),
+                          decoration: BoxDecoration(color: themeColor.withOpacity(isDark ? 0.25 : 0.15), borderRadius: BorderRadius.circular(8)),
                           child: Text(
                             page["badge"],
                             style: TextStyle(fontSize: 10, fontWeight: FontWeight.w900, color: themeColor, letterSpacing: 0.8),
@@ -152,7 +165,7 @@ class _QuickStartCarouselDialogState extends State<QuickStartCarouselDialog> {
                         // Slide Title & Subtitle
                         Text(
                           page["title"],
-                          style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18, color: Colors.black87),
+                          style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18, color: textColor),
                           textAlign: TextAlign.center,
                         ),
                         const SizedBox(height: 4),
@@ -166,7 +179,7 @@ class _QuickStartCarouselDialogState extends State<QuickStartCarouselDialog> {
                         // Plain Language Body Text
                         Text(
                           page["description"],
-                          style: TextStyle(fontSize: 13, color: Colors.grey.shade700, height: 1.45),
+                          style: TextStyle(fontSize: 13, color: descriptionColor, height: 1.45),
                           textAlign: TextAlign.center,
                         ),
                       ],
@@ -188,7 +201,7 @@ class _QuickStartCarouselDialogState extends State<QuickStartCarouselDialog> {
                   margin: const EdgeInsets.symmetric(horizontal: 4),
                   width: _currentPage == index ? 24 : 8,
                   height: 8,
-                  decoration: BoxDecoration(color: _currentPage == index ? AppTheme.primaryColor : Colors.grey.shade300, borderRadius: BorderRadius.circular(4)),
+                  decoration: BoxDecoration(color: _currentPage == index ? AppTheme.primaryColor : (isDark ? Colors.grey[800]! : Colors.grey.shade300), borderRadius: BorderRadius.circular(4)),
                 ),
               ),
             ),
@@ -203,16 +216,16 @@ class _QuickStartCarouselDialogState extends State<QuickStartCarouselDialog> {
                     onPressed: () {
                       _pageController.previousPage(duration: const Duration(milliseconds: 300), curve: Curves.easeInOut);
                     },
-                    child: const Text(
+                    child: Text(
                       "Back",
-                      style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold),
+                      style: TextStyle(color: secondaryButtonColor, fontWeight: FontWeight.bold),
                     ),
                   )
                 else if (!widget.isOnboarding)
                   // 🔒 HIDE SKIP BUTTON IF ONBOARDING
                   TextButton(
                     onPressed: () => Navigator.pop(context),
-                    child: const Text("Skip", style: TextStyle(color: Colors.grey)),
+                    child: Text("Skip", style: TextStyle(color: secondaryButtonColor)),
                   )
                 else
                   const SizedBox.shrink(), // Keeps spacing aligned

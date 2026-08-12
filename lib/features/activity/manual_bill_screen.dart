@@ -76,6 +76,11 @@ class _ManualBillScreenState extends State<ManualBillScreen> {
 
   // --- DIALOGS ---
   void _showSuccessDialog(double kwh) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final dialogBg = isDark ? Colors.grey[900] : Colors.white;
+    final textColor = isDark ? Colors.white : Colors.black87;
+    final subtitleColor = isDark ? Colors.grey[400] : Colors.black54;
+
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -87,9 +92,9 @@ class _ManualBillScreenState extends State<ManualBillScreen> {
           child: Container(
             padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: dialogBg,
               borderRadius: BorderRadius.circular(24),
-              boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 20.0, offset: Offset(0.0, 10.0))],
+              boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 20.0, offset: Offset(0.0, 10.0))],
             ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -97,19 +102,19 @@ class _ManualBillScreenState extends State<ManualBillScreen> {
                 Container(
                   height: 80,
                   width: 80,
-                  decoration: BoxDecoration(color: Colors.amber.shade50, shape: BoxShape.circle),
-                  child: Icon(Icons.electric_bolt, color: Colors.amber.shade600, size: 48),
+                  decoration: BoxDecoration(color: isDark ? Colors.amber.withOpacity(0.15) : Colors.amber.shade50, shape: BoxShape.circle),
+                  child: Icon(Icons.electric_bolt, color: isDark ? Colors.amber[300] : Colors.amber.shade600, size: 48),
                 ),
                 const SizedBox(height: 20),
-                const Text(
+                Text(
                   "Bill Logged!",
-                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.black87),
+                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: textColor),
                 ),
                 const SizedBox(height: 12),
                 Text(
                   "Your electricity usage (${kwh.toStringAsFixed(1)} kWh) has been safely added to your journal.\n\nTracking your monthly grid electricity is the first step toward finding ways to lower your energy consumption.",
                   textAlign: TextAlign.center,
-                  style: const TextStyle(fontSize: 14, color: Colors.black54, height: 1.4),
+                  style: TextStyle(fontSize: 14, color: subtitleColor, height: 1.4),
                 ),
                 const SizedBox(height: 24),
                 SizedBox(
@@ -142,26 +147,34 @@ class _ManualBillScreenState extends State<ManualBillScreen> {
   }
 
   void _showMissionUnlockedPopup(List<String> missions, VoidCallback onClosed) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final dialogBg = isDark ? Colors.grey[900] : Colors.white;
+    final textColor = isDark ? Colors.white : Colors.black87;
+
     showDialog(
       context: context,
       barrierDismissible: false,
       builder: (context) {
         return AlertDialog(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-          title: const Column(
+          backgroundColor: dialogBg,
+          title: Column(
             children: [
-              Icon(Icons.emoji_events, color: Colors.amber, size: 56),
-              SizedBox(height: 12),
-              Text("Quest Completed!", style: TextStyle(fontWeight: FontWeight.w900, fontSize: 22)),
+              const Icon(Icons.emoji_events, color: Colors.amber, size: 56),
+              const SizedBox(height: 12),
+              Text(
+                "Quest Completed!",
+                style: TextStyle(fontWeight: FontWeight.w900, fontSize: 22, color: textColor),
+              ),
             ],
           ),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Text(
+              Text(
                 "Your energy log automatically unlocked:",
                 textAlign: TextAlign.center,
-                style: TextStyle(color: Colors.grey, fontSize: 13),
+                style: TextStyle(color: isDark ? Colors.grey[400] : Colors.grey, fontSize: 13),
               ),
               const SizedBox(height: 16),
               ...missions.map(
@@ -173,7 +186,10 @@ class _ManualBillScreenState extends State<ManualBillScreen> {
                       const Icon(Icons.check_circle, color: Colors.green, size: 22),
                       const SizedBox(width: 12),
                       Expanded(
-                        child: Text(mission, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                        child: Text(
+                          mission,
+                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: textColor),
+                        ),
                       ),
                     ],
                   ),
@@ -206,14 +222,17 @@ class _ManualBillScreenState extends State<ManualBillScreen> {
   }
 
   Widget _buildCard({required Widget child}) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardBg = isDark ? Colors.grey[850] : Colors.white;
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: cardBg,
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: Colors.grey.shade200),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 10, offset: const Offset(0, 4))],
+        border: Border.all(color: isDark ? Colors.grey[800]! : Colors.grey.shade200),
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(isDark ? 0.2 : 0.03), blurRadius: 10, offset: const Offset(0, 4))],
       ),
       child: child,
     );
@@ -222,13 +241,23 @@ class _ManualBillScreenState extends State<ManualBillScreen> {
   // --- MODERNIZED UI BUILDER ---
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final scaffoldBg = isDark ? const Color(0xFF121212) : const Color(0xFFF9FFF9);
+    final textColor = isDark ? Colors.white : Colors.black87;
+    final subtitleColor = isDark ? Colors.grey[400] : Colors.black54;
+    final primaryAccentColor = isDark ? Colors.white : AppTheme.primaryColor;
+
     return Scaffold(
-      backgroundColor: const Color(0xFFF9FFF9),
+      backgroundColor: scaffoldBg,
       appBar: AppBar(
-        title: const Text('Manual Entry', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: Text(
+          'Manual Entry',
+          style: TextStyle(fontWeight: FontWeight.bold, color: textColor),
+        ),
         centerTitle: true,
         backgroundColor: Colors.transparent,
         elevation: 0,
+        iconTheme: IconThemeData(color: textColor),
       ),
       body: SafeArea(
         bottom: false,
@@ -239,12 +268,12 @@ class _ManualBillScreenState extends State<ManualBillScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
+                Text(
                   "Log Electricity",
-                  style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900, color: Colors.black87),
+                  style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900, color: textColor),
                 ),
                 const SizedBox(height: 8),
-                const Text("Enter your total consumption to track your home energy footprint.", style: TextStyle(color: Colors.black54, fontSize: 14)),
+                Text("Enter your total consumption to track your home energy footprint.", style: TextStyle(color: subtitleColor, fontSize: 14)),
                 const SizedBox(height: 32),
 
                 // 1. SOURCE CARD (Read-only since there is only one factor currently)
@@ -252,26 +281,29 @@ class _ManualBillScreenState extends State<ManualBillScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text("Energy Source", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                      Text(
+                        "Energy Source",
+                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: textColor),
+                      ),
                       const SizedBox(height: 16),
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                         decoration: BoxDecoration(
-                          color: AppTheme.primaryColor.withOpacity(0.05),
+                          color: isDark ? Colors.white.withOpacity(0.08) : AppTheme.primaryColor.withOpacity(0.05),
                           borderRadius: BorderRadius.circular(16),
                           border: Border.all(color: AppTheme.primaryColor.withOpacity(0.3)),
                         ),
                         child: Row(
                           children: [
-                            const Icon(Icons.power, color: AppTheme.primaryColor),
+                            Icon(Icons.power, color: primaryAccentColor),
                             const SizedBox(width: 12),
                             Expanded(
                               child: Text(
                                 _activityName,
-                                style: const TextStyle(fontSize: 15, color: AppTheme.primaryColor, fontWeight: FontWeight.w700),
+                                style: TextStyle(fontSize: 15, color: primaryAccentColor, fontWeight: FontWeight.w700),
                               ),
                             ),
-                            const Icon(Icons.check_circle, color: AppTheme.primaryColor),
+                            Icon(Icons.check_circle, color: primaryAccentColor),
                           ],
                         ),
                       ),
@@ -285,28 +317,32 @@ class _ManualBillScreenState extends State<ManualBillScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text("Total Consumption", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                      Text(
+                        "Total Consumption",
+                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: textColor),
+                      ),
                       const SizedBox(height: 4),
-                      const Text("Found on your monthly utility bill.", style: TextStyle(fontSize: 12, color: Colors.grey)),
+                      Text("Found on your monthly utility bill.", style: TextStyle(fontSize: 12, color: isDark ? Colors.grey[400] : Colors.grey)),
                       const SizedBox(height: 16),
 
                       TextFormField(
                         controller: _kwhController,
                         keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: textColor),
                         decoration: InputDecoration(
                           labelText: "Enter usage",
+                          labelStyle: TextStyle(color: isDark ? Colors.grey[400] : Colors.black54),
                           suffixText: "kWh",
-                          suffixStyle: const TextStyle(fontWeight: FontWeight.bold, color: Colors.black54),
+                          suffixStyle: TextStyle(fontWeight: FontWeight.bold, color: isDark ? Colors.grey[400] : Colors.black54),
                           filled: true,
-                          fillColor: Colors.grey.shade50,
+                          fillColor: isDark ? Colors.grey[900] : Colors.grey.shade50,
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(16),
-                            borderSide: BorderSide(color: Colors.grey.shade300),
+                            borderSide: BorderSide(color: isDark ? Colors.grey[800]! : Colors.grey.shade300),
                           ),
                           enabledBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(16),
-                            borderSide: BorderSide(color: Colors.grey.shade300),
+                            borderSide: BorderSide(color: isDark ? Colors.grey[800]! : Colors.grey.shade300),
                           ),
                           focusedBorder: const OutlineInputBorder(
                             borderRadius: BorderRadius.all(Radius.circular(16)),

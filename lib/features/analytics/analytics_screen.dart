@@ -148,6 +148,11 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
 
   // 📝 Helper to show detailed information when a log is tapped
   void _showLogDetails(Map<String, dynamic> log, Map<String, dynamic>? factorData) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final sheetBg = isDark ? Colors.grey[900] : Colors.white;
+    final textColor = isDark ? Colors.white : Colors.black87;
+    final subtitleColor = isDark ? Colors.grey[400] : Colors.grey.shade600;
+
     final activityName = _extractActivityName(log, factorData);
     final rawCategory = factorData?['category'] ?? log['category'];
     final category = _normalizeCategory(rawCategory?.toString());
@@ -179,9 +184,9 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
       builder: (context) {
         return Container(
           padding: const EdgeInsets.only(left: 24, top: 24, right: 24, bottom: 24),
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          decoration: BoxDecoration(
+            color: sheetBg,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
           ),
           child: SafeArea(
             child: Column(
@@ -192,7 +197,7 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
                   children: [
                     Container(
                       padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(color: _getColorForCategory(category).withOpacity(0.1), borderRadius: BorderRadius.circular(16)),
+                      decoration: BoxDecoration(color: _getColorForCategory(category).withOpacity(0.15), borderRadius: BorderRadius.circular(16)),
                       child: Icon(_getIconForCategory(category), color: _getColorForCategory(category), size: 32),
                     ),
                     const SizedBox(width: 16),
@@ -202,12 +207,12 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
                         children: [
                           Text(
                             activityName,
-                            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: Colors.black87),
+                            style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: textColor),
                           ),
                           const SizedBox(height: 4),
                           Text(
                             category,
-                            style: TextStyle(color: Colors.grey.shade600, fontWeight: FontWeight.w600, fontSize: 14),
+                            style: TextStyle(color: subtitleColor, fontWeight: FontWeight.w600, fontSize: 14),
                           ),
                         ],
                       ),
@@ -215,7 +220,7 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
                   ],
                 ),
                 const SizedBox(height: 24),
-                Divider(color: Colors.grey.shade200),
+                Divider(color: isDark ? Colors.grey[800] : Colors.grey.shade200),
                 const SizedBox(height: 16),
                 _buildDetailRow('Input Amount', '$inputValue $unit'),
                 const SizedBox(height: 16),
@@ -225,9 +230,9 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
                   Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      color: Colors.blue.shade50.withOpacity(0.5),
+                      color: isDark ? Colors.blue.withOpacity(0.12) : Colors.blue.shade50.withOpacity(0.5),
                       borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: Colors.blue.shade100),
+                      border: Border.all(color: isDark ? Colors.blue.withOpacity(0.3) : Colors.blue.shade100),
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -244,7 +249,7 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
                             Expanded(
                               child: Text(
                                 startLocation,
-                                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.black87),
+                                style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: textColor),
                               ),
                             ),
                           ],
@@ -260,7 +265,7 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
                             Expanded(
                               child: Text(
                                 endLocation,
-                                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.black87),
+                                style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: textColor),
                               ),
                             ),
                           ],
@@ -271,9 +276,9 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
                   const SizedBox(height: 16),
                 ],
                 if (ingredients.isNotEmpty) ...[
-                  const Text(
+                  Text(
                     'Detected Ingredients',
-                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.black54),
+                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: isDark ? Colors.grey[400] : Colors.black54),
                   ),
                   const SizedBox(height: 12),
                   Wrap(
@@ -284,13 +289,13 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
                           (ingredient) => Container(
                             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                             decoration: BoxDecoration(
-                              color: Colors.grey.shade50,
+                              color: isDark ? Colors.grey[800] : Colors.grey.shade50,
                               borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: Colors.grey.shade200),
+                              border: Border.all(color: isDark ? Colors.grey[700]! : Colors.grey.shade200),
                             ),
                             child: Text(
                               ingredient,
-                              style: TextStyle(fontSize: 13, color: Colors.grey.shade800, fontWeight: FontWeight.w500),
+                              style: TextStyle(fontSize: 13, color: isDark ? Colors.grey[200] : Colors.grey.shade800, fontWeight: FontWeight.w500),
                             ),
                           ),
                         )
@@ -301,7 +306,7 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: AppTheme.primaryColor.withOpacity(0.05),
+                    color: isDark ? AppTheme.primaryColor.withOpacity(0.15) : AppTheme.primaryColor.withOpacity(0.05),
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(color: AppTheme.primaryColor.withOpacity(0.2)),
                   ),
@@ -331,30 +336,41 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
   }
 
   Widget _buildDetailRow(String label, String value, {bool isHighlight = false}) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final labelColor = isDark ? Colors.grey[400]! : Colors.grey.shade600;
+    final valueColor = isHighlight ? (isDark ? Colors.white : AppTheme.primaryColor) : (isDark ? Colors.white : Colors.black87);
+
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         Text(
           label,
-          style: TextStyle(color: Colors.grey.shade600, fontSize: 15, fontWeight: FontWeight.w500),
+          style: TextStyle(color: labelColor, fontSize: 15, fontWeight: FontWeight.w500),
         ),
         Text(
           value,
-          style: TextStyle(color: isHighlight ? AppTheme.primaryColor : Colors.black87, fontSize: isHighlight ? 18 : 16, fontWeight: isHighlight ? FontWeight.w900 : FontWeight.bold),
+          style: TextStyle(color: valueColor, fontSize: isHighlight ? 18 : 16, fontWeight: isHighlight ? FontWeight.w900 : FontWeight.bold),
         ),
       ],
     );
   }
 
   Widget _buildHeader() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final textColor = isDark ? Colors.white : Colors.black87;
+    final subtitleColor = isDark ? Colors.grey[400]! : Colors.grey.shade600;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text("Analytics", style: TextStyle(fontSize: 34, fontWeight: FontWeight.w900, letterSpacing: -1.0)),
+        Text(
+          "Analytics",
+          style: TextStyle(fontSize: 34, fontWeight: FontWeight.w900, letterSpacing: -1.0, color: textColor),
+        ),
         const SizedBox(height: 4),
         Text(
           "Review your real-time carbon mitigation insights.",
-          style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: Colors.grey.shade600),
+          style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: subtitleColor),
         ),
       ],
     );
@@ -362,25 +378,22 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final scaffoldBg = isDark ? const Color(0xFF121212) : const Color(0xFFF9FFF9);
+
     final logsAsync = ref.watch(activityLogsStreamProvider);
     final generalAiAsync = ref.watch(generalAiInsightProvider);
     final monthlyAiAsync = ref.watch(monthlyAiInsightProvider(_selectedMonthIndex));
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF9FFF9),
+      backgroundColor: scaffoldBg,
       body: Stack(
         children: [
           // 🌟 Subtle Dynamic Background Watermark based on Time of Day
           Positioned(
             top: -30,
             right: -40,
-            child: IgnorePointer(
-              child: Icon(
-                _getTimeOfDayWatermarkIcon(),
-                size: 260,
-                color: AppTheme.primaryColor.withOpacity(0.04), // Subtle opacity matching theme color
-              ),
-            ),
+            child: IgnorePointer(child: Icon(_getTimeOfDayWatermarkIcon(), size: 260, color: isDark ? Colors.white.withOpacity(0.03) : AppTheme.primaryColor.withOpacity(0.04))),
           ),
 
           // Main Content
@@ -394,17 +407,17 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(Icons.cloud_off_rounded, color: Colors.grey.shade400, size: 64),
+                      Icon(Icons.cloud_off_rounded, color: isDark ? Colors.grey[600] : Colors.grey.shade400, size: 64),
                       const SizedBox(height: 16),
-                      const Text(
+                      Text(
                         "Connection lost",
-                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.black87),
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: isDark ? Colors.white : Colors.black87),
                       ),
                       const SizedBox(height: 8),
                       Text(
                         "We couldn't load your analytics right now. Please check your internet connection and try again.",
                         textAlign: TextAlign.center,
-                        style: TextStyle(color: Colors.grey.shade600, fontSize: 14, height: 1.4),
+                        style: TextStyle(color: isDark ? Colors.grey[400] : Colors.grey.shade600, fontSize: 14, height: 1.4),
                       ),
                       const SizedBox(height: 24),
                       ElevatedButton.icon(
@@ -429,13 +442,13 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
               ),
               data: (logs) {
                 if (logs.isEmpty) {
-                  return const Center(
+                  return Center(
                     child: Padding(
-                      padding: EdgeInsets.all(32.0),
+                      padding: const EdgeInsets.all(32.0),
                       child: Text(
                         "Welcome to CarbonSense!\n\nLog your first activity today to wake up your personal AI Eco-Coach.",
                         textAlign: TextAlign.center,
-                        style: TextStyle(fontSize: 16, color: Colors.grey, height: 1.5),
+                        style: TextStyle(fontSize: 16, color: isDark ? Colors.grey[400] : Colors.grey, height: 1.5),
                       ),
                     ),
                   );
@@ -471,7 +484,7 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
                               height: 120,
                               width: double.infinity,
                               padding: const EdgeInsets.all(20),
-                              decoration: BoxDecoration(color: Colors.grey.shade100, borderRadius: BorderRadius.circular(24)),
+                              decoration: BoxDecoration(color: isDark ? Colors.grey[850] : Colors.grey.shade100, borderRadius: BorderRadius.circular(24)),
                               child: const Center(child: CircularProgressIndicator(color: AppTheme.primaryColor)),
                             ),
                             error: (err, _) => const SizedBox.shrink(),
@@ -482,9 +495,12 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
                         // 2. YEARLY OVERVIEW GRAPH
                         Padding(padding: const EdgeInsets.all(20.0), child: _buildYearlyChartCard(yearlyData, totalYearlyImpact)),
 
-                        const Padding(
-                          padding: EdgeInsets.symmetric(horizontal: 24.0, vertical: 8.0),
-                          child: Text("Monthly Deep Dive", style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18)),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 8.0),
+                          child: Text(
+                            "Monthly Deep Dive",
+                            style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18, color: isDark ? Colors.white : Colors.black87),
+                          ),
                         ),
 
                         // 3. MONTH SELECTOR
@@ -513,7 +529,7 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
                               height: 120,
                               width: double.infinity,
                               padding: const EdgeInsets.all(20),
-                              decoration: BoxDecoration(color: Colors.grey.shade100, borderRadius: BorderRadius.circular(24)),
+                              decoration: BoxDecoration(color: isDark ? Colors.grey[850] : Colors.grey.shade100, borderRadius: BorderRadius.circular(24)),
                               child: const Center(child: CircularProgressIndicator(color: AppTheme.primaryColor)),
                             ),
                             error: (err, _) => const SizedBox.shrink(),
@@ -548,10 +564,14 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
   // --- UI COMPONENTS ---
 
   Widget _buildAiCard(String title, String text, {required bool isGeneral}) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardBg = isGeneral ? (isDark ? Colors.grey[850] : Colors.white) : const Color(0xFF1A1A1A);
+    final cardTextColor = isGeneral ? (isDark ? Colors.white : Colors.black87) : Colors.white;
+
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: isGeneral ? Colors.white : const Color(0xFF1A1A1A),
+        color: cardBg,
         borderRadius: BorderRadius.circular(24),
         border: Border.all(color: AppTheme.primaryColor.withOpacity(0.2)),
         boxShadow: [BoxShadow(color: AppTheme.primaryColor.withOpacity(0.08), blurRadius: 20, offset: const Offset(0, 10))],
@@ -561,38 +581,45 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
         children: [
           Row(
             children: [
-              Icon(Icons.auto_awesome, color: isGeneral ? AppTheme.primaryColor : Colors.greenAccent, size: 20),
+              Icon(Icons.auto_awesome, color: isGeneral ? (isDark ? Colors.white : AppTheme.primaryColor) : Colors.greenAccent, size: 20),
               const SizedBox(width: 8),
               Text(
                 title,
-                style: TextStyle(color: isGeneral ? AppTheme.primaryColor : Colors.greenAccent, fontWeight: FontWeight.w900, fontSize: 11, letterSpacing: 1.2),
+                style: TextStyle(color: isGeneral ? (isDark ? Colors.white : AppTheme.primaryColor) : Colors.greenAccent, fontWeight: FontWeight.w900, fontSize: 11, letterSpacing: 1.2),
               ),
             ],
           ),
           const SizedBox(height: 12),
-          Text(text, style: TextStyle(fontSize: 15, height: 1.5, color: isGeneral ? Colors.black87 : Colors.white)),
+          Text(text, style: TextStyle(fontSize: 15, height: 1.5, color: cardTextColor)),
         ],
       ),
     );
   }
 
   Widget _buildYearlyChartCard(List<double> data, double total) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardBg = isDark ? Colors.grey[850] : Colors.white;
+    final textColor = isDark ? Colors.white : Colors.black87;
+
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: cardBg,
         borderRadius: BorderRadius.circular(32),
-        boxShadow: [BoxShadow(color: AppTheme.primaryColor.withOpacity(0.08), blurRadius: 30, offset: const Offset(0, 15))],
+        boxShadow: [BoxShadow(color: AppTheme.primaryColor.withOpacity(isDark ? 0.15 : 0.08), blurRadius: 30, offset: const Offset(0, 15))],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             "Year-to-Date Impact",
-            style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold),
+            style: TextStyle(color: isDark ? Colors.grey[400] : Colors.grey, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 4),
-          Text("${total.toStringAsFixed(1)} kg CO₂e", style: const TextStyle(fontSize: 32, fontWeight: FontWeight.w900, letterSpacing: -1)),
+          Text(
+            "${total.toStringAsFixed(1)} kg CO₂e",
+            style: TextStyle(fontSize: 32, fontWeight: FontWeight.w900, letterSpacing: -1, color: textColor),
+          ),
           const SizedBox(height: 32),
           _buildYearlyGraph(data),
         ],
@@ -601,6 +628,7 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
   }
 
   Widget _buildYearlyGraph(List<double> data) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final maxY = data.isEmpty ? 100.0 : (data.reduce((a, b) => a > b ? a : b) * 1.2);
 
     return SizedBox(
@@ -610,7 +638,7 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
           minX: 0,
           maxX: 11,
           maxY: maxY == 0 ? 10 : maxY,
-          gridData: FlGridData(show: true, drawVerticalLine: false, getDrawingHorizontalLine: (val) => FlLine(color: Colors.grey.withOpacity(0.1), strokeWidth: 1)),
+          gridData: FlGridData(show: true, drawVerticalLine: false, getDrawingHorizontalLine: (val) => FlLine(color: isDark ? Colors.grey[800]! : Colors.grey.withOpacity(0.1), strokeWidth: 1)),
           titlesData: FlTitlesData(
             topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
             rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
@@ -624,7 +652,7 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
                     child: Text(
                       val.toInt().toString(),
                       textAlign: TextAlign.right,
-                      style: const TextStyle(color: Colors.grey, fontSize: 11, fontWeight: FontWeight.bold),
+                      style: TextStyle(color: isDark ? Colors.grey[500] : Colors.grey, fontSize: 11, fontWeight: FontWeight.bold),
                     ),
                   );
                 },
@@ -641,12 +669,13 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
                   if (index < 0 || index > 11) return const SizedBox.shrink();
 
                   bool isSelected = index == _selectedMonthIndex;
+                  final selectedColor = isDark ? Colors.white : AppTheme.primaryColor;
 
                   return Padding(
                     padding: const EdgeInsets.only(top: 8.0),
                     child: Text(
                       months[index],
-                      style: TextStyle(color: isSelected ? AppTheme.primaryColor : Colors.grey, fontWeight: isSelected ? FontWeight.w900 : FontWeight.bold, fontSize: 12),
+                      style: TextStyle(color: isSelected ? selectedColor : (isDark ? Colors.grey[600] : Colors.grey), fontWeight: isSelected ? FontWeight.w900 : FontWeight.bold, fontSize: 12),
                     ),
                   );
                 },
@@ -655,7 +684,7 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
           ),
           lineTouchData: LineTouchData(
             touchTooltipData: LineTouchTooltipData(
-              getTooltipColor: (LineBarSpot spot) => const Color(0xFF1A1A1A),
+              getTooltipColor: (LineBarSpot spot) => isDark ? Colors.grey[900]! : const Color(0xFF1A1A1A),
               getTooltipItems: (touchedSpots) {
                 return touchedSpots.map((LineBarSpot touchedSpot) {
                   return LineTooltipItem('${touchedSpot.y.toStringAsFixed(1)} kg\n', const TextStyle(color: Colors.white, fontWeight: FontWeight.bold));
@@ -677,12 +706,16 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
             LineChartBarData(
               spots: data.asMap().entries.map((e) => FlSpot(e.key.toDouble(), e.value)).toList(),
               isCurved: true,
-              color: AppTheme.primaryColor,
+              color: isDark ? Colors.white : AppTheme.primaryColor,
               barWidth: 4,
               dotData: const FlDotData(show: false),
               belowBarData: BarAreaData(
                 show: true,
-                gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [AppTheme.primaryColor.withOpacity(0.2), AppTheme.primaryColor.withOpacity(0)]),
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [(isDark ? Colors.white : AppTheme.primaryColor).withOpacity(0.2), (isDark ? Colors.white : AppTheme.primaryColor).withOpacity(0)],
+                ),
               ),
             ),
           ],
@@ -692,6 +725,7 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
   }
 
   Widget _buildMonthSelector() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
     return SizedBox(
@@ -710,7 +744,7 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
               margin: const EdgeInsets.only(right: 10),
               padding: const EdgeInsets.symmetric(horizontal: 20),
               decoration: BoxDecoration(
-                color: isSelected ? AppTheme.primaryColor : Colors.grey.shade100,
+                color: isSelected ? AppTheme.primaryColor : (isDark ? Colors.grey[850] : Colors.grey.shade100),
                 borderRadius: BorderRadius.circular(24),
                 border: Border.all(color: isSelected ? AppTheme.primaryColor : Colors.transparent),
                 boxShadow: isSelected ? [BoxShadow(color: AppTheme.primaryColor.withOpacity(0.3), blurRadius: 8, offset: const Offset(0, 4))] : [],
@@ -718,7 +752,7 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
               child: Center(
                 child: Text(
                   months[index],
-                  style: TextStyle(fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600, fontSize: 14, color: isSelected ? Colors.white : Colors.grey.shade600),
+                  style: TextStyle(fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600, fontSize: 14, color: isSelected ? Colors.white : (isDark ? Colors.grey[400] : Colors.grey.shade600)),
                 ),
               ),
             ),
@@ -729,15 +763,19 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
   }
 
   Widget _buildMonthSummaryCard(double impact) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardBg = isDark ? Colors.grey[850] : Colors.white;
+    final textColor = isDark ? Colors.white : Colors.black87;
+
     String monthName = DateFormat('MMMM').format(DateTime(DateTime.now().year, _selectedMonthIndex + 1));
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: cardBg,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: AppTheme.primaryColor.withOpacity(0.3)),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10, offset: const Offset(0, 4))],
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(isDark ? 0.2 : 0.02), blurRadius: 10, offset: const Offset(0, 4))],
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -747,12 +785,15 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
             children: [
               Text(
                 "$monthName Total Footprint",
-                style: const TextStyle(color: Colors.grey, fontWeight: FontWeight.bold),
+                style: TextStyle(color: isDark ? Colors.grey[400] : Colors.grey, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 4),
               Row(
                 children: [
-                  Text("${impact.toStringAsFixed(1)} kg", style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w900)),
+                  Text(
+                    "${impact.toStringAsFixed(1)} kg",
+                    style: TextStyle(fontSize: 26, fontWeight: FontWeight.w900, color: textColor),
+                  ),
                   if (impact > 0 && impact < 50) ...[
                     const SizedBox(width: 8),
                     Container(
@@ -768,7 +809,7 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
               ),
             ],
           ),
-          const Icon(Icons.calendar_month, color: AppTheme.primaryColor, size: 32),
+          Icon(Icons.calendar_month, color: isDark ? Colors.white : AppTheme.primaryColor, size: 32),
         ],
       ),
     );
@@ -807,12 +848,16 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
   }
 
   Widget _buildMetricTile({required String title, required String value, required IconData icon, required Color color}) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardBg = isDark ? Colors.grey[850] : Colors.white;
+    final textColor = isDark ? Colors.white : Colors.black87;
+
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: cardBg,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: Colors.grey.shade200),
+        border: Border.all(color: isDark ? Colors.grey[800]! : Colors.grey.shade200),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -821,12 +866,12 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
           const SizedBox(height: 10),
           Text(
             title,
-            style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey.shade600),
+            style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: isDark ? Colors.grey[400] : Colors.grey.shade600),
           ),
           const SizedBox(height: 2),
           Text(
             value,
-            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w900, color: Colors.black87),
+            style: TextStyle(fontSize: 15, fontWeight: FontWeight.w900, color: textColor),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),
@@ -836,6 +881,10 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
   }
 
   Widget _buildCategoryBreakdownCard(Map<String, double> categoryTotals, double totalImpact) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardBg = isDark ? Colors.grey[850] : Colors.white;
+    final textColor = isDark ? Colors.white : Colors.black87;
+
     final List<PieChartSectionData> sections = [];
 
     categoryTotals.forEach((category, amount) {
@@ -856,21 +905,24 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: cardBg,
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: Colors.grey.shade200),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10, offset: const Offset(0, 4))],
+        border: Border.all(color: isDark ? Colors.grey[800]! : Colors.grey.shade200),
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(isDark ? 0.2 : 0.02), blurRadius: 10, offset: const Offset(0, 4))],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text("Category Share", style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
+          Text(
+            "Category Share",
+            style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: textColor),
+          ),
           const SizedBox(height: 16),
           if (sections.isEmpty)
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 24.0),
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 24.0),
               child: Center(
-                child: Text("No category data available for this month.", style: TextStyle(color: Colors.grey, fontSize: 13)),
+                child: Text("No category data available for this month.", style: TextStyle(color: isDark ? Colors.grey[400] : Colors.grey, fontSize: 13)),
               ),
             )
           else
@@ -893,9 +945,15 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
                             ),
                             const SizedBox(width: 8),
                             Expanded(
-                              child: Text(e.key, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                              child: Text(
+                                e.key,
+                                style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: textColor),
+                              ),
                             ),
-                            Text("${e.value.toStringAsFixed(1)} kg", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                            Text(
+                              "${e.value.toStringAsFixed(1)} kg",
+                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: textColor),
+                            ),
                           ],
                         ),
                       );
@@ -910,16 +968,23 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
   }
 
   Widget _buildMonthlyActivitySection(List<Map<String, dynamic>> monthLogs) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardBg = isDark ? Colors.grey[850] : Colors.white;
+    final textColor = isDark ? Colors.white : Colors.black87;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            const Text("Logged Activities", style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18)),
+            Text(
+              "Logged Activities",
+              style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18, color: textColor),
+            ),
             Text(
               "${monthLogs.length} items",
-              style: TextStyle(color: Colors.grey.shade600, fontWeight: FontWeight.bold, fontSize: 12),
+              style: TextStyle(color: isDark ? Colors.grey[400] : Colors.grey.shade600, fontWeight: FontWeight.bold, fontSize: 12),
             ),
           ],
         ),
@@ -928,23 +993,23 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
             ? Container(
                 width: double.infinity,
                 padding: const EdgeInsets.all(24),
-                decoration: BoxDecoration(color: Colors.grey.shade50, borderRadius: BorderRadius.circular(20)),
-                child: const Center(
-                  child: Text("No activities logged for this month.", style: TextStyle(color: Colors.grey, fontSize: 13)),
+                decoration: BoxDecoration(color: isDark ? Colors.grey[850] : Colors.grey.shade50, borderRadius: BorderRadius.circular(20)),
+                child: Center(
+                  child: Text("No activities logged for this month.", style: TextStyle(color: isDark ? Colors.grey[400] : Colors.grey, fontSize: 13)),
                 ),
               )
             : Container(
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: cardBg,
                   borderRadius: BorderRadius.circular(24),
                   border: Border.all(color: AppTheme.primaryColor.withOpacity(0.1)),
-                  boxShadow: [BoxShadow(color: AppTheme.primaryColor.withOpacity(0.03), blurRadius: 10, offset: const Offset(0, 4))],
+                  boxShadow: [BoxShadow(color: AppTheme.primaryColor.withOpacity(isDark ? 0.1 : 0.03), blurRadius: 10, offset: const Offset(0, 4))],
                 ),
                 child: ListView.separated(
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
                   itemCount: monthLogs.length,
-                  separatorBuilder: (context, index) => Divider(height: 1, color: Colors.grey.shade100, indent: 70),
+                  separatorBuilder: (context, index) => Divider(height: 1, color: isDark ? Colors.grey[800] : Colors.grey.shade100, indent: 70),
                   itemBuilder: (context, index) {
                     final log = monthLogs[index];
                     final factorData = log['emission_factors'] as Map<String, dynamic>?;
@@ -966,7 +1031,7 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
                             children: [
                               Container(
                                 padding: const EdgeInsets.all(10),
-                                decoration: BoxDecoration(color: _getColorForCategory(category).withOpacity(0.1), borderRadius: BorderRadius.circular(14)),
+                                decoration: BoxDecoration(color: _getColorForCategory(category).withOpacity(0.15), borderRadius: BorderRadius.circular(14)),
                                 child: Icon(_getIconForCategory(category), color: _getColorForCategory(category), size: 22),
                               ),
                               const SizedBox(width: 14),
@@ -976,14 +1041,14 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
                                   children: [
                                     Text(
                                       activityName,
-                                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.black87),
+                                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: textColor),
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
                                     ),
                                     const SizedBox(height: 2),
                                     Text(
                                       '$inputValue $unit',
-                                      style: TextStyle(color: Colors.grey.shade500, fontSize: 12, fontWeight: FontWeight.w500),
+                                      style: TextStyle(color: isDark ? Colors.grey[400] : Colors.grey.shade500, fontSize: 12, fontWeight: FontWeight.w500),
                                     ),
                                   ],
                                 ),
@@ -998,7 +1063,7 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
                                   const SizedBox(height: 2),
                                   Text(
                                     'kg CO₂',
-                                    style: TextStyle(color: Colors.grey.shade500, fontSize: 10, fontWeight: FontWeight.bold),
+                                    style: TextStyle(color: isDark ? Colors.grey[400] : Colors.grey.shade500, fontSize: 10, fontWeight: FontWeight.bold),
                                   ),
                                 ],
                               ),

@@ -84,7 +84,7 @@ serve(async (req: Request) => {
             } kg CO2e. Write a short, encouraging 2-sentence general insight summarizing their impact, and give one actionable tip for today.`;
 
           const geminiUrl =
-            `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${geminiKey}`;
+            `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent?key=${geminiKey}`;
 
           const geminiResponse = await fetch(geminiUrl, {
             method: "POST",

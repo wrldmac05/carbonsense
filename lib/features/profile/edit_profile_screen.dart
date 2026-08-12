@@ -138,25 +138,28 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   }
 
   void _showUnlockConfirmationDialog() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     showDialog(
       context: context,
       builder: (dialogContext) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Row(
+        backgroundColor: isDark ? Colors.grey[900] : Colors.white,
+        title: Row(
           children: [
-            Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 28),
-            SizedBox(width: 8),
-            Text('Manual Override'),
+            const Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 28),
+            const SizedBox(width: 8),
+            Text('Manual Override', style: TextStyle(color: isDark ? Colors.white : Colors.black87)),
           ],
         ),
-        content: const Text(
+        content: Text(
           'Manually updating your monthly goal will reset your 30-day adaptive cycle timer. The system will start evaluating your progress from today.\n\nAre you sure you want to proceed?',
-          style: TextStyle(height: 1.4),
+          style: TextStyle(height: 1.4, color: isDark ? Colors.grey[300] : Colors.black87),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext),
-            child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
+            child: Text('Cancel', style: TextStyle(color: isDark ? Colors.grey[400] : Colors.grey)),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
@@ -231,17 +234,21 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final scaffoldBg = isDark ? const Color(0xFF121212) : const Color(0xFFF9FFF9);
+    final textColor = isDark ? Colors.white : Colors.black87;
+
     return Scaffold(
-      backgroundColor: const Color(0xFFF9FFF9),
+      backgroundColor: scaffoldBg,
       appBar: AppBar(
-        title: const Text(
+        title: Text(
           'Edit Profile',
-          style: TextStyle(fontWeight: FontWeight.w900, color: Colors.black),
+          style: TextStyle(fontWeight: FontWeight.w900, color: textColor),
         ),
         centerTitle: false,
         backgroundColor: Colors.transparent,
         elevation: 0,
-        iconTheme: const IconThemeData(color: Colors.black87),
+        iconTheme: IconThemeData(color: textColor),
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator(color: AppTheme.primaryColor))
@@ -267,9 +274,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                               ),
                               child: CircleAvatar(
                                 radius: 50,
-                                backgroundColor: AppTheme.primaryColor.withOpacity(0.1),
+                                backgroundColor: isDark ? Colors.grey[800] : AppTheme.primaryColor.withOpacity(0.1),
                                 backgroundImage: _avatarBytes != null ? MemoryImage(_avatarBytes!) as ImageProvider : (_currentAvatarUrl != null ? NetworkImage(_currentAvatarUrl!) : null),
-                                child: (_avatarBytes == null && _currentAvatarUrl == null) ? const Icon(Icons.person, size: 50, color: AppTheme.primaryColor) : null,
+                                child: (_avatarBytes == null && _currentAvatarUrl == null) ? Icon(Icons.person, size: 50, color: isDark ? Colors.white : AppTheme.primaryColor) : null,
                               ),
                             ),
                             Container(
@@ -283,9 +290,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                     ),
                     const SizedBox(height: 32),
 
-                    const Text(
+                    Text(
                       "Identity",
-                      style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: Colors.black87),
+                      style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: textColor),
                     ),
                     const SizedBox(height: 12),
                     _buildFormCard(
@@ -311,13 +318,13 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            const Row(
+                            Row(
                               children: [
-                                Icon(Icons.location_on_outlined, size: 18, color: AppTheme.primaryColor),
-                                SizedBox(width: 8),
+                                Icon(Icons.location_on_outlined, size: 18, color: isDark ? Colors.white : AppTheme.primaryColor),
+                                const SizedBox(width: 8),
                                 Text(
                                   'Location',
-                                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.black87),
+                                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: textColor),
                                 ),
                               ],
                             ),
@@ -348,8 +355,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                           label: 'Current Location',
                           hint: 'Click "Detect via GPS" above...',
                           icon: Icons.map_outlined,
-                          readOnly: true, // Prevents typing custom strings like Gotham City
-                          fillColor: const Color(0xFFE6FFFA), // Soft teal indicator
+                          readOnly: true, // Prevents typing custom strings
+                          fillColor: isDark ? Colors.teal.withOpacity(0.12) : const Color(0xFFE6FFFA), // Soft teal indicator
                           validator: (value) {
                             if (value == null || value.trim().isEmpty) {
                               return 'Location verification is required';
@@ -361,9 +368,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                     ),
                     const SizedBox(height: 32),
 
-                    const Text(
+                    Text(
                       "Monthly Carbon Goals",
-                      style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: Colors.black87),
+                      style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: textColor),
                     ),
                     const SizedBox(height: 12),
                     _buildFormCard(
@@ -396,7 +403,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                             decoration: BoxDecoration(
-                              color: Colors.orange.withOpacity(0.1),
+                              color: Colors.orange.withOpacity(0.15),
                               borderRadius: BorderRadius.circular(10),
                               border: Border.all(color: Colors.orange.withOpacity(0.3)),
                             ),
@@ -417,16 +424,16 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                         const SizedBox(height: 18),
                         Container(
                           padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(color: AppTheme.primaryColor.withOpacity(0.05), borderRadius: BorderRadius.circular(16)),
-                          child: const Row(
+                          decoration: BoxDecoration(color: isDark ? Colors.white.withOpacity(0.08) : AppTheme.primaryColor.withOpacity(0.05), borderRadius: BorderRadius.circular(16)),
+                          child: Row(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Icon(Icons.info_outline, color: AppTheme.primaryColor, size: 20),
-                              SizedBox(width: 12),
+                              Icon(Icons.info_outline, color: isDark ? Colors.white : AppTheme.primaryColor, size: 20),
+                              const SizedBox(width: 12),
                               Expanded(
                                 child: Text(
                                   'Set a monthly carbon emission goal that you would like to achieve. CarbonSense tracks your total emissions throughout the month and compares them with this goal, helping you monitor your progress and build more sustainable habits over time. You can update this goal whenever your lifestyle or sustainability goals change.',
-                                  style: TextStyle(fontSize: 13, height: 1.6, fontWeight: FontWeight.w500, color: Colors.black87),
+                                  style: TextStyle(fontSize: 13, height: 1.6, fontWeight: FontWeight.w500, color: isDark ? Colors.grey[300] : Colors.black87),
                                 ),
                               ),
                             ],
@@ -463,13 +470,16 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   }
 
   Widget _buildFormCard({required List<Widget> children}) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardBg = isDark ? Colors.grey[850] : Colors.white;
+
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: cardBg,
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: AppTheme.primaryColor.withOpacity(0.1)),
-        boxShadow: [BoxShadow(color: AppTheme.primaryColor.withOpacity(0.03), blurRadius: 10, offset: const Offset(0, 4))],
+        border: Border.all(color: isDark ? Colors.grey[800]! : AppTheme.primaryColor.withOpacity(0.1)),
+        boxShadow: [BoxShadow(color: AppTheme.primaryColor.withOpacity(isDark ? 0.1 : 0.03), blurRadius: 10, offset: const Offset(0, 4))],
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: children),
     );
@@ -488,6 +498,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     List<TextInputFormatter>? inputFormatters,
     Widget? suffixIcon,
   }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final textColor = isDark ? Colors.white : Colors.black87;
+
     return TextFormField(
       controller: controller,
       enabled: enabled,
@@ -495,15 +508,16 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       keyboardType: isNumber ? const TextInputType.numberWithOptions(decimal: true) : TextInputType.text,
       validator: validator,
       inputFormatters: inputFormatters,
-      style: const TextStyle(fontWeight: FontWeight.w600, color: Colors.black87),
+      style: TextStyle(fontWeight: FontWeight.w600, color: enabled ? textColor : (isDark ? Colors.grey[600] : Colors.grey)),
       decoration: InputDecoration(
         labelText: label,
         hintText: hint,
-        labelStyle: const TextStyle(color: Colors.grey, fontWeight: FontWeight.w500),
-        prefixIcon: Icon(icon, color: AppTheme.primaryColor),
+        hintStyle: TextStyle(color: isDark ? Colors.grey[600] : Colors.grey.shade400),
+        labelStyle: TextStyle(color: isDark ? Colors.grey[400] : Colors.grey, fontWeight: FontWeight.w500),
+        prefixIcon: Icon(icon, color: isDark ? Colors.white : AppTheme.primaryColor),
         suffixIcon: suffixIcon,
         filled: true,
-        fillColor: fillColor ?? Colors.grey.shade50,
+        fillColor: fillColor ?? (isDark ? Colors.grey[900] : Colors.grey.shade50),
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),

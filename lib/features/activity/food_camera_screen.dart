@@ -22,7 +22,7 @@ class _FoodCameraScreenState extends State<FoodCameraScreen> {
 
   // Result variables from Gemini AI
   String? _foodName;
-  String? _foodCategory; // 🌟 NEW: Separated category for cleaner UI
+  String? _foodCategory;
   double? _weightG;
   bool _isMeatless = false;
   double? _co2e;
@@ -89,7 +89,6 @@ class _FoodCameraScreenState extends State<FoodCameraScreen> {
                     child: const Text('Got it', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16)),
                   ),
                 ),
-                // 🌟 NEW: Optional secondary action for Manual Entry
                 if (onSecondaryAction != null && secondaryActionText != null) ...[
                   const SizedBox(height: 12),
                   SizedBox(
@@ -97,11 +96,11 @@ class _FoodCameraScreenState extends State<FoodCameraScreen> {
                     child: OutlinedButton(
                       style: OutlinedButton.styleFrom(
                         side: BorderSide(color: primaryColor),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)), // Match StadiumBorder
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
                       ),
                       onPressed: () {
-                        Navigator.of(context).pop(); // Close dialog
-                        onSecondaryAction(); // Trigger routing
+                        Navigator.of(context).pop();
+                        onSecondaryAction();
                       },
                       child: Text(
                         secondaryActionText,
@@ -134,30 +133,25 @@ class _FoodCameraScreenState extends State<FoodCameraScreen> {
         final data = response.data as Map<String, dynamic>;
         debugPrint('🧠 GEMINI RESPONSE: $data');
 
-        // 👇 NEW: Check if the AI recognized the image as food
-        final bool isFood = data['is_food'] ?? true; // Default to true if missing
+        final bool isFood = data['is_food'] ?? true;
 
         if (!isFood || data['food_name'] == 'Not Food') {
-          // Reject the image and alert the user
           setState(() {
             _isAnalyzing = false;
-            _selectedImage = null; // Clear the invalid image
+            _selectedImage = null;
           });
 
           if (mounted) {
-            // Replaced SnackBar with Custom Dialog
             _showMessageDialog('Invalid Image', 'No food detected in this image. Please try again!', isError: true);
           }
-          return; // Stop execution here
+          return;
         }
 
-        // 2. Inside _analyzeImageWithGemini(), update the setState block:
         setState(() {
           _foodName = data['food_name']?.toString() ?? 'Unknown Food';
           _foodCategory = data['db_category']?.toString() ?? '';
           _factorId = data['factor_id']?.toString();
 
-          // Safely parse the ingredients array
           if (data['ingredients'] != null) {
             _ingredients = List<String>.from(data['ingredients']);
           } else {
@@ -184,14 +178,13 @@ class _FoodCameraScreenState extends State<FoodCameraScreen> {
 
       if (mounted) {
         final errorStr = e.toString().toLowerCase();
-        // Check for common Gemini quota/rate limit errors (429)
         if (errorStr.contains('quota') || errorStr.contains('429') || errorStr.contains('exhausted')) {
           _showMessageDialog(
             'AI Quota Reached',
             'Our AI is taking a quick breather due to high demand. You can still log your meal manually!',
             isError: true,
             secondaryActionText: 'Log Meal Manually',
-            onSecondaryAction: () => context.push('/activity/manual-food'), // Assuming you use go_router
+            onSecondaryAction: () => context.push('/activity/manual-food'),
           );
         } else {
           _showMessageDialog('Analysis Failed', 'AI analysis failed: $e', isError: true);
@@ -210,17 +203,15 @@ class _FoodCameraScreenState extends State<FoodCameraScreen> {
       final user = Supabase.instance.client.auth.currentUser;
       if (user == null) throw Exception("No authenticated user found.");
 
-      // 3. Inside _saveFoodLog(), update the Supabase insert call:
       await Supabase.instance.client.from('activity_logs').insert({
         'user_id': user.id,
         'factor_id': _factorId,
         'input_value': double.parse(_weightG!.toStringAsFixed(2)),
         'total_co2e': double.parse(_co2e!.toStringAsFixed(4)),
-        'ingredients': _ingredients, // 👇 NEW: Send the array to Supabase
-        'food_name': _foodName, // 👈 NEW: Save the AI detected food name
+        'ingredients': _ingredients,
+        'food_name': _foodName,
       });
 
-      // 🚀 Run the Mission Engine silently
       final completedMissions = await MissionEngine.evaluateTelemetry(userId: user.id, category: 'Diet', activityName: _foodName!, isMeatless: _isMeatless);
 
       if (mounted) {
@@ -238,6 +229,11 @@ class _FoodCameraScreenState extends State<FoodCameraScreen> {
 
   // --- CUSTOM SUCCESS DIALOG ---
   void _showSuccessDialog(List<String> completedMissions) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final dialogBg = isDark ? Colors.grey[900] : Colors.white;
+    final textColor = isDark ? Colors.white : Colors.black87;
+    final subtitleColor = isDark ? Colors.grey[400] : Colors.black54;
+
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -249,9 +245,9 @@ class _FoodCameraScreenState extends State<FoodCameraScreen> {
           child: Container(
             padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: dialogBg,
               borderRadius: BorderRadius.circular(24),
-              boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 20.0, offset: Offset(0.0, 10.0))],
+              boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 20.0, offset: Offset(0.0, 10.0))],
             ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -259,19 +255,19 @@ class _FoodCameraScreenState extends State<FoodCameraScreen> {
                 Container(
                   height: 80,
                   width: 80,
-                  decoration: BoxDecoration(color: Colors.orange.shade50, shape: BoxShape.circle),
-                  child: Icon(Icons.restaurant_menu_rounded, color: Colors.orange.shade600, size: 48),
+                  decoration: BoxDecoration(color: isDark ? Colors.orange.withOpacity(0.15) : Colors.orange.shade50, shape: BoxShape.circle),
+                  child: Icon(Icons.restaurant_menu_rounded, color: isDark ? Colors.orange[300] : Colors.orange.shade600, size: 48),
                 ),
                 const SizedBox(height: 20),
-                const Text(
+                Text(
                   "Meal Logged!",
-                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.black87),
+                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: textColor),
                 ),
                 const SizedBox(height: 12),
                 Text(
                   "Your $_foodName (${_weightG?.toStringAsFixed(0)}g) has been added to your climate journal.\n\nTracking your dietary footprint is one of the most impactful ways to lower your daily emissions. Keep eating mindfully!",
                   textAlign: TextAlign.center,
-                  style: const TextStyle(fontSize: 14, color: Colors.black54, height: 1.4),
+                  style: TextStyle(fontSize: 14, color: subtitleColor, height: 1.4),
                 ),
                 const SizedBox(height: 24),
                 SizedBox(
@@ -284,14 +280,11 @@ class _FoodCameraScreenState extends State<FoodCameraScreen> {
                       elevation: 0,
                     ),
                     onPressed: () {
-                      // Close the current "Meal Logged!" dialog
                       Navigator.of(context, rootNavigator: true).pop();
 
-                      // 🚀 CHECK: Did they complete missions?
                       if (completedMissions.isNotEmpty) {
                         _showMissionUnlockedPopup(completedMissions);
                       } else {
-                        // Original routing back
                         WidgetsBinding.instance.addPostFrameCallback((_) {
                           if (mounted) context.pop();
                         });
@@ -312,26 +305,34 @@ class _FoodCameraScreenState extends State<FoodCameraScreen> {
   }
 
   void _showMissionUnlockedPopup(List<String> missions) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final dialogBg = isDark ? Colors.grey[900] : Colors.white;
+    final textColor = isDark ? Colors.white : Colors.black87;
+
     showDialog(
       context: context,
       barrierDismissible: false,
       builder: (context) {
         return AlertDialog(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-          title: const Column(
+          backgroundColor: dialogBg,
+          title: Column(
             children: [
-              Icon(Icons.emoji_events, color: Colors.amber, size: 56),
-              SizedBox(height: 12),
-              Text("Quest Completed!", style: TextStyle(fontWeight: FontWeight.w900, fontSize: 22)),
+              const Icon(Icons.emoji_events, color: Colors.amber, size: 56),
+              const SizedBox(height: 12),
+              Text(
+                "Quest Completed!",
+                style: TextStyle(fontWeight: FontWeight.w900, fontSize: 22, color: textColor),
+              ),
             ],
           ),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Text(
+              Text(
                 "Your meal automatically unlocked:",
                 textAlign: TextAlign.center,
-                style: TextStyle(color: Colors.grey, fontSize: 13),
+                style: TextStyle(color: isDark ? Colors.grey[400] : Colors.grey, fontSize: 13),
               ),
               const SizedBox(height: 16),
               ...missions.map(
@@ -343,7 +344,10 @@ class _FoodCameraScreenState extends State<FoodCameraScreen> {
                       const Icon(Icons.check_circle, color: Colors.green, size: 22),
                       const SizedBox(width: 12),
                       Expanded(
-                        child: Text(mission, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                        child: Text(
+                          mission,
+                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: textColor),
+                        ),
                       ),
                     ],
                   ),
@@ -376,24 +380,33 @@ class _FoodCameraScreenState extends State<FoodCameraScreen> {
   }
 
   Future<bool> _showExitConfirmationDialog() async {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     final bool? shouldExit = await showDialog<bool>(
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          title: const Text('Analysis in Progress', style: TextStyle(fontWeight: FontWeight.bold)),
-          content: const Text('Gemini AI is currently analyzing your food image. Leaving this page now will cancel the process. Are you sure you want to exit?'),
+          backgroundColor: isDark ? Colors.grey[900] : Colors.white,
+          title: Text(
+            'Analysis in Progress',
+            style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? Colors.white : Colors.black87),
+          ),
+          content: Text(
+            'Gemini AI is currently analyzing your food image. Leaving this page now will cancel the process. Are you sure you want to exit?',
+            style: TextStyle(color: isDark ? Colors.grey[300] : Colors.black87),
+          ),
           actions: [
             TextButton(
-              onPressed: () => Navigator.of(context).pop(false), // Stay on screen
-              child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
+              onPressed: () => Navigator.of(context).pop(false),
+              child: Text('Cancel', style: TextStyle(color: isDark ? Colors.grey[400] : Colors.grey)),
             ),
             ElevatedButton(
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.redAccent,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
               ),
-              onPressed: () => Navigator.of(context).pop(true), // Confirm exit
+              onPressed: () => Navigator.of(context).pop(true),
               child: const Text('Exit & Cancel', style: TextStyle(color: Colors.white)),
             ),
           ],
@@ -407,18 +420,19 @@ class _FoodCameraScreenState extends State<FoodCameraScreen> {
   // --- UI BUILDER ---
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final scaffoldBg = isDark ? const Color(0xFF121212) : const Color(0xFFF9FFF9);
+    final cardBg = isDark ? Colors.grey[850] : Colors.white;
+    final textColor = isDark ? Colors.white : Colors.black87;
+
     return PopScope(
-      // Allow normal back navigation only when Gemini AI is NOT analyzing
       canPop: !_isAnalyzing,
       onPopInvokedWithResult: (didPop, result) async {
-        // If the page already popped (e.g. _isAnalyzing was false), do nothing
         if (didPop) return;
 
-        // Show confirmation dialog if an AI analysis is active
         final shouldPop = await _showExitConfirmationDialog();
 
         if (shouldPop && context.mounted) {
-          // Reset state and exit safely
           setState(() => _isAnalyzing = false);
 
           if (Navigator.canPop(context)) {
@@ -429,15 +443,18 @@ class _FoodCameraScreenState extends State<FoodCameraScreen> {
         }
       },
       child: Scaffold(
-        backgroundColor: const Color(0xFFF9FFF9),
+        backgroundColor: scaffoldBg,
         appBar: AppBar(
-          title: const Text('Food Carbon Scanner', style: TextStyle(fontWeight: FontWeight.bold)),
+          title: Text(
+            'Food Carbon Scanner',
+            style: TextStyle(fontWeight: FontWeight.bold, color: textColor),
+          ),
           centerTitle: true,
           backgroundColor: Colors.transparent,
           elevation: 0,
+          iconTheme: IconThemeData(color: textColor),
         ),
         body: SafeArea(
-          // ... rest of your existing body layout ...
           bottom: false,
           child: SingleChildScrollView(
             child: Padding(
@@ -453,9 +470,9 @@ class _FoodCameraScreenState extends State<FoodCameraScreen> {
                         child: Container(
                           width: double.infinity,
                           decoration: BoxDecoration(
-                            color: Colors.white,
+                            color: cardBg,
                             borderRadius: BorderRadius.circular(24),
-                            border: Border.all(color: Colors.grey.shade300, width: 2),
+                            border: Border.all(color: isDark ? Colors.grey[800]! : Colors.grey.shade300, width: 2),
                           ),
                           child: _selectedImage != null
                               ? ClipRRect(
@@ -471,12 +488,14 @@ class _FoodCameraScreenState extends State<FoodCameraScreen> {
                       if (_isAnalyzing) ...[
                         const CircularProgressIndicator(color: AppTheme.primaryColor),
                         const SizedBox(height: 12),
-                        const Text("CarbonSense is analyzing ingredients and portion size...", style: TextStyle(fontWeight: FontWeight.w500)),
+                        Text(
+                          "CarbonSense is analyzing ingredients and portion size...",
+                          style: TextStyle(fontWeight: FontWeight.w500, color: textColor),
+                        ),
                         const Spacer(),
                       ] else if (_foodName != null) ...[
                         _buildResultsCard(),
                       ] else ...[
-                        // 🌟 NEW: Separated Instructions aligned with Bill Scanner design
                         _buildPhotoInstructions(),
                         const SizedBox(height: 20),
                         _buildCaptureButtons(),
@@ -493,6 +512,10 @@ class _FoodCameraScreenState extends State<FoodCameraScreen> {
   }
 
   Widget _buildScannerPlaceholder() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final textColor = isDark ? Colors.white : Colors.black87;
+    final subtitleColor = isDark ? Colors.grey[400] : Colors.black54;
+
     return LayoutBuilder(
       builder: (context, constraints) {
         final isSmallScreen = constraints.maxHeight < 600;
@@ -509,18 +532,18 @@ class _FoodCameraScreenState extends State<FoodCameraScreen> {
             children: [
               Container(
                 padding: EdgeInsets.all(padding),
-                decoration: BoxDecoration(color: Colors.orange.shade50, shape: BoxShape.circle),
-                child: Icon(Icons.lunch_dining_rounded, size: iconSize, color: Colors.orange.shade400),
+                decoration: BoxDecoration(color: isDark ? Colors.white.withOpacity(0.08) : Colors.orange.shade50, shape: BoxShape.circle),
+                child: Icon(Icons.lunch_dining_rounded, size: iconSize, color: isDark ? Colors.white : Colors.orange.shade400),
               ),
               SizedBox(height: isSmallScreen ? 18 : 24),
               Text(
                 'Ready to Scan',
-                style: TextStyle(fontSize: titleSize, fontWeight: FontWeight.bold, color: Colors.black87),
+                style: TextStyle(fontSize: titleSize, fontWeight: FontWeight.bold, color: textColor),
               ),
               const SizedBox(height: 8),
               Text(
                 'Upload or capture your meal below',
-                style: TextStyle(fontSize: subtitleSize, color: Colors.black54),
+                style: TextStyle(fontSize: subtitleSize, color: subtitleColor),
                 textAlign: TextAlign.center,
               ),
             ],
@@ -532,24 +555,28 @@ class _FoodCameraScreenState extends State<FoodCameraScreen> {
 
   // 🌟 Themed Photo Instructions + Visual Aid
   Widget _buildPhotoInstructions() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardBg = isDark ? Colors.grey[850] : Colors.white;
+    final textColor = isDark ? Colors.white : Colors.black87;
+
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: cardBg,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: AppTheme.primaryColor.withOpacity(0.3)),
-        boxShadow: [BoxShadow(color: AppTheme.primaryColor.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 4))],
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(isDark ? 0.2 : 0.05), blurRadius: 10, offset: const Offset(0, 4))],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Row(
+          Row(
             children: [
-              Icon(Icons.center_focus_strong, color: AppTheme.primaryColor, size: 22),
-              SizedBox(width: 8),
+              const Icon(Icons.center_focus_strong, color: AppTheme.primaryColor, size: 22),
+              const SizedBox(width: 8),
               Text(
                 "Photo Best Practices",
-                style: TextStyle(fontWeight: FontWeight.w900, color: Colors.black87, fontSize: 16),
+                style: TextStyle(fontWeight: FontWeight.w900, color: textColor, fontSize: 16),
               ),
             ],
           ),
@@ -559,11 +586,10 @@ class _FoodCameraScreenState extends State<FoodCameraScreen> {
           Container(
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.grey.shade200),
+              border: Border.all(color: isDark ? Colors.grey[800]! : Colors.grey.shade200),
             ),
             child: ClipRRect(
               borderRadius: BorderRadius.circular(11),
-              // Use a photo of a plate taken from directly above
               child: Image.asset(
                 'assets/images/food_sample_guide.png',
                 height: 100,
@@ -588,16 +614,18 @@ class _FoodCameraScreenState extends State<FoodCameraScreen> {
           // --- THE CHECKLIST ---
           _buildInstructionRow(icon: Icons.camera_alt_outlined, color: AppTheme.primaryColor, text: 'Take a direct top-down photo to help the AI estimate portion sizes.'),
           const SizedBox(height: 10),
-          _buildInstructionRow(icon: Icons.fullscreen_exit, color: Colors.orange.shade700, text: 'Ensure the entire plate or bowl is visible within the frame.'),
+          _buildInstructionRow(icon: Icons.fullscreen_exit, color: isDark ? Colors.orange[300]! : Colors.orange.shade700, text: 'Ensure the entire plate or bowl is visible within the frame.'),
           const SizedBox(height: 10),
-          _buildInstructionRow(icon: Icons.lightbulb_outline, color: Colors.amber.shade600, text: 'Use good lighting so all ingredients can be accurately identified.'),
+          _buildInstructionRow(icon: Icons.lightbulb_outline, color: isDark ? Colors.amber[300]! : Colors.amber.shade600, text: 'Use good lighting so all ingredients can be accurately identified.'),
         ],
       ),
     );
   }
 
-  // Helper widget
   Widget _buildInstructionRow({required IconData icon, required Color color, required String text}) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final textColor = isDark ? Colors.white70 : Colors.black87;
+
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -606,7 +634,7 @@ class _FoodCameraScreenState extends State<FoodCameraScreen> {
         Expanded(
           child: Text(
             text,
-            style: const TextStyle(color: Colors.black87, fontSize: 13, height: 1.4, fontWeight: FontWeight.w500),
+            style: TextStyle(color: textColor, fontSize: 13, height: 1.4, fontWeight: FontWeight.w500),
           ),
         ),
       ],
@@ -652,10 +680,15 @@ class _FoodCameraScreenState extends State<FoodCameraScreen> {
   }
 
   Widget _buildResultsCard() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardBg = isDark ? Colors.grey[850] : Colors.white;
+    final textColor = isDark ? Colors.white : Colors.black87;
+    final subtitleColor = isDark ? Colors.grey[400] : Colors.grey;
+
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: cardBg,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: AppTheme.primaryColor.withOpacity(0.3)),
       ),
@@ -664,16 +697,15 @@ class _FoodCameraScreenState extends State<FoodCameraScreen> {
           Text(
             _foodName!.toUpperCase(),
             textAlign: TextAlign.center,
-            style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18, color: Colors.black87),
+            style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18, color: textColor),
           ),
-          // 🌟 UPGRADED: Display the database category distinctly as a subtitle
           if (_foodCategory != null && _foodCategory!.isNotEmpty)
             Padding(
               padding: const EdgeInsets.only(top: 4.0),
               child: Text(
                 _foodCategory!,
                 textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 13, color: Colors.grey.shade600, fontWeight: FontWeight.w500),
+                style: TextStyle(fontSize: 13, color: subtitleColor, fontWeight: FontWeight.w500),
               ),
             ),
           const SizedBox(height: 16),
@@ -682,29 +714,31 @@ class _FoodCameraScreenState extends State<FoodCameraScreen> {
             children: [
               Column(
                 children: [
-                  Text('${_weightG?.toStringAsFixed(0)}g', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900)),
-                  const Text('Estimated Weight', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                  Text(
+                    '${_weightG?.toStringAsFixed(0)}g',
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: textColor),
+                  ),
+                  Text('Estimated Weight', style: TextStyle(fontSize: 12, color: subtitleColor)),
                 ],
               ),
-              Container(width: 1, height: 30, color: Colors.grey.shade300),
+              Container(width: 1, height: 30, color: isDark ? Colors.grey[700] : Colors.grey.shade300),
               Column(
                 children: [
                   Text(
                     '+${_co2e?.toStringAsFixed(2)} kg',
                     style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: Colors.redAccent),
                   ),
-                  const Text('CO₂e Footprint', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                  Text('CO₂e Footprint', style: TextStyle(fontSize: 12, color: subtitleColor)),
                 ],
               ),
             ],
           ),
 
-          // 👇 NEW: Display ingredients if any were found
           if (_ingredients.isNotEmpty) ...[
             const SizedBox(height: 16),
-            const Text(
+            Text(
               "Detected Ingredients",
-              style: TextStyle(fontSize: 12, color: Colors.grey, fontWeight: FontWeight.bold),
+              style: TextStyle(fontSize: 12, color: subtitleColor, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 8),
             Wrap(
@@ -716,16 +750,16 @@ class _FoodCameraScreenState extends State<FoodCameraScreen> {
                     (item) => Container(
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                       decoration: BoxDecoration(
-                        color: Colors.grey.shade100,
+                        color: isDark ? Colors.grey[800] : Colors.grey.shade100,
                         borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: Colors.grey.shade300),
+                        border: Border.all(color: isDark ? Colors.grey[700]! : Colors.grey.shade300),
                       ),
-                      child: Text(item, style: TextStyle(fontSize: 12, color: Colors.grey.shade800)),
+                      child: Text(item, style: TextStyle(fontSize: 12, color: isDark ? Colors.grey[200] : Colors.grey.shade800)),
                     ),
                   )
                   .toList(),
             ),
-            const SizedBox(height: 20), // Spacing before the Confirm button
+            const SizedBox(height: 20),
           ],
 
           const SizedBox(height: 20),
@@ -745,11 +779,10 @@ class _FoodCameraScreenState extends State<FoodCameraScreen> {
             ),
           ),
           const SizedBox(height: 8),
-          // 🌟 NEW: The Retake Button
           TextButton.icon(
             onPressed: () => _getImage(ImageSource.camera),
-            icon: const Icon(Icons.refresh, size: 16, color: Colors.grey),
-            label: const Text("Not quite right? Retake photo", style: TextStyle(color: Colors.grey, fontSize: 12)),
+            icon: Icon(Icons.refresh, size: 16, color: subtitleColor),
+            label: Text("Not quite right? Retake photo", style: TextStyle(color: subtitleColor, fontSize: 12)),
           ),
         ],
       ),

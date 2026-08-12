@@ -125,24 +125,20 @@ class _BillScannerScreenState extends State<BillScannerScreen> {
         final data = response.data as Map<String, dynamic>;
         debugPrint('⚡ GEMINI BILL RESPONSE: $data');
 
-        // 👇 NEW: Check if the AI recognized the image as an electricity bill
         final bool isValidBill = data['is_valid_bill'] ?? true;
 
         if (!isValidBill) {
-          // Reject the image and alert the user
           setState(() {
             _isAnalyzing = false;
-            _selectedImage = null; // Clear the invalid image
+            _selectedImage = null;
           });
 
           if (mounted) {
-            // Replaced SnackBar with Custom Dialog
             _showMessageDialog('Invalid Image', 'No electricity bill detected in this image. Please try again!', isError: true);
           }
-          return; // Stop execution here
+          return;
         }
 
-        // Proceed normally if it IS a bill
         setState(() {
           _factorId = data['factor_id']?.toString();
           _kwhUsed = double.tryParse(data['kwh_used']?.toString() ?? '0');
@@ -207,6 +203,11 @@ class _BillScannerScreenState extends State<BillScannerScreen> {
 
   // --- CUSTOM SUCCESS DIALOG ---
   void _showSuccessDialog() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final dialogBg = isDark ? Colors.grey[900] : Colors.white;
+    final textColor = isDark ? Colors.white : Colors.black87;
+    final subtitleColor = isDark ? Colors.grey[400] : Colors.black54;
+
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -218,9 +219,9 @@ class _BillScannerScreenState extends State<BillScannerScreen> {
           child: Container(
             padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: dialogBg,
               borderRadius: BorderRadius.circular(24),
-              boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 20.0, offset: Offset(0.0, 10.0))],
+              boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 20.0, offset: Offset(0.0, 10.0))],
             ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -228,19 +229,19 @@ class _BillScannerScreenState extends State<BillScannerScreen> {
                 Container(
                   height: 80,
                   width: 80,
-                  decoration: BoxDecoration(color: Colors.amber.shade50, shape: BoxShape.circle),
-                  child: Icon(Icons.electric_bolt, color: Colors.amber.shade600, size: 48),
+                  decoration: BoxDecoration(color: isDark ? Colors.amber.withOpacity(0.15) : Colors.amber.shade50, shape: BoxShape.circle),
+                  child: Icon(Icons.electric_bolt, color: isDark ? Colors.amber[300] : Colors.amber.shade600, size: 48),
                 ),
                 const SizedBox(height: 20),
-                const Text(
+                Text(
                   "Bill Scanned!",
-                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.black87),
+                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: textColor),
                 ),
                 const SizedBox(height: 12),
                 Text(
                   "We extracted ${_kwhUsed?.toStringAsFixed(1)} kWh from your utility bill.\n\nTracking your monthly grid electricity is the first step toward finding ways to lower your energy consumption.",
                   textAlign: TextAlign.center,
-                  style: const TextStyle(fontSize: 14, color: Colors.black54, height: 1.4),
+                  style: TextStyle(fontSize: 14, color: subtitleColor, height: 1.4),
                 ),
                 const SizedBox(height: 24),
                 SizedBox(
@@ -273,24 +274,33 @@ class _BillScannerScreenState extends State<BillScannerScreen> {
   }
 
   Future<bool> _showExitConfirmationDialog() async {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     final bool? shouldExit = await showDialog<bool>(
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          title: const Text('Analysis in Progress', style: TextStyle(fontWeight: FontWeight.bold)),
-          content: const Text('Gemini AI is currently analyzing your electricity bill. Leaving this page now will cancel the process. Are you sure you want to exit?'),
+          backgroundColor: isDark ? Colors.grey[900] : Colors.white,
+          title: Text(
+            'Analysis in Progress',
+            style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? Colors.white : Colors.black87),
+          ),
+          content: Text(
+            'Gemini AI is currently analyzing your electricity bill. Leaving this page now will cancel the process. Are you sure you want to exit?',
+            style: TextStyle(color: isDark ? Colors.grey[300] : Colors.black87),
+          ),
           actions: [
             TextButton(
-              onPressed: () => Navigator.of(context).pop(false), // Stay on screen
-              child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
+              onPressed: () => Navigator.of(context).pop(false),
+              child: Text('Cancel', style: TextStyle(color: isDark ? Colors.grey[400] : Colors.grey)),
             ),
             ElevatedButton(
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.redAccent,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
               ),
-              onPressed: () => Navigator.of(context).pop(true), // Confirm exit
+              onPressed: () => Navigator.of(context).pop(true),
               child: const Text('Exit & Cancel', style: TextStyle(color: Colors.white)),
             ),
           ],
@@ -304,14 +314,16 @@ class _BillScannerScreenState extends State<BillScannerScreen> {
   // --- UI BUILDER ---
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final scaffoldBg = isDark ? const Color(0xFF121212) : const Color(0xFFF9FFF9);
+    final cardBg = isDark ? Colors.grey[850] : Colors.white;
+    final textColor = isDark ? Colors.white : Colors.black87;
+
     return PopScope(
-      // Allow immediate back navigation only when NOT analyzing
       canPop: !_isAnalyzing,
       onPopInvokedWithResult: (didPop, result) async {
-        // If the system already popped the route automatically, do nothing
         if (didPop) return;
 
-        // Prompt user for confirmation while analysis is running
         final shouldPop = await _showExitConfirmationDialog();
 
         if (shouldPop && context.mounted) {
@@ -325,18 +337,21 @@ class _BillScannerScreenState extends State<BillScannerScreen> {
         }
       },
       child: Scaffold(
-        backgroundColor: const Color(0xFFF9FFF9),
+        backgroundColor: scaffoldBg,
         appBar: AppBar(
-          title: const Text('Electricity Bill Scanner', style: TextStyle(fontWeight: FontWeight.bold)),
+          title: Text(
+            'Electricity Bill Scanner',
+            style: TextStyle(fontWeight: FontWeight.bold, color: textColor),
+          ),
           centerTitle: true,
           backgroundColor: Colors.transparent,
           elevation: 0,
+          iconTheme: IconThemeData(color: textColor),
         ),
         body: SafeArea(
           bottom: false,
           child: LayoutBuilder(
             builder: (context, constraints) {
-              // ... rest of your build layout remains unchanged ...
               return SingleChildScrollView(
                 padding: const EdgeInsets.only(left: 24, top: 24, right: 24, bottom: 120),
                 child: ConstrainedBox(
@@ -350,9 +365,9 @@ class _BillScannerScreenState extends State<BillScannerScreen> {
                           child: Container(
                             width: double.infinity,
                             decoration: BoxDecoration(
-                              color: Colors.white,
+                              color: cardBg,
                               borderRadius: BorderRadius.circular(24),
-                              border: Border.all(color: Colors.grey.shade300, width: 2),
+                              border: Border.all(color: isDark ? Colors.grey[800]! : Colors.grey.shade300, width: 2),
                             ),
                             child: _selectedImage != null
                                 ? ClipRRect(
@@ -369,7 +384,10 @@ class _BillScannerScreenState extends State<BillScannerScreen> {
                         if (_isAnalyzing) ...[
                           const CircularProgressIndicator(color: AppTheme.primaryColor),
                           const SizedBox(height: 12),
-                          const Text("CarbonSense is reading the document...", style: TextStyle(fontWeight: FontWeight.w500)),
+                          Text(
+                            "CarbonSense is reading the document...",
+                            style: TextStyle(fontWeight: FontWeight.w500, color: textColor),
+                          ),
                         ] else if (_kwhUsed != null) ...[
                           _buildResultsCard(),
                         ] else ...[
@@ -391,26 +409,26 @@ class _BillScannerScreenState extends State<BillScannerScreen> {
 
   // 🌟 Cleaned up Scanner Placeholder
   Widget _buildScannerPlaceholder() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final textColor = isDark ? Colors.white : Colors.black87;
+    final subtitleColor = isDark ? Colors.grey[400] : Colors.black54;
+
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Container(
             padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(color: AppTheme.primaryColor.withOpacity(0.1), shape: BoxShape.circle),
-            child: const Icon(
-              Icons.document_scanner_outlined,
-              size: 56, // Increased size since it's the main focal point now
-              color: AppTheme.primaryColor,
-            ),
+            decoration: BoxDecoration(color: isDark ? Colors.white.withOpacity(0.08) : AppTheme.primaryColor.withOpacity(0.12), shape: BoxShape.circle),
+            child: Icon(Icons.document_scanner_outlined, size: 56, color: isDark ? Colors.white : AppTheme.primaryColor),
           ),
           const SizedBox(height: 24),
-          const Text(
+          Text(
             'Ready to Scan',
-            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.black87),
+            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: textColor),
           ),
           const SizedBox(height: 8),
-          const Text('Upload or capture your bill below', style: TextStyle(fontSize: 14, color: Colors.black54)),
+          Text('Upload or capture your bill below', style: TextStyle(fontSize: 14, color: subtitleColor)),
         ],
       ),
     );
@@ -418,13 +436,17 @@ class _BillScannerScreenState extends State<BillScannerScreen> {
 
   // 🌟 Themed Privacy Instructions + Visual Aid
   Widget _buildPrivacyInstructions() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardBg = isDark ? Colors.grey[850] : Colors.white;
+    final textColor = isDark ? Colors.white : Colors.black87;
+
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.white, // Matches the app's clean aesthetic
+        color: cardBg,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppTheme.primaryColor.withOpacity(0.3)), // Same border as your results card
-        boxShadow: [BoxShadow(color: AppTheme.primaryColor.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 4))],
+        border: Border.all(color: AppTheme.primaryColor.withOpacity(0.3)),
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(isDark ? 0.2 : 0.05), blurRadius: 10, offset: const Offset(0, 4))],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -433,13 +455,9 @@ class _BillScannerScreenState extends State<BillScannerScreen> {
             children: [
               const Icon(Icons.privacy_tip_outlined, color: AppTheme.primaryColor, size: 22),
               const SizedBox(width: 8),
-              const Text(
+              Text(
                 "Privacy First Guidelines",
-                style: TextStyle(
-                  fontWeight: FontWeight.w900, // Matches your results card typography
-                  color: Colors.black87,
-                  fontSize: 16,
-                ),
+                style: TextStyle(fontWeight: FontWeight.w900, color: textColor, fontSize: 16),
               ),
             ],
           ),
@@ -449,16 +467,16 @@ class _BillScannerScreenState extends State<BillScannerScreen> {
           Container(
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.grey.shade200),
+              border: Border.all(color: isDark ? Colors.grey[800]! : Colors.grey.shade200),
             ),
             child: ClipRRect(
               borderRadius: BorderRadius.circular(11),
               child: Image.asset(
                 'assets/images/bill_sample_highlight.png',
-                height: 100, // Kept slightly compact so it doesn't push buttons off-screen
+                height: 100,
                 width: double.infinity,
                 fit: BoxFit.cover,
-                alignment: const Alignment(0, 0.4), // Slightly lower
+                alignment: const Alignment(0, 0.4),
                 errorBuilder: (context, error, stackTrace) {
                   return Container(
                     height: 100,
@@ -480,14 +498,16 @@ class _BillScannerScreenState extends State<BillScannerScreen> {
           const SizedBox(height: 10),
           _buildInstructionRow(icon: Icons.visibility_off, color: Colors.redAccent, text: 'Do NOT capture your name, address, or account numbers.'),
           const SizedBox(height: 10),
-          _buildInstructionRow(icon: Icons.lightbulb_outline, color: Colors.amber.shade600, text: 'Ensure the number is well-lit and readable.'),
+          _buildInstructionRow(icon: Icons.lightbulb_outline, color: isDark ? Colors.amber[300]! : Colors.amber.shade600, text: 'Ensure the number is well-lit and readable.'),
         ],
       ),
     );
   }
 
-  // Helper widget remains unchanged
   Widget _buildInstructionRow({required IconData icon, required Color color, required String text}) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final textColor = isDark ? Colors.white70 : Colors.black87;
+
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -496,7 +516,7 @@ class _BillScannerScreenState extends State<BillScannerScreen> {
         Expanded(
           child: Text(
             text,
-            style: const TextStyle(color: Colors.black87, fontSize: 13, height: 1.4, fontWeight: FontWeight.w500),
+            style: TextStyle(color: textColor, fontSize: 13, height: 1.4, fontWeight: FontWeight.w500),
           ),
         ),
       ],
@@ -542,18 +562,23 @@ class _BillScannerScreenState extends State<BillScannerScreen> {
   }
 
   Widget _buildResultsCard() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardBg = isDark ? Colors.grey[850] : Colors.white;
+    final textColor = isDark ? Colors.white : Colors.black87;
+    final subtitleColor = isDark ? Colors.grey[400] : Colors.grey;
+
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: cardBg,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: AppTheme.primaryColor.withOpacity(0.3)),
       ),
       child: Column(
         children: [
-          const Text(
+          Text(
             "GRID ELECTRICITY",
-            style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18, color: Colors.black87),
+            style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18, color: textColor),
           ),
           const SizedBox(height: 16),
           Row(
@@ -561,18 +586,21 @@ class _BillScannerScreenState extends State<BillScannerScreen> {
             children: [
               Column(
                 children: [
-                  Text('${_kwhUsed?.toStringAsFixed(1)} kWh', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900)),
-                  const Text('Extracted Usage', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                  Text(
+                    '${_kwhUsed?.toStringAsFixed(1)} kWh',
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: textColor),
+                  ),
+                  Text('Extracted Usage', style: TextStyle(fontSize: 12, color: subtitleColor)),
                 ],
               ),
-              Container(width: 1, height: 30, color: Colors.grey.shade300),
+              Container(width: 1, height: 30, color: isDark ? Colors.grey[700] : Colors.grey.shade300),
               Column(
                 children: [
                   Text(
                     '+${_co2e?.toStringAsFixed(2)} kg',
                     style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: Colors.redAccent),
                   ),
-                  const Text('CO₂e Footprint', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                  Text('CO₂e Footprint', style: TextStyle(fontSize: 12, color: subtitleColor)),
                 ],
               ),
             ],
@@ -594,11 +622,10 @@ class _BillScannerScreenState extends State<BillScannerScreen> {
             ),
           ),
           const SizedBox(height: 8),
-          // 🌟 NEW: The Retake Button
           TextButton.icon(
             onPressed: () => _getImage(ImageSource.camera),
-            icon: const Icon(Icons.refresh, size: 16, color: Colors.grey),
-            label: const Text("Incorrect reading? Retake photo", style: TextStyle(color: Colors.grey, fontSize: 12)),
+            icon: Icon(Icons.refresh, size: 16, color: subtitleColor),
+            label: Text("Incorrect reading? Retake photo", style: TextStyle(color: subtitleColor, fontSize: 12)),
           ),
         ],
       ),

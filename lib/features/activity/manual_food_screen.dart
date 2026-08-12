@@ -13,6 +13,7 @@ class ManualFoodLogScreen extends StatefulWidget {
 
 class _ManualFoodLogScreenState extends State<ManualFoodLogScreen> {
   final _formKey = GlobalKey<FormState>();
+  final TextEditingController _foodNameController = TextEditingController();
   final TextEditingController _weightController = TextEditingController();
   final TextEditingController _ingredientController = TextEditingController();
 
@@ -109,10 +110,12 @@ class _ManualFoodLogScreenState extends State<ManualFoodLogScreen> {
       final weightG = double.parse(_weightController.text);
       final baseCo2 = _selectedCategory!['co2_per_unit'] as double;
       final totalCo2e = (weightG / 500.0) * baseCo2;
+      final foodName = _foodNameController.text.trim();
 
       await Supabase.instance.client.from('activity_logs').insert({
         'user_id': user.id,
         'factor_id': _selectedCategory!['factor_id'],
+        'food_name': foodName,
         'input_value': double.parse(weightG.toStringAsFixed(2)),
         'total_co2e': double.parse(totalCo2e.toStringAsFixed(4)),
         'ingredients': _ingredients,
@@ -122,7 +125,6 @@ class _ManualFoodLogScreenState extends State<ManualFoodLogScreen> {
 
       if (mounted) {
         setState(() => _isSaving = false);
-        final foodName = _selectedCategory!['name'];
 
         if (completedMissions.isNotEmpty) {
           _showMissionUnlockedPopup(completedMissions, () {
@@ -138,8 +140,13 @@ class _ManualFoodLogScreenState extends State<ManualFoodLogScreen> {
     }
   }
 
-  // --- DIALOGS (Kept exactly as you had them) ---
+  // --- DIALOGS ---
   void _showSuccessDialog(String foodName, double weight) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final dialogBg = isDark ? Colors.grey[900] : Colors.white;
+    final textColor = isDark ? Colors.white : Colors.black87;
+    final subtitleColor = isDark ? Colors.grey[400] : Colors.black54;
+
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -151,9 +158,9 @@ class _ManualFoodLogScreenState extends State<ManualFoodLogScreen> {
           child: Container(
             padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: dialogBg,
               borderRadius: BorderRadius.circular(24),
-              boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 20.0, offset: Offset(0.0, 10.0))],
+              boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 20.0, offset: Offset(0.0, 10.0))],
             ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -161,19 +168,19 @@ class _ManualFoodLogScreenState extends State<ManualFoodLogScreen> {
                 Container(
                   height: 80,
                   width: 80,
-                  decoration: BoxDecoration(color: Colors.orange.shade50, shape: BoxShape.circle),
-                  child: Icon(Icons.restaurant_menu_rounded, color: Colors.orange.shade600, size: 48),
+                  decoration: BoxDecoration(color: isDark ? Colors.orange.withOpacity(0.15) : Colors.orange.shade50, shape: BoxShape.circle),
+                  child: Icon(Icons.restaurant_menu_rounded, color: isDark ? Colors.orange[300] : Colors.orange.shade600, size: 48),
                 ),
                 const SizedBox(height: 20),
-                const Text(
+                Text(
                   "Meal Logged!",
-                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.black87),
+                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: textColor),
                 ),
                 const SizedBox(height: 12),
                 Text(
                   "Your $foodName (${weight.toStringAsFixed(0)}g) has been added to your climate journal.\n\nTracking your dietary footprint is one of the most impactful ways to lower your daily emissions. Keep eating mindfully!",
                   textAlign: TextAlign.center,
-                  style: const TextStyle(fontSize: 14, color: Colors.black54, height: 1.4),
+                  style: TextStyle(fontSize: 14, color: subtitleColor, height: 1.4),
                 ),
                 const SizedBox(height: 24),
                 SizedBox(
@@ -206,26 +213,34 @@ class _ManualFoodLogScreenState extends State<ManualFoodLogScreen> {
   }
 
   void _showMissionUnlockedPopup(List<String> missions, VoidCallback onClosed) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final dialogBg = isDark ? Colors.grey[900] : Colors.white;
+    final textColor = isDark ? Colors.white : Colors.black87;
+
     showDialog(
       context: context,
       barrierDismissible: false,
       builder: (context) {
         return AlertDialog(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-          title: const Column(
+          backgroundColor: dialogBg,
+          title: Column(
             children: [
-              Icon(Icons.emoji_events, color: Colors.amber, size: 56),
-              SizedBox(height: 12),
-              Text("Quest Completed!", style: TextStyle(fontWeight: FontWeight.w900, fontSize: 22)),
+              const Icon(Icons.emoji_events, color: Colors.amber, size: 56),
+              const SizedBox(height: 12),
+              Text(
+                "Quest Completed!",
+                style: TextStyle(fontWeight: FontWeight.w900, fontSize: 22, color: textColor),
+              ),
             ],
           ),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Text(
+              Text(
                 "Your meal automatically unlocked:",
                 textAlign: TextAlign.center,
-                style: TextStyle(color: Colors.grey, fontSize: 13),
+                style: TextStyle(color: isDark ? Colors.grey[400] : Colors.grey, fontSize: 13),
               ),
               const SizedBox(height: 16),
               ...missions.map(
@@ -237,7 +252,10 @@ class _ManualFoodLogScreenState extends State<ManualFoodLogScreen> {
                       const Icon(Icons.check_circle, color: Colors.green, size: 22),
                       const SizedBox(width: 12),
                       Expanded(
-                        child: Text(mission, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                        child: Text(
+                          mission,
+                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: textColor),
+                        ),
                       ),
                     ],
                   ),
@@ -272,11 +290,15 @@ class _ManualFoodLogScreenState extends State<ManualFoodLogScreen> {
   // --- MODERNIZED UI BUILDERS ---
 
   void _showCategoryBottomSheet() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final sheetBg = isDark ? Colors.grey[900] : Colors.white;
+    final textColor = isDark ? Colors.white : Colors.black87;
+
     showModalBottomSheet(
       context: context,
-      useRootNavigator: true, // 🌟 THE FIX: Forces sheet to render over everything
-      isScrollControlled: true, // 🌟 Ensures proper sizing and layout
-      backgroundColor: Colors.white,
+      useRootNavigator: true,
+      isScrollControlled: true,
+      backgroundColor: sheetBg,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
       builder: (context) {
         return Padding(
@@ -285,19 +307,25 @@ class _ManualFoodLogScreenState extends State<ManualFoodLogScreen> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 16),
-                child: Text("Select Meal Type", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Text(
+                  "Select Meal Type",
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: textColor),
+                ),
               ),
               const SizedBox(height: 16),
               ..._foodCategories.map((cat) {
                 final isSelected = _selectedCategory == cat;
                 return ListTile(
                   leading: CircleAvatar(
-                    backgroundColor: cat['color'].withOpacity(0.1),
-                    child: Icon(cat['icon'], color: cat['color']),
+                    backgroundColor: (cat['color'] as Color).withOpacity(0.15),
+                    child: Icon(cat['icon'] as IconData, color: cat['color'] as Color),
                   ),
-                  title: Text(cat['name'], style: TextStyle(fontWeight: isSelected ? FontWeight.bold : FontWeight.normal)),
+                  title: Text(
+                    cat['name'] as String,
+                    style: TextStyle(fontWeight: isSelected ? FontWeight.bold : FontWeight.normal, color: textColor),
+                  ),
                   trailing: isSelected ? const Icon(Icons.check_circle, color: AppTheme.primaryColor) : null,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                   onTap: () {
@@ -306,8 +334,7 @@ class _ManualFoodLogScreenState extends State<ManualFoodLogScreen> {
                   },
                 );
               }),
-              // Add a bottom safe area to ensure it clears iOS home indicators and edge gestures
-              SafeArea(child: const SizedBox(height: 8)),
+              const SafeArea(child: SizedBox(height: 8)),
             ],
           ),
         );
@@ -316,14 +343,17 @@ class _ManualFoodLogScreenState extends State<ManualFoodLogScreen> {
   }
 
   Widget _buildCard({required Widget child}) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardBg = isDark ? Colors.grey[850] : Colors.white;
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: cardBg,
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: Colors.grey.shade200),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 10, offset: const Offset(0, 4))],
+        border: Border.all(color: isDark ? Colors.grey[800]! : Colors.grey.shade200),
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(isDark ? 0.2 : 0.03), blurRadius: 10, offset: const Offset(0, 4))],
       ),
       child: child,
     );
@@ -331,13 +361,22 @@ class _ManualFoodLogScreenState extends State<ManualFoodLogScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final scaffoldBg = isDark ? const Color(0xFF121212) : const Color(0xFFF9FFF9);
+    final textColor = isDark ? Colors.white : Colors.black87;
+    final subtitleColor = isDark ? Colors.grey[400] : Colors.black54;
+
     return Scaffold(
-      backgroundColor: const Color(0xFFF9FFF9),
+      backgroundColor: scaffoldBg,
       appBar: AppBar(
-        title: const Text('Manual Entry', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: Text(
+          'Manual Entry',
+          style: TextStyle(fontWeight: FontWeight.bold, color: textColor),
+        ),
         centerTitle: true,
         backgroundColor: Colors.transparent,
         elevation: 0,
+        iconTheme: IconThemeData(color: textColor),
       ),
       body: SafeArea(
         bottom: false,
@@ -348,20 +387,70 @@ class _ManualFoodLogScreenState extends State<ManualFoodLogScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
+                Text(
                   "Log Your Meal",
-                  style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900, color: Colors.black87),
+                  style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900, color: textColor),
                 ),
                 const SizedBox(height: 8),
-                const Text("Fill in the details below to accurately track your carbon footprint.", style: TextStyle(color: Colors.black54, fontSize: 14)),
+                Text("Fill in the details below to accurately track your carbon footprint.", style: TextStyle(color: subtitleColor, fontSize: 14)),
                 const SizedBox(height: 32),
 
-                // 1. MEAL CATEGORY CARD
+                // 1. FOOD NAME CARD
                 _buildCard(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text("What did you eat?", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                      Text(
+                        "Food Name",
+                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: textColor),
+                      ),
+                      const SizedBox(height: 16),
+                      TextFormField(
+                        controller: _foodNameController,
+                        textCapitalization: TextCapitalization.words,
+                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: textColor),
+                        decoration: InputDecoration(
+                          hintText: "e.g., Spinach and Cheese Pizza",
+                          hintStyle: TextStyle(color: isDark ? Colors.grey[600] : Colors.grey.shade400, fontWeight: FontWeight.normal),
+                          filled: true,
+                          fillColor: isDark ? Colors.grey[900] : Colors.grey.shade50,
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(16),
+                            borderSide: BorderSide(color: isDark ? Colors.grey[800]! : Colors.grey.shade300),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(16),
+                            borderSide: BorderSide(color: isDark ? Colors.grey[800]! : Colors.grey.shade300),
+                          ),
+                          focusedBorder: const OutlineInputBorder(
+                            borderRadius: BorderRadius.all(Radius.circular(16)),
+                            borderSide: BorderSide(color: AppTheme.primaryColor, width: 2),
+                          ),
+                        ),
+                        validator: (value) {
+                          if (value == null || value.trim().isEmpty) {
+                            return 'Please enter the food name';
+                          }
+                          if (value.trim().length < 2) {
+                            return 'Food name must be at least 2 characters';
+                          }
+                          return null;
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 24),
+
+                // 2. MEAL CATEGORY CARD
+                _buildCard(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        "What type of meal is it?",
+                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: textColor),
+                      ),
                       const SizedBox(height: 16),
                       InkWell(
                         onTap: _showCategoryBottomSheet,
@@ -369,9 +458,9 @@ class _ManualFoodLogScreenState extends State<ManualFoodLogScreen> {
                         child: Container(
                           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                           decoration: BoxDecoration(
-                            color: Colors.grey.shade50,
+                            color: isDark ? Colors.grey[900] : Colors.grey.shade50,
                             borderRadius: BorderRadius.circular(16),
-                            border: Border.all(color: _selectedCategory == null ? Colors.grey.shade300 : AppTheme.primaryColor),
+                            border: Border.all(color: _selectedCategory == null ? (isDark ? Colors.grey[800]! : Colors.grey.shade300) : AppTheme.primaryColor),
                           ),
                           child: Row(
                             children: [
@@ -382,7 +471,7 @@ class _ManualFoodLogScreenState extends State<ManualFoodLogScreen> {
                                   _selectedCategory == null ? "Tap to select meal type" : _selectedCategory!['name'],
                                   style: TextStyle(
                                     fontSize: 15,
-                                    color: _selectedCategory == null ? Colors.grey.shade600 : Colors.black87,
+                                    color: _selectedCategory == null ? (isDark ? Colors.grey[400] : Colors.grey.shade600) : textColor,
                                     fontWeight: _selectedCategory == null ? FontWeight.normal : FontWeight.w600,
                                   ),
                                 ),
@@ -397,12 +486,15 @@ class _ManualFoodLogScreenState extends State<ManualFoodLogScreen> {
                 ),
                 const SizedBox(height: 24),
 
-                // 2. PORTION SIZE CARD
+                // 3. PORTION SIZE CARD
                 _buildCard(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text("Portion Size", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                      Text(
+                        "Portion Size",
+                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: textColor),
+                      ),
                       const SizedBox(height: 16),
 
                       // Quick Selectors
@@ -412,20 +504,21 @@ class _ManualFoodLogScreenState extends State<ManualFoodLogScreen> {
                       TextFormField(
                         controller: _weightController,
                         keyboardType: TextInputType.number,
-                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: textColor),
                         decoration: InputDecoration(
                           labelText: "Or enter custom portion",
+                          labelStyle: TextStyle(color: isDark ? Colors.grey[400] : Colors.black54),
                           suffixText: "grams",
-                          suffixStyle: const TextStyle(fontWeight: FontWeight.bold, color: Colors.black54),
+                          suffixStyle: TextStyle(fontWeight: FontWeight.bold, color: isDark ? Colors.grey[400] : Colors.black54),
                           filled: true,
-                          fillColor: Colors.grey.shade50,
+                          fillColor: isDark ? Colors.grey[900] : Colors.grey.shade50,
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(16),
-                            borderSide: BorderSide(color: Colors.grey.shade300),
+                            borderSide: BorderSide(color: isDark ? Colors.grey[800]! : Colors.grey.shade300),
                           ),
                           enabledBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(16),
-                            borderSide: BorderSide(color: Colors.grey.shade300),
+                            borderSide: BorderSide(color: isDark ? Colors.grey[800]! : Colors.grey.shade300),
                           ),
                           focusedBorder: const OutlineInputBorder(
                             borderRadius: BorderRadius.all(Radius.circular(16)),
@@ -446,39 +539,43 @@ class _ManualFoodLogScreenState extends State<ManualFoodLogScreen> {
                 ),
                 const SizedBox(height: 24),
 
-                // 3. INGREDIENTS CARD
+                // 4. INGREDIENTS CARD
                 _buildCard(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Row(
+                      Row(
                         children: [
-                          Icon(Icons.kitchen_rounded, size: 20, color: AppTheme.primaryColor),
-                          SizedBox(width: 8),
-                          Text("Main Ingredients", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                          Icon(Icons.kitchen_rounded, size: 20, color: isDark ? Colors.white : AppTheme.primaryColor),
+                          const SizedBox(width: 8),
+                          Text(
+                            "Main Ingredients",
+                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: textColor),
+                          ),
                         ],
                       ),
                       const SizedBox(height: 4),
-                      const Text("Optional. Helps CarbonSense tailor your insights.", style: TextStyle(fontSize: 12, color: Colors.grey)),
+                      Text("Optional. Helps CarbonSense tailor your insights.", style: TextStyle(fontSize: 12, color: isDark ? Colors.grey[400] : Colors.grey)),
                       const SizedBox(height: 16),
                       Row(
                         children: [
                           Expanded(
                             child: TextFormField(
                               controller: _ingredientController,
+                              style: TextStyle(color: textColor),
                               decoration: InputDecoration(
-                                hintText: "e.g., pork belly",
-                                hintStyle: TextStyle(color: Colors.grey.shade400),
+                                hintText: "e.g., spinach",
+                                hintStyle: TextStyle(color: isDark ? Colors.grey[600] : Colors.grey.shade400),
                                 filled: true,
-                                fillColor: Colors.grey.shade50,
+                                fillColor: isDark ? Colors.grey[900] : Colors.grey.shade50,
                                 contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                                 border: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(12),
-                                  borderSide: BorderSide(color: Colors.grey.shade300),
+                                  borderSide: BorderSide(color: isDark ? Colors.grey[800]! : Colors.grey.shade300),
                                 ),
                                 enabledBorder: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(12),
-                                  borderSide: BorderSide(color: Colors.grey.shade300),
+                                  borderSide: BorderSide(color: isDark ? Colors.grey[800]! : Colors.grey.shade300),
                                 ),
                               ),
                               onFieldSubmitted: (_) => _addIngredient(),
@@ -504,10 +601,13 @@ class _ManualFoodLogScreenState extends State<ManualFoodLogScreen> {
                           runSpacing: 8,
                           children: _ingredients.map((item) {
                             return InputChip(
-                              label: Text(item, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
-                              deleteIcon: const Icon(Icons.cancel, size: 18, color: Colors.black54),
+                              label: Text(
+                                item,
+                                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: textColor),
+                              ),
+                              deleteIcon: Icon(Icons.cancel, size: 18, color: isDark ? Colors.grey[400] : Colors.black54),
                               onDeleted: () => _removeIngredient(item),
-                              backgroundColor: AppTheme.primaryColor.withOpacity(0.1),
+                              backgroundColor: isDark ? AppTheme.primaryColor.withOpacity(0.25) : AppTheme.primaryColor.withOpacity(0.1),
                               side: BorderSide.none,
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                             );
@@ -551,26 +651,28 @@ class _ManualFoodLogScreenState extends State<ManualFoodLogScreen> {
 
   // Helper widget for weight presets
   Widget _buildWeightChip(String label, int weight) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return InkWell(
       onTap: () => _setPresetWeight(weight),
       borderRadius: BorderRadius.circular(12),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         decoration: BoxDecoration(
-          color: Colors.grey.shade100,
+          color: isDark ? Colors.grey[800] : Colors.grey.shade100,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.grey.shade300),
+          border: Border.all(color: isDark ? Colors.grey[700]! : Colors.grey.shade300),
         ),
         child: Column(
           children: [
             Text(
               label,
-              style: const TextStyle(fontSize: 12, color: Colors.black54, fontWeight: FontWeight.w500),
+              style: TextStyle(fontSize: 12, color: isDark ? Colors.grey[400] : Colors.black54, fontWeight: FontWeight.w500),
             ),
             const SizedBox(height: 2),
             Text(
               "${weight}g",
-              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.black87),
+              style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: isDark ? Colors.white : Colors.black87),
             ),
           ],
         ),
@@ -580,6 +682,7 @@ class _ManualFoodLogScreenState extends State<ManualFoodLogScreen> {
 
   @override
   void dispose() {
+    _foodNameController.dispose();
     _weightController.dispose();
     _ingredientController.dispose();
     super.dispose();

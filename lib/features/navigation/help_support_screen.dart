@@ -7,7 +7,6 @@ class HelpSupportScreen extends StatelessWidget {
 
   // Function to open the website
   Future<void> _launchWebsite(BuildContext context) async {
-    // Replace this with your actual Vercel/Firebase web hosting link later!
     final Uri url = Uri.parse('https://carbon-sense-web.vercel.app/');
 
     try {
@@ -23,17 +22,23 @@ class HelpSupportScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final scaffoldBg = isDark ? const Color(0xFF121212) : const Color(0xFFF9FFF9);
+    final textColor = isDark ? Colors.white : Colors.black87;
+    final subtitleColor = isDark ? Colors.grey[400] : Colors.grey.shade600;
+    final cardBg = isDark ? Colors.grey[850] : Colors.white;
+
     return Scaffold(
-      backgroundColor: const Color(0xFFF9FFF9),
+      backgroundColor: scaffoldBg,
       appBar: AppBar(
-        title: const Text(
+        title: Text(
           'Help & Support',
-          style: TextStyle(fontWeight: FontWeight.w900, color: Colors.black),
+          style: TextStyle(fontWeight: FontWeight.w900, color: isDark ? Colors.white : Colors.black),
         ),
         centerTitle: false,
         backgroundColor: Colors.transparent,
         elevation: 0,
-        iconTheme: const IconThemeData(color: Colors.black87),
+        iconTheme: IconThemeData(color: isDark ? Colors.white : Colors.black87),
       ),
       body: SingleChildScrollView(
         physics: const BouncingScrollPhysics(),
@@ -41,12 +46,12 @@ class HelpSupportScreen extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
+            Text(
               "How can we help?",
-              style: TextStyle(fontSize: 28, fontWeight: FontWeight.w900, letterSpacing: -0.5, color: Colors.black87),
+              style: TextStyle(fontSize: 28, fontWeight: FontWeight.w900, letterSpacing: -0.5, color: textColor),
             ),
             const SizedBox(height: 8),
-            Text("Find answers to common questions or access the full CarbonSense ecosystem.", style: TextStyle(fontSize: 15, color: Colors.grey.shade600, height: 1.5)),
+            Text("Find answers to common questions or access the full CarbonSense ecosystem.", style: TextStyle(fontSize: 15, color: subtitleColor, height: 1.5)),
             const SizedBox(height: 32),
 
             // --- 1. WEB PORTAL REDIRECT CARD ---
@@ -58,7 +63,7 @@ class HelpSupportScreen extends StatelessWidget {
                 decoration: BoxDecoration(
                   gradient: LinearGradient(colors: [AppTheme.primaryColor, AppTheme.primaryColor.withOpacity(0.8)], begin: Alignment.topLeft, end: Alignment.bottomRight),
                   borderRadius: BorderRadius.circular(24),
-                  boxShadow: [BoxShadow(color: AppTheme.primaryColor.withOpacity(0.3), blurRadius: 20, offset: const Offset(0, 10))],
+                  boxShadow: [BoxShadow(color: AppTheme.primaryColor.withOpacity(isDark ? 0.15 : 0.3), blurRadius: 20, offset: const Offset(0, 10))],
                 ),
                 child: const Row(
                   children: [
@@ -85,47 +90,53 @@ class HelpSupportScreen extends StatelessWidget {
             const SizedBox(height: 32),
 
             // --- 2. FAQ SECTION ---
-            const Text(
+            Text(
               "Frequently Asked Questions",
-              style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18, color: Colors.black87),
+              style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18, color: textColor),
             ),
             const SizedBox(height: 16),
             _buildFaqCard(
+              context,
               "How does the AI Eco-Coach work?",
               "Our Gemini-powered AI analyzes your daily and monthly logged activities. It generates personalized insights and actionable tips to help you reduce your specific carbon footprint.",
             ),
             _buildFaqCard(
+              context,
               "Why can't I edit my Diet or Commute badges?",
               "These badges are locked because they are generated dynamically. As you log your daily meals and travel, the system automatically calculates and updates your lifestyle profile to reflect your actual habits.",
             ),
             _buildFaqCard(
+              context,
               "How is my net footprint calculated?",
               "Your net footprint is your Total Emissions (from logged activities like driving or electricity use) minus your Total Savings (from completing smart eco-tasks).",
             ),
             const SizedBox(height: 32),
 
             // --- 3. CONTACT SUPPORT ---
-            const Text(
+            Text(
               "Still need help?",
-              style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18, color: Colors.black87),
+              style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18, color: textColor),
             ),
             const SizedBox(height: 16),
             Container(
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: cardBg,
                 borderRadius: BorderRadius.circular(24),
-                border: Border.all(color: AppTheme.primaryColor.withOpacity(0.1)),
-                boxShadow: [BoxShadow(color: AppTheme.primaryColor.withOpacity(0.03), blurRadius: 10, offset: const Offset(0, 4))],
+                border: Border.all(color: AppTheme.primaryColor.withOpacity(0.15)),
+                boxShadow: [BoxShadow(color: Colors.black.withOpacity(isDark ? 0.2 : 0.03), blurRadius: 10, offset: const Offset(0, 4))],
               ),
               child: ListTile(
                 contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
                 leading: Container(
                   padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(color: AppTheme.primaryColor.withOpacity(0.1), borderRadius: BorderRadius.circular(12)),
+                  decoration: BoxDecoration(color: AppTheme.primaryColor.withOpacity(0.12), borderRadius: BorderRadius.circular(12)),
                   child: const Icon(Icons.email_outlined, color: AppTheme.primaryColor),
                 ),
-                title: const Text("Email Support", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-                subtitle: const Text("ph.carbonsense@gmail.com"),
+                title: Text(
+                  "Email Support",
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: textColor),
+                ),
+                subtitle: Text("ph.carbonsense@gmail.com", style: TextStyle(color: subtitleColor)),
                 onTap: () async {
                   final Uri emailUri = Uri(scheme: 'mailto', path: 'ph.carbonsense@gmail.com', queryParameters: {'subject': 'Support Request - CarbonSense'});
 
@@ -140,21 +151,22 @@ class HelpSupportScreen extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 48),
+
             // --- 4. CREDITS FOOTER ---
             Center(
               child: Column(
                 children: [
-                  const Icon(Icons.eco, color: Colors.grey, size: 24),
+                  Icon(Icons.eco, color: isDark ? Colors.grey[600] : Colors.grey, size: 24),
                   const SizedBox(height: 8),
                   Text(
                     "CarbonSense v1.0.0",
-                    style: TextStyle(color: Colors.grey.shade600, fontWeight: FontWeight.bold),
+                    style: TextStyle(color: subtitleColor, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 4),
                   Text(
                     "A capstone initiative developed at\nNational University Dasmariñas.",
                     textAlign: TextAlign.center,
-                    style: TextStyle(color: Colors.grey.shade500, fontSize: 12, height: 1.5),
+                    style: TextStyle(color: isDark ? Colors.grey[500] : Colors.grey.shade500, fontSize: 12, height: 1.5),
                   ),
                 ],
               ),
@@ -166,28 +178,33 @@ class HelpSupportScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildFaqCard(String question, String answer) {
+  Widget _buildFaqCard(BuildContext context, String question, String answer) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardBg = isDark ? Colors.grey[850] : Colors.white;
+    final textColor = isDark ? Colors.white : Colors.black87;
+    final answerColor = isDark ? Colors.grey[400] : Colors.grey.shade600;
+
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: cardBg,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppTheme.primaryColor.withOpacity(0.1)),
-        boxShadow: [BoxShadow(color: AppTheme.primaryColor.withOpacity(0.02), blurRadius: 8, offset: const Offset(0, 4))],
+        border: Border.all(color: AppTheme.primaryColor.withOpacity(0.15)),
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(isDark ? 0.2 : 0.02), blurRadius: 8, offset: const Offset(0, 4))],
       ),
       child: Theme(
-        data: ThemeData(dividerColor: Colors.transparent), // Removes the ugly default lines
+        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
         child: ExpansionTile(
           iconColor: AppTheme.primaryColor,
-          collapsedIconColor: Colors.grey,
+          collapsedIconColor: isDark ? Colors.grey[400] : Colors.grey,
           title: Text(
             question,
-            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: Colors.black87),
+            style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: textColor),
           ),
           children: [
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
-              child: Text(answer, style: TextStyle(color: Colors.grey.shade600, height: 1.5, fontSize: 13)),
+              child: Text(answer, style: TextStyle(color: answerColor, height: 1.5, fontSize: 13)),
             ),
           ],
         ),
