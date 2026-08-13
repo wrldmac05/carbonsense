@@ -491,92 +491,104 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
                   },
                   child: SingleChildScrollView(
                     physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Padding(padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 8.0), child: _buildHeader()),
-                        const SizedBox(height: 16),
+                    child: Center(
+                      // 🌟 RESPONSIVE WRAPPER: Constrains maximum width for web/tablets
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 600),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Padding(padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 8.0), child: _buildHeader()),
+                            const SizedBox(height: 12),
 
-                        // 1. GENERAL AI INSIGHT
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 10),
-                          child: generalAiAsync.when(
-                            loading: () => Container(
-                              height: 120,
-                              width: double.infinity,
-                              padding: const EdgeInsets.all(20),
-                              decoration: BoxDecoration(color: isDark ? Colors.grey[850] : Colors.grey.shade100, borderRadius: BorderRadius.circular(24)),
-                              child: const Center(child: CircularProgressIndicator(color: AppTheme.primaryColor)),
+                            // 1. GENERAL AI INSIGHT
+                            Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8),
+                              child: generalAiAsync.when(
+                                loading: () => Container(
+                                  height: 120,
+                                  width: double.infinity,
+                                  padding: const EdgeInsets.all(20),
+                                  decoration: BoxDecoration(color: isDark ? Colors.grey[850] : Colors.grey.shade100, borderRadius: BorderRadius.circular(24)),
+                                  child: const Center(child: CircularProgressIndicator(color: AppTheme.primaryColor)),
+                                ),
+                                error: (err, _) => const SizedBox.shrink(),
+                                data: (text) => _buildAiCard("GENERAL ECO-COACH", text, isGeneral: true),
+                              ),
                             ),
-                            error: (err, _) => const SizedBox.shrink(),
-                            data: (text) => _buildAiCard("GENERAL ECO-COACH", text, isGeneral: true),
-                          ),
-                        ),
 
-                        // 2. NEW: DETAILED LIFESTYLE PROFILE & IMPACT SECTION
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 10),
-                          child: lifestyleAsync.when(loading: () => const SizedBox.shrink(), error: (_, __) => const SizedBox.shrink(), data: (lifestyle) => _buildDetailedLifestyleSection(lifestyle)),
-                        ),
-
-                        // 3. YEARLY OVERVIEW GRAPH
-                        Padding(padding: const EdgeInsets.all(20.0), child: _buildYearlyChartCard(yearlyData, totalYearlyImpact)),
-
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 8.0),
-                          child: Text(
-                            "Monthly Deep Dive",
-                            style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18, color: isDark ? Colors.white : Colors.black87),
-                          ),
-                        ),
-
-                        // 4. MONTH SELECTOR
-                        _buildMonthSelector(),
-
-                        const SizedBox(height: 16),
-
-                        // 5. MONTHLY SUMMARY & QUICK METRICS
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 24.0),
-                          child: Column(children: [_buildMonthSummaryCard(selectedMonthImpact), const SizedBox(height: 16), _buildQuickMetricsGrid(selectedMonthImpact, monthLogs, categoryTotals)]),
-                        ),
-
-                        const SizedBox(height: 20),
-
-                        // 6. CATEGORY BREAKDOWN PIE CHART
-                        Padding(padding: const EdgeInsets.symmetric(horizontal: 24.0), child: _buildCategoryBreakdownCard(categoryTotals, selectedMonthImpact)),
-
-                        const SizedBox(height: 20),
-
-                        // 7. MONTHLY AI INSIGHT CARD
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 24.0),
-                          child: monthlyAiAsync.when(
-                            loading: () => Container(
-                              height: 120,
-                              width: double.infinity,
-                              padding: const EdgeInsets.all(20),
-                              decoration: BoxDecoration(color: isDark ? Colors.grey[850] : Colors.grey.shade100, borderRadius: BorderRadius.circular(24)),
-                              child: const Center(child: CircularProgressIndicator(color: AppTheme.primaryColor)),
+                            // 2. DETAILED LIFESTYLE PROFILE & IMPACT SECTION
+                            Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8),
+                              child: lifestyleAsync.when(
+                                loading: () => const SizedBox.shrink(),
+                                error: (_, __) => const SizedBox.shrink(),
+                                data: (lifestyle) => _buildDetailedLifestyleSection(lifestyle),
+                              ),
                             ),
-                            error: (err, _) => const SizedBox.shrink(),
-                            data: (text) {
-                              if (_selectedMonthIndex == DateTime.now().month - 1) {
-                                text = "Activity tracking in progress... Your full AI summary will be generated on the 1st of next month!";
-                              }
 
-                              return _buildAiCard("${DateFormat('MMMM').format(DateTime(DateTime.now().year, _selectedMonthIndex + 1)).toUpperCase()} INSIGHT", text, isGeneral: false);
-                            },
-                          ),
+                            // 3. YEARLY OVERVIEW GRAPH
+                            Padding(padding: const EdgeInsets.all(16.0), child: _buildYearlyChartCard(yearlyData, totalYearlyImpact)),
+
+                            Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 8.0),
+                              child: Text(
+                                "Monthly Deep Dive",
+                                style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18, color: isDark ? Colors.white : Colors.black87),
+                              ),
+                            ),
+
+                            // 4. MONTH SELECTOR
+                            _buildMonthSelector(),
+
+                            const SizedBox(height: 16),
+
+                            // 5. MONTHLY SUMMARY & QUICK METRICS
+                            Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                              child: Column(
+                                children: [_buildMonthSummaryCard(selectedMonthImpact), const SizedBox(height: 12), _buildQuickMetricsGrid(selectedMonthImpact, monthLogs, categoryTotals)],
+                              ),
+                            ),
+
+                            const SizedBox(height: 16),
+
+                            // 6. CATEGORY BREAKDOWN PIE CHART
+                            Padding(padding: const EdgeInsets.symmetric(horizontal: 16.0), child: _buildCategoryBreakdownCard(categoryTotals, selectedMonthImpact)),
+
+                            const SizedBox(height: 16),
+
+                            // 7. MONTHLY AI INSIGHT CARD
+                            Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                              child: monthlyAiAsync.when(
+                                loading: () => Container(
+                                  height: 120,
+                                  width: double.infinity,
+                                  padding: const EdgeInsets.all(20),
+                                  decoration: BoxDecoration(color: isDark ? Colors.grey[850] : Colors.grey.shade100, borderRadius: BorderRadius.circular(24)),
+                                  child: const Center(child: CircularProgressIndicator(color: AppTheme.primaryColor)),
+                                ),
+                                error: (err, _) => const SizedBox.shrink(),
+                                data: (text) {
+                                  if (_selectedMonthIndex == DateTime.now().month - 1) {
+                                    text = "Activity tracking in progress... Your full AI summary will be generated on the 1st of next month!";
+                                  }
+
+                                  return _buildAiCard("${DateFormat('MMMM').format(DateTime(DateTime.now().year, _selectedMonthIndex + 1)).toUpperCase()} INSIGHT", text, isGeneral: false);
+                                },
+                              ),
+                            ),
+
+                            const SizedBox(height: 24),
+
+                            // 8. MONTHLY ACTIVITY LOGS LIST
+                            Padding(padding: const EdgeInsets.symmetric(horizontal: 16.0), child: _buildMonthlyActivitySection(monthLogs)),
+
+                            const SizedBox(height: 120),
+                          ],
                         ),
-
-                        const SizedBox(height: 28),
-
-                        // 8. MONTHLY ACTIVITY LOGS LIST
-                        Padding(padding: const EdgeInsets.symmetric(horizontal: 24.0), child: _buildMonthlyActivitySection(monthLogs)),
-
-                        const SizedBox(height: 120),
-                      ],
+                      ),
                     ),
                   ),
                 );
@@ -588,7 +600,7 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
     );
   }
 
-  // --- NEW: LIFESTYLE PROFILE DETAILED CARD ---
+  // --- 🌟 RESPONSIVE LIFESTYLE PROFILE CARD (FIXES OVERFLOW ON IPHONE 12 MINI) ---
 
   Widget _buildDetailedLifestyleSection(Map<String, dynamic>? lifestyle) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -600,17 +612,16 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
     final commuteType = lifestyle?['commute_type'] ?? 'Analyzing...';
 
     return Container(
-      padding: const EdgeInsets.all(20), // Responsive padding
+      padding: const EdgeInsets.all(16), // Reduced padding slightly for small screens
       decoration: BoxDecoration(
         color: cardBg,
-        borderRadius: BorderRadius.circular(28),
+        borderRadius: BorderRadius.circular(24),
         border: Border.all(color: AppTheme.primaryColor.withOpacity(0.15)),
         boxShadow: [BoxShadow(color: AppTheme.primaryColor.withOpacity(isDark ? 0.1 : 0.05), blurRadius: 20, offset: const Offset(0, 8))],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // 🌟 Header Row (Wrapped Title in Expanded to prevent right overflow)
           Row(
             children: [
               Container(
@@ -622,39 +633,51 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
               Expanded(
                 child: Text(
                   "Lifestyle & Habit Profile",
-                  style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: textColor),
+                  style: TextStyle(fontWeight: FontWeight.w900, fontSize: 15, color: textColor),
                   maxLines: 1,
-                  overflow: TextOverflow.ellipsis, // Cleanly handles ultra-small screens
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
-              const SizedBox(width: 8),
             ],
           ),
-          const SizedBox(height: 18),
-
-          // Habit Badge Row
-          Row(
-            children: [
-              Expanded(child: _buildHabitBadge("Diet Habit", dietType, _getDietIcon(dietType), Colors.red.shade600)),
-              const SizedBox(width: 10),
-              Expanded(child: _buildHabitBadge("Commute Habit", commuteType, _getCommuteIcon(commuteType), Colors.blue.shade600)),
-            ],
-          ),
-
-          const SizedBox(height: 18),
-          Divider(color: isDark ? Colors.grey[800] : Colors.grey.shade200, height: 1),
           const SizedBox(height: 14),
 
-          // 🌟 Abstracted Explanation (Conveys algorithmic detection without exposing internal math)
+          // 🌟 RESPONSIVE BADGE ROW (ADAPTS ON ULTRA-COMPACT SCREENS)
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final isSmall = constraints.maxWidth < 340;
+              if (isSmall) {
+                return Column(
+                  children: [
+                    _buildHabitBadge("Diet Habit", dietType, _getDietIcon(dietType), Colors.red.shade600),
+                    const SizedBox(height: 8),
+                    _buildHabitBadge("Commute Habit", commuteType, _getCommuteIcon(commuteType), Colors.blue.shade600),
+                  ],
+                );
+              }
+              return Row(
+                children: [
+                  Expanded(child: _buildHabitBadge("Diet Habit", dietType, _getDietIcon(dietType), Colors.red.shade600)),
+                  const SizedBox(width: 8),
+                  Expanded(child: _buildHabitBadge("Commute Habit", commuteType, _getCommuteIcon(commuteType), Colors.blue.shade600)),
+                ],
+              );
+            },
+          ),
+
+          const SizedBox(height: 14),
+          Divider(color: isDark ? Colors.grey[800] : Colors.grey.shade200, height: 1),
+          const SizedBox(height: 12),
+
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(Icons.info_outline_rounded, size: 16, color: subtitleColor),
+              Icon(Icons.info_outline_rounded, size: 15, color: subtitleColor),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
                   "How this works: Your profile dynamically adapts based on smart analysis of your recent activity patterns. As your daily habits shift, your lifestyle tags update automatically.",
-                  style: TextStyle(fontSize: 12, height: 1.4, color: subtitleColor, fontWeight: FontWeight.w500),
+                  style: TextStyle(fontSize: 11.5, height: 1.35, color: subtitleColor, fontWeight: FontWeight.w500),
                 ),
               ),
             ],
@@ -668,7 +691,7 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
       decoration: BoxDecoration(
         color: color.withOpacity(isDark ? 0.15 : 0.08),
         borderRadius: BorderRadius.circular(16),
@@ -679,18 +702,23 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
         children: [
           Row(
             children: [
-              Icon(icon, size: 18, color: color),
-              const SizedBox(width: 6),
-              Text(
-                label,
-                style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: isDark ? Colors.grey[400] : Colors.grey.shade700),
+              Icon(icon, size: 16, color: color),
+              const SizedBox(width: 4),
+              // 🌟 FLEXIBLE TEXT PREVENTS RIGHT OVERFLOW
+              Expanded(
+                child: Text(
+                  label,
+                  style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: isDark ? Colors.grey[400] : Colors.grey.shade700),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 6),
           Text(
             value,
-            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w900, color: isDark ? Colors.white : Colors.black87, height: 1.2),
+            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w900, color: isDark ? Colors.white : Colors.black87, height: 1.2),
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
           ),
@@ -699,7 +727,7 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
     );
   }
 
-  // --- 🌟 ANIMATED AI CARD IMPLEMENTATION ---
+  // --- 🌟 ANIMATED AI COACH CARD ---
 
   Widget _buildAiCard(String title, String text, {required bool isGeneral}) {
     return AnimatedAiCard(title: title, text: text, isGeneral: isGeneral);
@@ -711,25 +739,28 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
     final textColor = isDark ? Colors.white : Colors.black87;
 
     return Container(
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: cardBg,
-        borderRadius: BorderRadius.circular(32),
-        boxShadow: [BoxShadow(color: AppTheme.primaryColor.withOpacity(isDark ? 0.15 : 0.08), blurRadius: 30, offset: const Offset(0, 15))],
+        borderRadius: BorderRadius.circular(28),
+        boxShadow: [BoxShadow(color: AppTheme.primaryColor.withOpacity(isDark ? 0.15 : 0.08), blurRadius: 25, offset: const Offset(0, 12))],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             "Year-to-Date Impact",
-            style: TextStyle(color: isDark ? Colors.grey[400] : Colors.grey, fontWeight: FontWeight.bold),
+            style: TextStyle(color: isDark ? Colors.grey[400] : Colors.grey, fontWeight: FontWeight.bold, fontSize: 13),
           ),
           const SizedBox(height: 4),
-          Text(
-            "${total.toStringAsFixed(1)} kg CO₂e",
-            style: TextStyle(fontSize: 32, fontWeight: FontWeight.w900, letterSpacing: -1, color: textColor),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(
+              "${total.toStringAsFixed(1)} kg CO₂e",
+              style: TextStyle(fontSize: 30, fontWeight: FontWeight.w900, letterSpacing: -1, color: textColor),
+            ),
           ),
-          const SizedBox(height: 32),
+          const SizedBox(height: 24),
           _buildYearlyGraph(data),
         ],
       ),
@@ -741,7 +772,7 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
     final maxY = data.isEmpty ? 100.0 : (data.reduce((a, b) => a > b ? a : b) * 1.2);
 
     return SizedBox(
-      height: 200,
+      height: 180,
       child: LineChart(
         LineChartData(
           minX: 0,
@@ -754,14 +785,14 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
             leftTitles: AxisTitles(
               sideTitles: SideTitles(
                 showTitles: true,
-                reservedSize: 40,
+                reservedSize: 34,
                 getTitlesWidget: (val, _) {
                   return Padding(
-                    padding: const EdgeInsets.only(right: 8.0),
+                    padding: const EdgeInsets.only(right: 6.0),
                     child: Text(
                       val.toInt().toString(),
                       textAlign: TextAlign.right,
-                      style: TextStyle(color: isDark ? Colors.grey[500] : Colors.grey, fontSize: 11, fontWeight: FontWeight.bold),
+                      style: TextStyle(color: isDark ? Colors.grey[500] : Colors.grey, fontSize: 10, fontWeight: FontWeight.bold),
                     ),
                   );
                 },
@@ -771,7 +802,7 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
               sideTitles: SideTitles(
                 showTitles: true,
                 interval: 1,
-                reservedSize: 28,
+                reservedSize: 24,
                 getTitlesWidget: (val, _) {
                   final months = ["J", "F", "M", "A", "M", "J", "J", "A", "S", "O", "N", "D"];
                   int index = val.toInt();
@@ -781,10 +812,10 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
                   final selectedColor = isDark ? Colors.white : AppTheme.primaryColor;
 
                   return Padding(
-                    padding: const EdgeInsets.only(top: 8.0),
+                    padding: const EdgeInsets.only(top: 6.0),
                     child: Text(
                       months[index],
-                      style: TextStyle(color: isSelected ? selectedColor : (isDark ? Colors.grey[600] : Colors.grey), fontWeight: isSelected ? FontWeight.w900 : FontWeight.bold, fontSize: 12),
+                      style: TextStyle(color: isSelected ? selectedColor : (isDark ? Colors.grey[600] : Colors.grey), fontWeight: isSelected ? FontWeight.w900 : FontWeight.bold, fontSize: 11),
                     ),
                   );
                 },
@@ -816,7 +847,7 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
               spots: data.asMap().entries.map((e) => FlSpot(e.key.toDouble(), e.value)).toList(),
               isCurved: true,
               color: isDark ? Colors.white : AppTheme.primaryColor,
-              barWidth: 4,
+              barWidth: 3.5,
               dotData: const FlDotData(show: false),
               belowBarData: BarAreaData(
                 show: true,
@@ -838,11 +869,11 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
     final months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
     return SizedBox(
-      height: 52,
+      height: 48,
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
         clipBehavior: Clip.none,
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
         itemCount: 12,
         itemBuilder: (context, index) {
           bool isSelected = index == _selectedMonthIndex;
@@ -850,18 +881,18 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
             onTap: () => setState(() => _selectedMonthIndex = index),
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 200),
-              margin: const EdgeInsets.only(right: 10),
-              padding: const EdgeInsets.symmetric(horizontal: 20),
+              margin: const EdgeInsets.only(right: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 18),
               decoration: BoxDecoration(
                 color: isSelected ? AppTheme.primaryColor : (isDark ? Colors.grey[850] : Colors.grey.shade100),
-                borderRadius: BorderRadius.circular(24),
+                borderRadius: BorderRadius.circular(20),
                 border: Border.all(color: isSelected ? AppTheme.primaryColor : Colors.transparent),
-                boxShadow: isSelected ? [BoxShadow(color: AppTheme.primaryColor.withOpacity(0.3), blurRadius: 8, offset: const Offset(0, 4))] : [],
+                boxShadow: isSelected ? [BoxShadow(color: AppTheme.primaryColor.withOpacity(0.3), blurRadius: 6, offset: const Offset(0, 3))] : [],
               ),
               child: Center(
                 child: Text(
                   months[index],
-                  style: TextStyle(fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600, fontSize: 14, color: isSelected ? Colors.white : (isDark ? Colors.grey[400] : Colors.grey.shade600)),
+                  style: TextStyle(fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600, fontSize: 13, color: isSelected ? Colors.white : (isDark ? Colors.grey[400] : Colors.grey.shade600)),
                 ),
               ),
             ),
@@ -879,7 +910,7 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
     String monthName = DateFormat('MMMM').format(DateTime(DateTime.now().year, _selectedMonthIndex + 1));
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         color: cardBg,
         borderRadius: BorderRadius.circular(20),
@@ -889,36 +920,38 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                "$monthName Total Footprint",
-                style: TextStyle(color: isDark ? Colors.grey[400] : Colors.grey, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 4),
-              Row(
-                children: [
-                  Text(
-                    "${impact.toStringAsFixed(1)} kg",
-                    style: TextStyle(fontSize: 26, fontWeight: FontWeight.w900, color: textColor),
-                  ),
-                  if (impact > 0 && impact < 50) ...[
-                    const SizedBox(width: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(color: Colors.green.shade100, borderRadius: BorderRadius.circular(12)),
-                      child: const Text(
-                        "Great!",
-                        style: TextStyle(color: Colors.green, fontSize: 12, fontWeight: FontWeight.bold),
-                      ),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  "$monthName Total Footprint",
+                  style: TextStyle(color: isDark ? Colors.grey[400] : Colors.grey, fontWeight: FontWeight.bold, fontSize: 13),
+                ),
+                const SizedBox(height: 4),
+                Wrap(
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  spacing: 8,
+                  children: [
+                    Text(
+                      "${impact.toStringAsFixed(1)} kg",
+                      style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900, color: textColor),
                     ),
+                    if (impact > 0 && impact < 50)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(color: Colors.green.shade100, borderRadius: BorderRadius.circular(10)),
+                        child: const Text(
+                          "Great!",
+                          style: TextStyle(color: Colors.green, fontSize: 11, fontWeight: FontWeight.bold),
+                        ),
+                      ),
                   ],
-                ],
-              ),
-            ],
+                ),
+              ],
+            ),
           ),
-          Icon(Icons.calendar_month, color: isDark ? Colors.white : AppTheme.primaryColor, size: 32),
+          Icon(Icons.calendar_month, color: isDark ? Colors.white : AppTheme.primaryColor, size: 28),
         ],
       ),
     );
@@ -944,11 +977,11 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
         Expanded(
           child: _buildMetricTile(title: "Daily Avg", value: "${dailyAvg.toStringAsFixed(1)} kg", icon: Icons.speed, color: Colors.blue),
         ),
-        const SizedBox(width: 12),
+        const SizedBox(width: 8),
         Expanded(
           child: _buildMetricTile(title: "Logs Count", value: "${monthLogs.length}", icon: Icons.assignment_outlined, color: Colors.purple),
         ),
-        const SizedBox(width: 12),
+        const SizedBox(width: 8),
         Expanded(
           child: _buildMetricTile(title: "Top Source", value: topCategory, icon: _getIconForCategory(topCategory), color: _getColorForCategory(topCategory)),
         ),
@@ -962,25 +995,27 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
     final textColor = isDark ? Colors.white : Colors.black87;
 
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
       decoration: BoxDecoration(
         color: cardBg,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(color: isDark ? Colors.grey[800]! : Colors.grey.shade200),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, size: 20, color: color),
-          const SizedBox(height: 10),
+          Icon(icon, size: 18, color: color),
+          const SizedBox(height: 8),
           Text(
             title,
-            style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: isDark ? Colors.grey[400] : Colors.grey.shade600),
+            style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: isDark ? Colors.grey[400] : Colors.grey.shade600),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
           ),
           const SizedBox(height: 2),
           Text(
             value,
-            style: TextStyle(fontSize: 15, fontWeight: FontWeight.w900, color: textColor),
+            style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w900, color: textColor),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),
@@ -1004,18 +1039,18 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
             color: _getColorForCategory(category),
             value: amount,
             title: '${percentage.toStringAsFixed(0)}%',
-            radius: 40,
-            titleStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white),
+            radius: 36,
+            titleStyle: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white),
           ),
         );
       }
     });
 
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         color: cardBg,
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(22),
         border: Border.all(color: isDark ? Colors.grey[800]! : Colors.grey.shade200),
         boxShadow: [BoxShadow(color: Colors.black.withOpacity(isDark ? 0.2 : 0.02), blurRadius: 10, offset: const Offset(0, 4))],
       ),
@@ -1024,44 +1059,46 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
         children: [
           Text(
             "Category Share",
-            style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: textColor),
+            style: TextStyle(fontWeight: FontWeight.w900, fontSize: 15, color: textColor),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 14),
           if (sections.isEmpty)
             Padding(
-              padding: const EdgeInsets.symmetric(vertical: 24.0),
+              padding: const EdgeInsets.symmetric(vertical: 20.0),
               child: Center(
-                child: Text("No category data available for this month.", style: TextStyle(color: isDark ? Colors.grey[400] : Colors.grey, fontSize: 13)),
+                child: Text("No category data available for this month.", style: TextStyle(color: isDark ? Colors.grey[400] : Colors.grey, fontSize: 12)),
               ),
             )
           else
             Row(
               children: [
-                SizedBox(height: 130, width: 130, child: PieChart(PieChartData(sectionsSpace: 3, centerSpaceRadius: 28, sections: sections))),
-                const SizedBox(width: 20),
+                SizedBox(height: 110, width: 110, child: PieChart(PieChartData(sectionsSpace: 3, centerSpaceRadius: 24, sections: sections))),
+                const SizedBox(width: 16),
                 Expanded(
                   child: Column(
                     children: categoryTotals.entries.map((e) {
                       if (e.value == 0) return const SizedBox.shrink();
                       return Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 4.0),
+                        padding: const EdgeInsets.symmetric(vertical: 3.0),
                         child: Row(
                           children: [
                             Container(
-                              width: 10,
-                              height: 10,
+                              width: 8,
+                              height: 8,
                               decoration: BoxDecoration(color: _getColorForCategory(e.key), shape: BoxShape.circle),
                             ),
-                            const SizedBox(width: 8),
+                            const SizedBox(width: 6),
                             Expanded(
                               child: Text(
                                 e.key,
-                                style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: textColor),
+                                style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12, color: textColor),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
                               ),
                             ),
                             Text(
                               "${e.value.toStringAsFixed(1)} kg",
-                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: textColor),
+                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: textColor),
                             ),
                           ],
                         ),
@@ -1089,7 +1126,7 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
           children: [
             Text(
               "Logged Activities",
-              style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18, color: textColor),
+              style: TextStyle(fontWeight: FontWeight.w900, fontSize: 17, color: textColor),
             ),
             Text(
               "${monthLogs.length} items",
@@ -1097,20 +1134,20 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
             ),
           ],
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 10),
         monthLogs.isEmpty
             ? Container(
                 width: double.infinity,
-                padding: const EdgeInsets.all(24),
-                decoration: BoxDecoration(color: isDark ? Colors.grey[850] : Colors.grey.shade50, borderRadius: BorderRadius.circular(20)),
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(color: isDark ? Colors.grey[850] : Colors.grey.shade50, borderRadius: BorderRadius.circular(18)),
                 child: Center(
-                  child: Text("No activities logged for this month.", style: TextStyle(color: isDark ? Colors.grey[400] : Colors.grey, fontSize: 13)),
+                  child: Text("No activities logged for this month.", style: TextStyle(color: isDark ? Colors.grey[400] : Colors.grey, fontSize: 12)),
                 ),
               )
             : Container(
                 decoration: BoxDecoration(
                   color: cardBg,
-                  borderRadius: BorderRadius.circular(24),
+                  borderRadius: BorderRadius.circular(22),
                   border: Border.all(color: AppTheme.primaryColor.withOpacity(0.1)),
                   boxShadow: [BoxShadow(color: AppTheme.primaryColor.withOpacity(isDark ? 0.1 : 0.03), blurRadius: 10, offset: const Offset(0, 4))],
                 ),
@@ -1118,7 +1155,7 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
                   itemCount: monthLogs.length,
-                  separatorBuilder: (context, index) => Divider(height: 1, color: isDark ? Colors.grey[800] : Colors.grey.shade100, indent: 70),
+                  separatorBuilder: (context, index) => Divider(height: 1, color: isDark ? Colors.grey[800] : Colors.grey.shade100, indent: 64),
                   itemBuilder: (context, index) {
                     final log = monthLogs[index];
                     final factorData = log['emission_factors'] as Map<String, dynamic>?;
@@ -1135,29 +1172,29 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
                       child: InkWell(
                         onTap: () => _showLogDetails(log, factorData),
                         child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                           child: Row(
                             children: [
                               Container(
-                                padding: const EdgeInsets.all(10),
-                                decoration: BoxDecoration(color: _getColorForCategory(category).withOpacity(0.15), borderRadius: BorderRadius.circular(14)),
-                                child: Icon(_getIconForCategory(category), color: _getColorForCategory(category), size: 22),
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(color: _getColorForCategory(category).withOpacity(0.15), borderRadius: BorderRadius.circular(12)),
+                                child: Icon(_getIconForCategory(category), color: _getColorForCategory(category), size: 20),
                               ),
-                              const SizedBox(width: 14),
+                              const SizedBox(width: 12),
                               Expanded(
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
                                       activityName,
-                                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: textColor),
+                                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: textColor),
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
                                     ),
                                     const SizedBox(height: 2),
                                     Text(
                                       '$inputValue $unit',
-                                      style: TextStyle(color: isDark ? Colors.grey[400] : Colors.grey.shade500, fontSize: 12, fontWeight: FontWeight.w500),
+                                      style: TextStyle(color: isDark ? Colors.grey[400] : Colors.grey.shade500, fontSize: 11.5, fontWeight: FontWeight.w500),
                                     ),
                                   ],
                                 ),
@@ -1167,12 +1204,12 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
                                 children: [
                                   Text(
                                     '+$totalCo2',
-                                    style: TextStyle(fontWeight: FontWeight.w900, fontSize: 15, color: _getColorForCategory(category)),
+                                    style: TextStyle(fontWeight: FontWeight.w900, fontSize: 14, color: _getColorForCategory(category)),
                                   ),
                                   const SizedBox(height: 2),
                                   Text(
                                     'kg CO₂',
-                                    style: TextStyle(color: isDark ? Colors.grey[400] : Colors.grey.shade500, fontSize: 10, fontWeight: FontWeight.bold),
+                                    style: TextStyle(color: isDark ? Colors.grey[400] : Colors.grey.shade500, fontSize: 9.5, fontWeight: FontWeight.bold),
                                   ),
                                 ],
                               ),
@@ -1213,16 +1250,11 @@ class _AnimatedAiCardState extends State<AnimatedAiCard> with TickerProviderStat
   void initState() {
     super.initState();
 
-    // Entrance Animation (Slide + Fade)
     _entranceController = AnimationController(vsync: this, duration: const Duration(milliseconds: 650));
-
     _fadeAnimation = CurvedAnimation(parent: _entranceController, curve: Curves.easeOut);
-
     _slideAnimation = Tween<Offset>(begin: const Offset(0.0, 0.08), end: Offset.zero).animate(CurvedAnimation(parent: _entranceController, curve: Curves.easeOutCubic));
 
-    // Pulse Animation for the AI Sparkle Icon
     _pulseController = AnimationController(vsync: this, duration: const Duration(milliseconds: 1200))..repeat(reverse: true);
-
     _pulseAnimation = Tween<double>(begin: 0.9, end: 1.15).animate(CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut));
 
     _entranceController.forward();
@@ -1238,7 +1270,7 @@ class _AnimatedAiCardState extends State<AnimatedAiCard> with TickerProviderStat
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final cardBg = widget.isGeneral ? (isDark ? Colors.grey[850] : Colors.white) : const Color(0xFF1A1A1A);
+    final cardBg = widget.isGeneral ? (isDark ? Colors.grey[850]! : Colors.white) : const Color(0xFF1A1A1A);
     final cardTextColor = widget.isGeneral ? (isDark ? Colors.white : Colors.black87) : Colors.white;
 
     return FadeTransition(
@@ -1246,22 +1278,21 @@ class _AnimatedAiCardState extends State<AnimatedAiCard> with TickerProviderStat
       child: SlideTransition(
         position: _slideAnimation,
         child: Container(
-          padding: const EdgeInsets.all(20),
+          padding: const EdgeInsets.all(18),
           decoration: BoxDecoration(
             color: cardBg,
-            borderRadius: BorderRadius.circular(24),
+            borderRadius: BorderRadius.circular(22),
             border: Border.all(color: AppTheme.primaryColor.withOpacity(0.2)),
             boxShadow: [BoxShadow(color: AppTheme.primaryColor.withOpacity(0.08), blurRadius: 20, offset: const Offset(0, 10))],
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Header with Pulsing AI Sparkle Icon
               Row(
                 children: [
                   ScaleTransition(
                     scale: _pulseAnimation,
-                    child: Icon(Icons.auto_awesome, color: widget.isGeneral ? (isDark ? Colors.white : AppTheme.primaryColor) : Colors.greenAccent, size: 20),
+                    child: Icon(Icons.auto_awesome, color: widget.isGeneral ? (isDark ? Colors.white : AppTheme.primaryColor) : Colors.greenAccent, size: 18),
                   ),
                   const SizedBox(width: 8),
                   Text(
@@ -1270,18 +1301,17 @@ class _AnimatedAiCardState extends State<AnimatedAiCard> with TickerProviderStat
                   ),
                 ],
               ),
-              const SizedBox(height: 14),
+              const SizedBox(height: 12),
 
-              // Smooth text cross-fade when text updates
               AnimatedSwitcher(
                 duration: const Duration(milliseconds: 400),
                 child: MarkdownBody(
                   key: ValueKey<String>(widget.text),
                   data: widget.text,
                   styleSheet: MarkdownStyleSheet(
-                    p: TextStyle(fontSize: 14, height: 1.5, color: cardTextColor),
+                    p: TextStyle(fontSize: 13.5, height: 1.45, color: cardTextColor),
                     strong: TextStyle(fontWeight: FontWeight.w900, color: cardTextColor),
-                    blockSpacing: 14.0,
+                    blockSpacing: 12.0,
                   ),
                 ),
               ),

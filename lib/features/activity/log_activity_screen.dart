@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -345,7 +346,6 @@ class _LogActivityScreenState extends State<LogActivityScreen> with SingleTicker
     final stopwatchInactiveColor = isDark ? Colors.grey[700]! : Colors.grey.shade300;
     final subtitleColor = isDark ? Colors.grey[400] : Colors.grey;
 
-    // 🌟 Primary dynamic accent: White in dark mode, Green in light mode
     final primaryAccentColor = isDark ? Colors.white : AppTheme.primaryColor;
 
     return PopScope(
@@ -383,57 +383,68 @@ class _LogActivityScreenState extends State<LogActivityScreen> with SingleTicker
           centerTitle: true,
         ),
         body: SafeArea(
-          bottom: false,
           child: LayoutBuilder(
             builder: (context, constraints) {
+              final bool isSmallScreen = constraints.maxHeight < 680 || constraints.maxWidth < 380;
+              final double horizontalPadding = isSmallScreen ? 16.0 : 24.0;
+
               return SingleChildScrollView(
                 physics: const AlwaysScrollableScrollPhysics(),
-                padding: const EdgeInsets.only(left: 24, top: 16, right: 24, bottom: 120),
+                padding: EdgeInsets.symmetric(horizontal: horizontalPadding, vertical: 12),
                 child: ConstrainedBox(
-                  constraints: BoxConstraints(minHeight: constraints.maxHeight - 136 > 0 ? constraints.maxHeight - 136 : 0),
+                  constraints: BoxConstraints(minHeight: constraints.maxHeight - 24 > 0 ? constraints.maxHeight - 24 : 0),
                   child: IntrinsicHeight(
                     child: Column(
+                      // 🌟 spaceBetween evenly distributes space across all 4 section blocks!
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        // 1. Selector Widget
+                        // SECTION 1: Selector Widget (Top)
                         _buildVehicleSelector(),
 
-                        const Spacer(),
-
-                        // 2. Main Visual Metrics Hub
-                        _buildAnimatedVehicleIcon(),
-                        const SizedBox(height: 12),
-                        Text(
-                          _isTracking || hasFinishedTrip ? _formatDuration(_elapsedSeconds) : '00:00',
-                          style: TextStyle(
-                            fontSize: 60,
-                            fontWeight: FontWeight.w900,
-                            color: _isTracking ? primaryAccentColor : stopwatchInactiveColor,
-                            fontFeatures: const [FontFeature.tabularFigures()],
-                          ),
+                        // SECTION 2: Timer Hub (Upper Middle)
+                        Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            _buildAnimatedVehicleIcon(isSmallScreen),
+                            const SizedBox(height: 8),
+                            FittedBox(
+                              fit: BoxFit.scaleDown,
+                              child: Text(
+                                _isTracking || hasFinishedTrip ? _formatDuration(_elapsedSeconds) : '00:00',
+                                style: TextStyle(
+                                  fontSize: isSmallScreen ? 52 : 64,
+                                  fontWeight: FontWeight.w900,
+                                  color: _isTracking ? primaryAccentColor : stopwatchInactiveColor,
+                                  fontFeatures: const [FontFeature.tabularFigures()],
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            if (_isTracking)
+                              _buildGpsActiveBadge()
+                            else if (hasFinishedTrip)
+                              Text(
+                                'Trip Completed',
+                                style: TextStyle(fontSize: 13, color: subtitleColor, fontWeight: FontWeight.w600),
+                              )
+                            else
+                              Text(
+                                'Ready to depart',
+                                style: TextStyle(fontSize: 13, color: subtitleColor, fontWeight: FontWeight.w600),
+                              ),
+                          ],
                         ),
-                        const SizedBox(height: 8),
+
+                        // SECTION 3: Dashboard / Tips / Summary (Lower Middle)
                         if (_isTracking)
-                          _buildGpsActiveBadge()
+                          _buildLiveMetricsDashboard(isSmallScreen)
+                        else if (!_isTracking && _distanceKm == 0)
+                          _buildTrackingTips(isSmallScreen)
                         else if (hasFinishedTrip)
-                          Text(
-                            'Trip Completed',
-                            style: TextStyle(fontSize: 14, color: subtitleColor, fontWeight: FontWeight.w600),
-                          )
-                        else
-                          Text(
-                            'Ready to depart',
-                            style: TextStyle(fontSize: 14, color: subtitleColor, fontWeight: FontWeight.w600),
-                          ),
+                          _buildResultsCard(isSmallScreen),
 
-                        const Spacer(),
-
-                        // 3. LIVE METRICS DASHBOARD / TIPS / SUMMARY
-                        if (_isTracking) _buildLiveMetricsDashboard() else if (!_isTracking && _distanceKm == 0) _buildTrackingTips() else if (hasFinishedTrip) _buildResultsCard(),
-
-                        const Spacer(),
-
-                        // 4. ACTION BUTTONS AT BOTTOM
-                        if (!_isTracking && !hasFinishedTrip) _buildHeroButton() else if (_isTracking) _buildActiveTripControls(),
+                        // SECTION 4: Bottom Action Button (Bottom)
+                        Padding(padding: const EdgeInsets.only(bottom: 8.0), child: !_isTracking && !hasFinishedTrip ? _buildHeroButton(isSmallScreen) : _buildActiveTripControls(isSmallScreen)),
                       ],
                     ),
                   ),
@@ -446,14 +457,14 @@ class _LogActivityScreenState extends State<LogActivityScreen> with SingleTicker
     );
   }
 
-  Widget _buildLiveMetricsDashboard() {
+  Widget _buildLiveMetricsDashboard(bool isSmallScreen) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final cardBg = isDark ? Colors.grey[850] : Colors.white;
     final primaryAccentColor = isDark ? Colors.white : AppTheme.primaryColor;
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+      padding: EdgeInsets.symmetric(horizontal: isSmallScreen ? 10 : 16, vertical: isSmallScreen ? 14 : 20),
       decoration: BoxDecoration(
         color: cardBg,
         borderRadius: BorderRadius.circular(20),
@@ -463,78 +474,91 @@ class _LogActivityScreenState extends State<LogActivityScreen> with SingleTicker
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
-          _buildLiveMetricItem(icon: Icons.route_rounded, value: _distanceKm.toStringAsFixed(2), unit: 'km', label: 'Distance', color: primaryAccentColor),
-          Container(height: 36, width: 1, color: isDark ? Colors.grey[800] : Colors.grey.shade200),
-          _buildLiveMetricItem(icon: Icons.speed_rounded, value: _currentSpeedKmH.toStringAsFixed(0), unit: 'km/h', label: 'Speed', color: Colors.blueAccent),
-          Container(height: 36, width: 1, color: isDark ? Colors.grey[800] : Colors.grey.shade200),
-          _buildLiveMetricItem(icon: Icons.co2_rounded, value: _co2Emissions.toStringAsFixed(2), unit: 'kg', label: 'Est. CO₂e', color: Colors.orangeAccent),
+          Expanded(
+            child: _buildLiveMetricItem(icon: Icons.route_rounded, value: _distanceKm.toStringAsFixed(2), unit: 'km', label: 'Distance', color: primaryAccentColor, isSmallScreen: isSmallScreen),
+          ),
+          Container(height: 32, width: 1, color: isDark ? Colors.grey[800] : Colors.grey.shade200),
+          Expanded(
+            child: _buildLiveMetricItem(icon: Icons.speed_rounded, value: _currentSpeedKmH.toStringAsFixed(0), unit: 'km/h', label: 'Speed', color: Colors.blueAccent, isSmallScreen: isSmallScreen),
+          ),
+          Container(height: 32, width: 1, color: isDark ? Colors.grey[800] : Colors.grey.shade200),
+          Expanded(
+            child: _buildLiveMetricItem(icon: Icons.co2_rounded, value: _co2Emissions.toStringAsFixed(2), unit: 'kg', label: 'Est. CO₂e', color: Colors.orangeAccent, isSmallScreen: isSmallScreen),
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildLiveMetricItem({required IconData icon, required String value, required String unit, required String label, required Color color}) {
+  Widget _buildLiveMetricItem({required IconData icon, required String value, required String unit, required String label, required Color color, bool isSmallScreen = false}) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Column(
+      mainAxisSize: MainAxisSize.min,
       children: [
         Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 16, color: color),
-            const SizedBox(width: 4),
-            Text(
-              label,
-              style: TextStyle(fontSize: 12, color: isDark ? Colors.grey[400] : Colors.grey, fontWeight: FontWeight.bold),
+            Icon(icon, size: isSmallScreen ? 14 : 16, color: color),
+            const SizedBox(width: 3),
+            Flexible(
+              child: Text(
+                label,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(fontSize: isSmallScreen ? 11 : 12, color: isDark ? Colors.grey[400] : Colors.grey, fontWeight: FontWeight.bold),
+              ),
             ),
           ],
         ),
-        const SizedBox(height: 6),
-        RichText(
-          text: TextSpan(
-            children: [
-              TextSpan(
-                text: value,
-                style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: color),
-              ),
-              TextSpan(
-                text: ' $unit',
-                style: TextStyle(fontSize: 12, color: color.withOpacity(0.8), fontWeight: FontWeight.w600),
-              ),
-            ],
+        const SizedBox(height: 4),
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          child: RichText(
+            text: TextSpan(
+              children: [
+                TextSpan(
+                  text: value,
+                  style: TextStyle(fontSize: isSmallScreen ? 18 : 22, fontWeight: FontWeight.bold, color: color),
+                ),
+                TextSpan(
+                  text: ' $unit',
+                  style: TextStyle(fontSize: isSmallScreen ? 11 : 12, color: color.withOpacity(0.8), fontWeight: FontWeight.w600),
+                ),
+              ],
+            ),
           ),
         ),
       ],
     );
   }
 
-  Widget _buildActiveTripControls() {
+  Widget _buildActiveTripControls(bool isSmallScreen) {
     return Column(
       children: [
         GestureDetector(
           onTap: _toggleTracking,
           child: Container(
-            height: 60,
+            height: isSmallScreen ? 52 : 60,
             width: double.infinity,
             decoration: BoxDecoration(
               color: Colors.redAccent,
-              borderRadius: BorderRadius.circular(18),
+              borderRadius: BorderRadius.circular(16),
               boxShadow: [BoxShadow(color: Colors.redAccent.withOpacity(0.3), blurRadius: 12, offset: const Offset(0, 4))],
             ),
-            child: const Row(
+            child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(Icons.stop_rounded, color: Colors.white, size: 28),
-                SizedBox(width: 8),
+                Icon(Icons.stop_rounded, color: Colors.white, size: isSmallScreen ? 24 : 28),
+                const SizedBox(width: 8),
                 Text(
                   'END TRIP & REVIEW',
-                  style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w900, letterSpacing: 1),
+                  style: TextStyle(color: Colors.white, fontSize: isSmallScreen ? 14 : 16, fontWeight: FontWeight.w900, letterSpacing: 1),
                 ),
               ],
             ),
           ),
         ),
-        const SizedBox(height: 10),
+        const SizedBox(height: 6),
         TextButton(
           onPressed: () {
             _toggleTracking();
@@ -542,7 +566,7 @@ class _LogActivityScreenState extends State<LogActivityScreen> with SingleTicker
           },
           child: const Text(
             "Cancel & Discard Trip",
-            style: TextStyle(color: Colors.grey, fontSize: 13, fontWeight: FontWeight.w500),
+            style: TextStyle(color: Colors.grey, fontSize: 12, fontWeight: FontWeight.w500),
           ),
         ),
       ],
@@ -552,14 +576,13 @@ class _LogActivityScreenState extends State<LogActivityScreen> with SingleTicker
   Widget _buildGpsActiveBadge() {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    // 🌟 White badge accents for dark mode, Green for light mode
     final badgeColor = isDark ? Colors.white : Colors.green;
     final badgeBg = isDark ? Colors.white.withOpacity(0.1) : Colors.green.shade50;
     final badgeBorder = isDark ? Colors.white.withOpacity(0.3) : Colors.green.shade200;
     final badgeText = isDark ? Colors.white : Colors.green.shade700;
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
         color: badgeBg,
         borderRadius: BorderRadius.circular(20),
@@ -569,28 +592,28 @@ class _LogActivityScreenState extends State<LogActivityScreen> with SingleTicker
         mainAxisSize: MainAxisSize.min,
         children: [
           Container(
-            width: 8,
-            height: 8,
+            width: 7,
+            height: 7,
             decoration: BoxDecoration(color: badgeColor, shape: BoxShape.circle),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: 6),
           Text(
             'GPS Live Tracking',
-            style: TextStyle(color: badgeText, fontSize: 12, fontWeight: FontWeight.bold),
+            style: TextStyle(color: badgeText, fontSize: 11, fontWeight: FontWeight.bold),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildTrackingTips() {
+  Widget _buildTrackingTips(bool isSmallScreen) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final cardBg = isDark ? Colors.grey[850] : Colors.white;
     final textColor = isDark ? Colors.white : Colors.black87;
     final primaryAccentColor = isDark ? Colors.white : AppTheme.primaryColor;
 
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.all(isSmallScreen ? 12 : 16),
       decoration: BoxDecoration(
         color: cardBg,
         borderRadius: BorderRadius.circular(18),
@@ -602,55 +625,69 @@ class _LogActivityScreenState extends State<LogActivityScreen> with SingleTicker
         children: [
           Row(
             children: [
-              Icon(Icons.satellite_alt_outlined, color: primaryAccentColor, size: 20),
+              Icon(Icons.satellite_alt_outlined, color: primaryAccentColor, size: isSmallScreen ? 18 : 20),
               const SizedBox(width: 6),
               Text(
                 "Tracking Best Practices",
-                style: TextStyle(fontWeight: FontWeight.w900, color: textColor, fontSize: 15),
+                style: TextStyle(fontWeight: FontWeight.w900, color: textColor, fontSize: isSmallScreen ? 14 : 15),
               ),
             ],
           ),
-          const SizedBox(height: 12),
-          _buildInstructionRow(icon: Icons.play_circle_outline, color: primaryAccentColor, text: 'Tap START exactly when your vehicle begins moving.'),
-          const SizedBox(height: 8),
-          _buildInstructionRow(icon: Icons.screen_lock_portrait_outlined, color: Colors.blue, text: 'You can lock your screen while CarbonSense continues tracking your trip.'),
-          const SizedBox(height: 8),
-          _buildInstructionRow(icon: Icons.stop_circle_outlined, color: Colors.redAccent, text: 'Tap END TRIP immediately upon arrival for accurate carbon calculations.'),
+          SizedBox(height: isSmallScreen ? 8 : 12),
+          _buildInstructionRow(icon: Icons.play_circle_outline, color: primaryAccentColor, text: 'Tap START exactly when your vehicle begins moving.', isSmallScreen: isSmallScreen),
+          SizedBox(height: isSmallScreen ? 6 : 8),
+          _buildInstructionRow(
+            icon: Icons.screen_lock_portrait_outlined,
+            color: Colors.blue,
+            text: 'You can lock your screen while CarbonSense continues tracking your trip.',
+            isSmallScreen: isSmallScreen,
+          ),
+          SizedBox(height: isSmallScreen ? 6 : 8),
+          _buildInstructionRow(
+            icon: Icons.stop_circle_outlined,
+            color: Colors.redAccent,
+            text: 'Tap END TRIP immediately upon arrival for accurate carbon calculations.',
+            isSmallScreen: isSmallScreen,
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildInstructionRow({required IconData icon, required Color color, required String text}) {
+  Widget _buildInstructionRow({required IconData icon, required Color color, required String text, bool isSmallScreen = false}) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final textColor = isDark ? Colors.white70 : Colors.black87;
 
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(icon, color: color, size: 18),
-        const SizedBox(width: 10),
+        Icon(icon, color: color, size: isSmallScreen ? 16 : 18),
+        const SizedBox(width: 8),
         Expanded(
           child: Text(
             text,
-            style: TextStyle(color: textColor, fontSize: 13, height: 1.4, fontWeight: FontWeight.w500),
+            style: TextStyle(color: textColor, fontSize: isSmallScreen ? 12 : 13, height: 1.35, fontWeight: FontWeight.w500),
           ),
         ),
       ],
     );
   }
 
-  Widget _buildAnimatedVehicleIcon() {
+  Widget _buildAnimatedVehicleIcon(bool isSmallScreen) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final primaryAccentColor = isDark ? Colors.white : AppTheme.primaryColor;
 
     return AnimatedBuilder(
       animation: _bounceController,
       builder: (context, child) {
-        final double bounceOffset = -15 * _bounceController.value;
+        final double bounceOffset = -12 * _bounceController.value;
         return Transform.translate(
           offset: Offset(0, bounceOffset),
-          child: Icon(_getIconForVehicle(_selectedVehicle ?? ''), size: 56, color: _isTracking || (_distanceKm > 0) ? primaryAccentColor : (isDark ? Colors.grey[700] : Colors.grey.shade300)),
+          child: Icon(
+            _getIconForVehicle(_selectedVehicle ?? ''),
+            size: isSmallScreen ? 44 : 56,
+            color: _isTracking || (_distanceKm > 0) ? primaryAccentColor : (isDark ? Colors.grey[700] : Colors.grey.shade300),
+          ),
         );
       },
     );
@@ -662,27 +699,24 @@ class _LogActivityScreenState extends State<LogActivityScreen> with SingleTicker
     final textColor = isDark ? Colors.white : Colors.black87;
     final primaryAccentColor = isDark ? Colors.white : AppTheme.primaryColor;
 
-    // Trip completed and summary is showing
     final bool hasFinishedTrip = !_isTracking && _distanceKm > 0;
-
-    // Lock selector during tracking, summary review, or active saving
     final bool isReadOnly = _isTracking || hasFinishedTrip || _isSavingLog;
 
     if (_isLoadingFactors) {
       return Container(
-        height: 60,
+        height: 52,
         decoration: BoxDecoration(
           color: cardBg,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(color: isDark ? Colors.grey[800]! : Colors.grey.shade300),
         ),
-        child: const Center(child: SizedBox(height: 22, width: 22, child: CircularProgressIndicator(strokeWidth: 2))),
+        child: const Center(child: SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))),
       );
     }
 
     if (_vehicleEmissionFactors.isEmpty) {
       return Container(
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.all(10),
         decoration: BoxDecoration(
           color: Colors.redAccent.withOpacity(0.1),
           borderRadius: BorderRadius.circular(12),
@@ -690,11 +724,11 @@ class _LogActivityScreenState extends State<LogActivityScreen> with SingleTicker
         ),
         child: const Row(
           children: [
-            Icon(Icons.error_outline, color: Colors.redAccent, size: 20),
+            Icon(Icons.error_outline, color: Colors.redAccent, size: 18),
             SizedBox(width: 8),
             Text(
               "No vehicle factors found in database.",
-              style: TextStyle(color: Colors.redAccent, fontSize: 13, fontWeight: FontWeight.w600),
+              style: TextStyle(color: Colors.redAccent, fontSize: 12, fontWeight: FontWeight.w600),
             ),
           ],
         ),
@@ -704,65 +738,60 @@ class _LogActivityScreenState extends State<LogActivityScreen> with SingleTicker
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Section Header & Status Indicator
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Text(
               "TRANSPORT MODE",
-              style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 1.1, color: isDark ? Colors.grey[400] : Colors.grey[600]),
+              style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, letterSpacing: 1.0, color: isDark ? Colors.grey[400] : Colors.grey[600]),
             ),
             if (isReadOnly)
               AnimatedContainer(
                 duration: const Duration(milliseconds: 300),
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
                   color: Colors.orangeAccent.withOpacity(0.15),
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(6),
                   border: Border.all(color: Colors.orangeAccent.withOpacity(0.4), width: 1),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.lock_rounded, size: 12, color: Colors.orangeAccent),
-                    const SizedBox(width: 4),
+                    const Icon(Icons.lock_rounded, size: 10, color: Colors.orangeAccent),
+                    const SizedBox(width: 3),
                     Text(
                       _isTracking
                           ? "LOCKED DURING TRIP"
                           : hasFinishedTrip
                           ? "LOCKED FOR REVIEW"
                           : "LOCKED",
-                      style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: Colors.orangeAccent, letterSpacing: 0.5),
+                      style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w800, color: Colors.orangeAccent, letterSpacing: 0.4),
                     ),
                   ],
                 ),
               ),
           ],
         ),
-        const SizedBox(height: 8),
-
-        // Dropdown Box Container
+        const SizedBox(height: 6),
         AnimatedOpacity(
           duration: const Duration(milliseconds: 250),
           opacity: isReadOnly ? 0.65 : 1.0,
           child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
             decoration: BoxDecoration(
               color: isReadOnly ? (isDark ? Colors.grey[900] : Colors.grey.shade100) : cardBg,
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(14),
               border: Border.all(color: isReadOnly ? (isDark ? Colors.grey[800]! : Colors.grey.shade300) : primaryAccentColor.withOpacity(0.35), width: 1.5),
-              boxShadow: isReadOnly ? [] : [BoxShadow(color: primaryAccentColor.withOpacity(0.08), blurRadius: 12, offset: const Offset(0, 4))],
+              boxShadow: isReadOnly ? [] : [BoxShadow(color: primaryAccentColor.withOpacity(0.08), blurRadius: 10, offset: const Offset(0, 3))],
             ),
             child: DropdownButtonHideUnderline(
               child: DropdownButton<String>(
                 value: _selectedVehicle,
                 dropdownColor: cardBg,
                 isExpanded: true,
-                // Lock icon displayed when interactive mode is disabled
                 icon: isReadOnly
-                    ? Icon(Icons.lock_outline_rounded, color: isDark ? Colors.grey[500] : Colors.grey[400], size: 20)
-                    : Icon(Icons.keyboard_arrow_down_rounded, color: primaryAccentColor, size: 24),
-                // Strictly null when read-only to prevent opening the dropdown menu
+                    ? Icon(Icons.lock_outline_rounded, color: isDark ? Colors.grey[500] : Colors.grey[400], size: 18)
+                    : Icon(Icons.keyboard_arrow_down_rounded, color: primaryAccentColor, size: 22),
                 onChanged: isReadOnly
                     ? null
                     : (String? newValue) {
@@ -779,11 +808,11 @@ class _LogActivityScreenState extends State<LogActivityScreen> with SingleTicker
                     child: Row(
                       children: [
                         Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(color: primaryAccentColor.withOpacity(isDark ? 0.15 : 0.08), borderRadius: BorderRadius.circular(10)),
-                          child: Icon(_getIconForVehicle(vehicleName), color: primaryAccentColor, size: 20),
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(color: primaryAccentColor.withOpacity(isDark ? 0.15 : 0.08), borderRadius: BorderRadius.circular(8)),
+                          child: Icon(_getIconForVehicle(vehicleName), color: primaryAccentColor, size: 18),
                         ),
-                        const SizedBox(width: 12),
+                        const SizedBox(width: 10),
                         Expanded(
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
@@ -792,11 +821,11 @@ class _LogActivityScreenState extends State<LogActivityScreen> with SingleTicker
                               Text(
                                 vehicleName,
                                 overflow: TextOverflow.ellipsis,
-                                style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: textColor),
+                                style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: textColor),
                               ),
                               Text(
                                 '${factor.toStringAsFixed(3)} kg CO₂e / km',
-                                style: TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: isDark ? Colors.grey[400] : Colors.grey[600]),
+                                style: TextStyle(fontSize: 10, fontWeight: FontWeight.w500, color: isDark ? Colors.grey[400] : Colors.grey[600]),
                               ),
                             ],
                           ),
@@ -813,28 +842,31 @@ class _LogActivityScreenState extends State<LogActivityScreen> with SingleTicker
     );
   }
 
-  Widget _buildHeroButton() {
+  Widget _buildHeroButton(bool isSmallScreen) {
+    final double buttonSize = isSmallScreen ? 110.0 : 140.0;
+    final double iconSize = isSmallScreen ? 38.0 : 48.0;
+
     return GestureDetector(
       onTap: _isGettingLocation ? null : _toggleTracking,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 300),
-        height: 140,
-        width: 140,
+        height: buttonSize,
+        width: buttonSize,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
           color: AppTheme.primaryColor,
-          boxShadow: [BoxShadow(color: AppTheme.primaryColor.withOpacity(0.3), blurRadius: 30, spreadRadius: 10, offset: const Offset(0, 10))],
+          boxShadow: [BoxShadow(color: AppTheme.primaryColor.withOpacity(0.3), blurRadius: isSmallScreen ? 20 : 30, spreadRadius: isSmallScreen ? 6 : 10, offset: const Offset(0, 8))],
         ),
         child: Center(
           child: _isGettingLocation
               ? const CircularProgressIndicator(color: Colors.white)
-              : const Column(
+              : Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(Icons.play_arrow_rounded, color: Colors.white, size: 48),
+                    Icon(Icons.play_arrow_rounded, color: Colors.white, size: iconSize),
                     Text(
                       'START',
-                      style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w900, letterSpacing: 2.0),
+                      style: TextStyle(color: Colors.white, fontSize: isSmallScreen ? 14 : 16, fontWeight: FontWeight.w900, letterSpacing: 2.0),
                     ),
                   ],
                 ),
@@ -843,7 +875,7 @@ class _LogActivityScreenState extends State<LogActivityScreen> with SingleTicker
     );
   }
 
-  Widget _buildResultsCard() {
+  Widget _buildResultsCard(bool isSmallScreen) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final cardBg = isDark ? Colors.grey[850] : Colors.white;
     final subtitleColor = isDark ? Colors.grey[400] : Colors.grey;
@@ -851,7 +883,7 @@ class _LogActivityScreenState extends State<LogActivityScreen> with SingleTicker
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(20),
+      padding: EdgeInsets.all(isSmallScreen ? 14 : 20),
       decoration: BoxDecoration(
         color: cardBg,
         borderRadius: BorderRadius.circular(20),
@@ -861,60 +893,66 @@ class _LogActivityScreenState extends State<LogActivityScreen> with SingleTicker
         children: [
           Text(
             "TRIP SUMMARY",
-            style: TextStyle(fontWeight: FontWeight.w900, fontSize: 12, letterSpacing: 1.5, color: subtitleColor),
+            style: TextStyle(fontWeight: FontWeight.w900, fontSize: 11, letterSpacing: 1.2, color: subtitleColor),
           ),
-          const SizedBox(height: 16),
+          SizedBox(height: isSmallScreen ? 10 : 16),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              _buildStatMetric(Icons.route, _distanceKm.toStringAsFixed(2), 'Kilometers'),
-              Container(width: 1, height: 40, color: isDark ? Colors.grey[700] : Colors.grey.shade300),
-              _buildStatMetric(Icons.co2, '+${_co2Emissions.toStringAsFixed(2)}', 'kg CO₂e', color: Colors.redAccent),
+              _buildStatMetric(Icons.route, _distanceKm.toStringAsFixed(2), 'Kilometers', isSmallScreen: isSmallScreen),
+              Container(width: 1, height: 36, color: isDark ? Colors.grey[700] : Colors.grey.shade300),
+              _buildStatMetric(Icons.co2, '+${_co2Emissions.toStringAsFixed(2)}', 'kg CO₂e', color: Colors.redAccent, isSmallScreen: isSmallScreen),
             ],
           ),
-          const SizedBox(height: 20),
+          SizedBox(height: isSmallScreen ? 12 : 20),
           SizedBox(
             width: double.infinity,
             child: ElevatedButton(
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppTheme.primaryColor,
-                padding: const EdgeInsets.symmetric(vertical: 16),
+                padding: EdgeInsets.symmetric(vertical: isSmallScreen ? 12 : 16),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               ),
               onPressed: _isSavingLog ? null : _saveTripToDatabase,
               child: _isSavingLog
                   ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                  : const Text(
+                  : Text(
                       'Confirm & Log Route',
-                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: isSmallScreen ? 14 : 16),
                     ),
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 4),
           TextButton.icon(
             onPressed: _isSavingLog ? null : _resetTrip,
-            icon: Icon(Icons.refresh, size: 16, color: subtitleColor),
-            label: Text("Discard trip & reset", style: TextStyle(color: subtitleColor, fontSize: 12)),
+            icon: Icon(Icons.refresh, size: 14, color: subtitleColor),
+            label: Text("Discard trip & reset", style: TextStyle(color: subtitleColor, fontSize: 11)),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildStatMetric(IconData icon, String value, String label, {Color? color}) {
+  Widget _buildStatMetric(IconData icon, String value, String label, {Color? color, bool isSmallScreen = false}) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final valueColor = color ?? (isDark ? Colors.white : Colors.black87);
     final subtitleColor = isDark ? Colors.grey[400] : Colors.grey;
 
     return Column(
       children: [
-        Icon(icon, color: isDark ? Colors.grey[600] : Colors.grey.shade400, size: 24),
-        const SizedBox(height: 4),
-        Text(
-          value,
-          style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900, color: valueColor),
+        Icon(icon, color: isDark ? Colors.grey[600] : Colors.grey.shade400, size: isSmallScreen ? 20 : 24),
+        const SizedBox(height: 2),
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Text(
+            value,
+            style: TextStyle(fontSize: isSmallScreen ? 20 : 24, fontWeight: FontWeight.w900, color: valueColor),
+          ),
         ),
-        Text(label, style: TextStyle(fontSize: 12, color: subtitleColor)),
+        Text(
+          label,
+          style: TextStyle(fontSize: isSmallScreen ? 11 : 12, color: subtitleColor),
+        ),
       ],
     );
   }
@@ -945,29 +983,29 @@ class _LogActivityScreenState extends State<LogActivityScreen> with SingleTicker
               mainAxisSize: MainAxisSize.min,
               children: [
                 Container(
-                  height: 80,
-                  width: 80,
+                  height: 70,
+                  width: 70,
                   decoration: BoxDecoration(color: AppTheme.primaryColor.withOpacity(0.12), shape: BoxShape.circle),
-                  child: const Icon(Icons.eco_rounded, color: AppTheme.primaryColor, size: 48),
+                  child: const Icon(Icons.eco_rounded, color: AppTheme.primaryColor, size: 40),
                 ),
-                const SizedBox(height: 24),
+                const SizedBox(height: 18),
                 Text(
                   "Awesome Journey!",
-                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: textColor),
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: textColor),
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 10),
                 Text(
                   "You successfully tracked and logged your travel distance of ${_distanceKm.toStringAsFixed(2)} km.\n\nEvery trip you audit builds a clearer picture of your environmental legacy.",
                   textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 14, color: subtitleColor, height: 1.4),
+                  style: TextStyle(fontSize: 13, color: subtitleColor, height: 1.35),
                 ),
-                const SizedBox(height: 24),
+                const SizedBox(height: 20),
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppTheme.primaryColor,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                       elevation: 0,
                     ),
@@ -989,7 +1027,7 @@ class _LogActivityScreenState extends State<LogActivityScreen> with SingleTicker
                     },
                     child: const Text(
                       'Back to Dashboard',
-                      style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                      style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold),
                     ),
                   ),
                 ),
@@ -1015,11 +1053,11 @@ class _LogActivityScreenState extends State<LogActivityScreen> with SingleTicker
           backgroundColor: dialogBg,
           title: Column(
             children: [
-              const Icon(Icons.emoji_events, color: Colors.amber, size: 56),
-              const SizedBox(height: 12),
+              const Icon(Icons.emoji_events, color: Colors.amber, size: 48),
+              const SizedBox(height: 8),
               Text(
                 "Quest Completed!",
-                style: TextStyle(fontWeight: FontWeight.w900, fontSize: 22, color: textColor),
+                style: TextStyle(fontWeight: FontWeight.w900, fontSize: 20, color: textColor),
               ),
             ],
           ),
@@ -1029,21 +1067,21 @@ class _LogActivityScreenState extends State<LogActivityScreen> with SingleTicker
               Text(
                 "Your activity automatically unlocked:",
                 textAlign: TextAlign.center,
-                style: TextStyle(color: isDark ? Colors.grey[400] : Colors.grey, fontSize: 13),
+                style: TextStyle(color: isDark ? Colors.grey[400] : Colors.grey, fontSize: 12),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 14),
               ...missions.map(
                 (mission) => Padding(
-                  padding: const EdgeInsets.only(bottom: 12.0),
+                  padding: const EdgeInsets.only(bottom: 10.0),
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Icon(Icons.check_circle, color: Colors.green, size: 22),
-                      const SizedBox(width: 12),
+                      const Icon(Icons.check_circle, color: Colors.green, size: 20),
+                      const SizedBox(width: 10),
                       Expanded(
                         child: Text(
                           mission,
-                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: textColor),
+                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: textColor),
                         ),
                       ),
                     ],
@@ -1056,7 +1094,7 @@ class _LogActivityScreenState extends State<LogActivityScreen> with SingleTicker
             ElevatedButton(
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppTheme.primaryColor,
-                minimumSize: const Size.fromHeight(50),
+                minimumSize: const Size.fromHeight(46),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
               ),
               onPressed: () {
@@ -1073,7 +1111,7 @@ class _LogActivityScreenState extends State<LogActivityScreen> with SingleTicker
               },
               child: const Text(
                 "Awesome",
-                style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+                style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15),
               ),
             ),
           ],
