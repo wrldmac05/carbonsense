@@ -1,6 +1,5 @@
 // auth_screen.dart
 import 'package:carbonsense/theme/app_theme.dart';
-import 'package:carbonsense/utils/constants.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
@@ -452,135 +451,146 @@ class _LoginFormState extends State<_LoginForm> {
 
     return Form(
       key: _formKey,
-      child: SingleChildScrollView(
-        padding: EdgeInsets.fromLTRB(28, 36, 28, 20 + bottomInset),
-        keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            const Text(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Static Header
+          const Padding(
+            padding: EdgeInsets.fromLTRB(28, 36, 28, 12),
+            child: Text(
               'Log In',
               style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.black87),
             ),
-            const SizedBox(height: 24),
+          ),
 
-            if (_errorMessage != null)
-              Container(
-                margin: const EdgeInsets.only(bottom: 20),
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.red.shade50,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.red.shade200),
-                ),
-                child: Row(
-                  children: [
-                    Icon(Icons.error_outline_rounded, color: Colors.red.shade700, size: 20),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        _errorMessage!,
-                        style: TextStyle(color: Colors.red.shade700, fontSize: 13, fontWeight: FontWeight.w600),
+          // Scrollable Form Fields
+          Expanded(
+            child: SingleChildScrollView(
+              padding: EdgeInsets.fromLTRB(28, 12, 28, 20 + bottomInset),
+              keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  if (_errorMessage != null)
+                    Container(
+                      margin: const EdgeInsets.only(bottom: 20),
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.red.shade50,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.red.shade200),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(Icons.error_outline_rounded, color: Colors.red.shade700, size: 20),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              _errorMessage!,
+                              style: TextStyle(color: Colors.red.shade700, fontSize: 13, fontWeight: FontWeight.w600),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                  ],
-                ),
-              ),
 
-            TextFormField(
-              controller: _emailController,
-              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-              autovalidateMode: AutovalidateMode.onUserInteraction,
-              keyboardType: TextInputType.emailAddress,
-              onChanged: (val) {
-                if (_errorMessage != null) setState(() => _errorMessage = null);
-              },
-              decoration: InputDecoration(
-                labelText: 'Email Address',
-                floatingLabelBehavior: FloatingLabelBehavior.always,
-                labelStyle: const TextStyle(fontSize: 18, color: Colors.grey),
-                enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.grey.shade400)),
-                focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: AppTheme.primaryColor, width: 2)),
-                errorBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Colors.red, width: 1)),
-                focusedErrorBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Colors.red, width: 2)),
-              ),
-              validator: (value) {
-                if (value == null || value.trim().isEmpty) return 'Enter your email';
-                return null;
-              },
-            ),
-            const SizedBox(height: 16),
-
-            TextFormField(
-              controller: _passwordController,
-              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-              obscureText: _obscurePassword,
-              onChanged: (val) {
-                if (_errorMessage != null) setState(() => _errorMessage = null);
-              },
-              decoration: InputDecoration(
-                labelText: 'Password',
-                floatingLabelBehavior: FloatingLabelBehavior.always,
-                labelStyle: const TextStyle(fontSize: 18, color: Colors.grey),
-                enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.grey.shade400)),
-                focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: AppTheme.primaryColor, width: 2)),
-                errorBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Colors.red, width: 1)),
-                focusedErrorBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Colors.red, width: 2)),
-                suffixIcon: IconButton(
-                  icon: Icon(_obscurePassword ? Icons.visibility_off : Icons.visibility, color: Colors.grey),
-                  onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
-                ),
-              ),
-              validator: (value) {
-                if (value == null || value.isEmpty) return 'Enter your password';
-                return null;
-              },
-            ),
-            const SizedBox(height: 8),
-
-            Align(
-              alignment: Alignment.centerRight,
-              child: TextButton(
-                onPressed: widget.onGoToForgotPassword,
-                style: TextButton.styleFrom(padding: EdgeInsets.zero, minimumSize: const Size(0, 0)),
-                child: const Text(
-                  'Forgot Password?',
-                  style: TextStyle(color: Colors.black87, fontWeight: FontWeight.bold, fontSize: 13),
-                ),
-              ),
-            ),
-            const SizedBox(height: 24),
-
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.primaryColor,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                elevation: 0,
-              ),
-              onPressed: _isLoading ? null : _login,
-              child: _isLoading
-                  ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                  : const Text('LOGIN', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 1.2)),
-            ),
-            const SizedBox(height: 16),
-
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text("Don't have an account? ", style: TextStyle(color: Colors.grey.shade600, fontSize: 14)),
-                GestureDetector(
-                  onTap: widget.onGoToRegister,
-                  child: const Text(
-                    'LOG IN',
-                    style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 14),
+                  TextFormField(
+                    controller: _emailController,
+                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                    autovalidateMode: AutovalidateMode.onUserInteraction,
+                    keyboardType: TextInputType.emailAddress,
+                    onChanged: (val) {
+                      if (_errorMessage != null) setState(() => _errorMessage = null);
+                    },
+                    decoration: InputDecoration(
+                      labelText: 'Email Address',
+                      floatingLabelBehavior: FloatingLabelBehavior.always,
+                      labelStyle: const TextStyle(fontSize: 18, color: Colors.grey),
+                      enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.grey.shade400)),
+                      focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: AppTheme.primaryColor, width: 2)),
+                      errorBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Colors.red, width: 1)),
+                      focusedErrorBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Colors.red, width: 2)),
+                    ),
+                    validator: (value) {
+                      if (value == null || value.trim().isEmpty) return 'Enter your email';
+                      return null;
+                    },
                   ),
-                ),
-              ],
+                  const SizedBox(height: 16),
+
+                  TextFormField(
+                    controller: _passwordController,
+                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                    obscureText: _obscurePassword,
+                    onChanged: (val) {
+                      if (_errorMessage != null) setState(() => _errorMessage = null);
+                    },
+                    decoration: InputDecoration(
+                      labelText: 'Password',
+                      floatingLabelBehavior: FloatingLabelBehavior.always,
+                      labelStyle: const TextStyle(fontSize: 18, color: Colors.grey),
+                      enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.grey.shade400)),
+                      focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: AppTheme.primaryColor, width: 2)),
+                      errorBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Colors.red, width: 1)),
+                      focusedErrorBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Colors.red, width: 2)),
+                      suffixIcon: IconButton(
+                        icon: Icon(_obscurePassword ? Icons.visibility_off : Icons.visibility, color: Colors.grey),
+                        onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                      ),
+                    ),
+                    validator: (value) {
+                      if (value == null || value.isEmpty) return 'Enter your password';
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 8),
+
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton(
+                      onPressed: widget.onGoToForgotPassword,
+                      style: TextButton.styleFrom(padding: EdgeInsets.zero, minimumSize: const Size(0, 0)),
+                      child: const Text(
+                        'Forgot Password?',
+                        style: TextStyle(color: Colors.black87, fontWeight: FontWeight.bold, fontSize: 13),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+
+                  ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.primaryColor,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      elevation: 0,
+                    ),
+                    onPressed: _isLoading ? null : _login,
+                    child: _isLoading
+                        ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                        : const Text('LOGIN', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 1.2)),
+                  ),
+                  const SizedBox(height: 16),
+
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text("Don't have an account? ", style: TextStyle(color: Colors.grey.shade600, fontSize: 14)),
+                      GestureDetector(
+                        onTap: widget.onGoToRegister,
+                        child: const Text(
+                          'SIGN UP',
+                          style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 14),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -833,165 +843,176 @@ class _RegisterFormState extends State<_RegisterForm> {
 
     return Form(
       key: _formKey,
-      child: SingleChildScrollView(
-        padding: EdgeInsets.fromLTRB(28, 40, 28, 20 + bottomInset),
-        keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            const Text(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Static Header
+          const Padding(
+            padding: EdgeInsets.fromLTRB(28, 36, 28, 12),
+            child: Text(
               'Sign Up',
               style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.black87),
             ),
-            const SizedBox(height: 24),
+          ),
 
-            TextFormField(
-              controller: _fullNameController,
-              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
-              autovalidateMode: AutovalidateMode.onUserInteraction,
-              decoration: InputDecoration(
-                labelText: 'Name',
-                floatingLabelBehavior: FloatingLabelBehavior.always,
-                labelStyle: const TextStyle(fontSize: 16, color: Colors.grey),
-                enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.grey.shade400)),
-                focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: AppTheme.primaryColor, width: 2)),
-                errorBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Colors.red, width: 1)),
-                focusedErrorBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Colors.red, width: 2)),
-              ),
-              validator: (value) {
-                if (value == null || value.trim().isEmpty) return 'Enter full name';
-                return null;
-              },
-            ),
-            const SizedBox(height: 12),
-
-            TextFormField(
-              controller: _emailController,
-              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
-              autovalidateMode: AutovalidateMode.onUserInteraction,
-              keyboardType: TextInputType.emailAddress,
-              decoration: InputDecoration(
-                labelText: 'Email',
-                floatingLabelBehavior: FloatingLabelBehavior.always,
-                labelStyle: const TextStyle(fontSize: 16, color: Colors.grey),
-                enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.grey.shade400)),
-                focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: AppTheme.primaryColor, width: 2)),
-                errorBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Colors.red, width: 1)),
-                focusedErrorBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Colors.red, width: 2)),
-              ),
-              validator: (value) {
-                if (value == null || value.isEmpty) return 'Enter email';
-                final emailRegExp = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
-                if (!emailRegExp.hasMatch(value)) return 'Enter valid email';
-                return null;
-              },
-            ),
-            const SizedBox(height: 12),
-
-            TextFormField(
-              controller: _passwordController,
-              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
-              autovalidateMode: AutovalidateMode.onUserInteraction,
-              obscureText: _obscurePassword,
-              decoration: InputDecoration(
-                labelText: 'Password',
-                floatingLabelBehavior: FloatingLabelBehavior.always,
-                labelStyle: const TextStyle(fontSize: 16, color: Colors.grey),
-                enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.grey.shade400)),
-                focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: AppTheme.primaryColor, width: 2)),
-                errorBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Colors.red, width: 1)),
-                focusedErrorBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Colors.red, width: 2)),
-                suffixIcon: IconButton(
-                  icon: Icon(_obscurePassword ? Icons.visibility_off : Icons.visibility, color: Colors.grey),
-                  onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
-                ),
-              ),
-            ),
-            const SizedBox(height: 8),
-
-            _buildRequirement('At least 6 characters', _hasMinLength),
-            _buildRequirement('At least 1 uppercase letter', _hasUppercase),
-            _buildRequirement('At least 1 number', _hasNumber),
-            const SizedBox(height: 8),
-
-            TextFormField(
-              controller: _confirmPasswordController,
-              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
-              autovalidateMode: AutovalidateMode.onUserInteraction,
-              obscureText: _obscureConfirmPassword,
-              decoration: InputDecoration(
-                labelText: 'Confirm Password',
-                floatingLabelBehavior: FloatingLabelBehavior.always,
-                labelStyle: const TextStyle(fontSize: 16, color: Colors.grey),
-                enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.grey.shade400)),
-                focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: AppTheme.primaryColor, width: 2)),
-                errorBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Colors.red, width: 1)),
-                focusedErrorBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Colors.red, width: 2)),
-                suffixIcon: IconButton(
-                  icon: Icon(_obscureConfirmPassword ? Icons.visibility_off : Icons.visibility, color: Colors.grey),
-                  onPressed: () => setState(() => _obscureConfirmPassword = !_obscureConfirmPassword),
-                ),
-              ),
-              validator: (value) {
-                if (value != _passwordController.text) return 'Passwords do not match';
-                return null;
-              },
-            ),
-            const SizedBox(height: 24),
-
-            RichText(
-              textAlign: TextAlign.center,
-              text: TextSpan(
-                style: TextStyle(fontSize: 11, color: Colors.grey.shade600, height: 1.5),
+          // Scrollable Form Fields
+          Expanded(
+            child: SingleChildScrollView(
+              padding: EdgeInsets.fromLTRB(28, 12, 28, 20 + bottomInset),
+              keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  const TextSpan(text: 'By signing up, you agree to our '),
-                  TextSpan(
-                    text: 'Terms & Conditions',
-                    style: const TextStyle(color: AppTheme.primaryColor, fontWeight: FontWeight.bold),
-                    recognizer: _termsRecognizer,
+                  TextFormField(
+                    controller: _fullNameController,
+                    style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+                    autovalidateMode: AutovalidateMode.onUserInteraction,
+                    decoration: InputDecoration(
+                      labelText: 'Name',
+                      floatingLabelBehavior: FloatingLabelBehavior.always,
+                      labelStyle: const TextStyle(fontSize: 16, color: Colors.grey),
+                      enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.grey.shade400)),
+                      focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: AppTheme.primaryColor, width: 2)),
+                      errorBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Colors.red, width: 1)),
+                      focusedErrorBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Colors.red, width: 2)),
+                    ),
+                    validator: (value) {
+                      if (value == null || value.trim().isEmpty) return 'Enter full name';
+                      return null;
+                    },
                   ),
-                  const TextSpan(text: ' and '),
-                  TextSpan(
-                    text: 'Privacy Policy',
-                    style: const TextStyle(color: AppTheme.primaryColor, fontWeight: FontWeight.bold),
-                    recognizer: _privacyRecognizer,
+                  const SizedBox(height: 12),
+
+                  TextFormField(
+                    controller: _emailController,
+                    style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+                    autovalidateMode: AutovalidateMode.onUserInteraction,
+                    keyboardType: TextInputType.emailAddress,
+                    decoration: InputDecoration(
+                      labelText: 'Email',
+                      floatingLabelBehavior: FloatingLabelBehavior.always,
+                      labelStyle: const TextStyle(fontSize: 16, color: Colors.grey),
+                      enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.grey.shade400)),
+                      focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: AppTheme.primaryColor, width: 2)),
+                      errorBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Colors.red, width: 1)),
+                      focusedErrorBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Colors.red, width: 2)),
+                    ),
+                    validator: (value) {
+                      if (value == null || value.isEmpty) return 'Enter email';
+                      final emailRegExp = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
+                      if (!emailRegExp.hasMatch(value)) return 'Enter valid email';
+                      return null;
+                    },
                   ),
-                  const TextSpan(text: '.'),
+                  const SizedBox(height: 12),
+
+                  TextFormField(
+                    controller: _passwordController,
+                    style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+                    autovalidateMode: AutovalidateMode.onUserInteraction,
+                    obscureText: _obscurePassword,
+                    decoration: InputDecoration(
+                      labelText: 'Password',
+                      floatingLabelBehavior: FloatingLabelBehavior.always,
+                      labelStyle: const TextStyle(fontSize: 16, color: Colors.grey),
+                      enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.grey.shade400)),
+                      focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: AppTheme.primaryColor, width: 2)),
+                      errorBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Colors.red, width: 1)),
+                      focusedErrorBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Colors.red, width: 2)),
+                      suffixIcon: IconButton(
+                        icon: Icon(_obscurePassword ? Icons.visibility_off : Icons.visibility, color: Colors.grey),
+                        onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+
+                  _buildRequirement('At least 6 characters', _hasMinLength),
+                  _buildRequirement('At least 1 uppercase letter', _hasUppercase),
+                  _buildRequirement('At least 1 number', _hasNumber),
+                  const SizedBox(height: 8),
+
+                  TextFormField(
+                    controller: _confirmPasswordController,
+                    style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+                    autovalidateMode: AutovalidateMode.onUserInteraction,
+                    obscureText: _obscureConfirmPassword,
+                    decoration: InputDecoration(
+                      labelText: 'Confirm Password',
+                      floatingLabelBehavior: FloatingLabelBehavior.always,
+                      labelStyle: const TextStyle(fontSize: 16, color: Colors.grey),
+                      enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.grey.shade400)),
+                      focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: AppTheme.primaryColor, width: 2)),
+                      errorBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Colors.red, width: 1)),
+                      focusedErrorBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Colors.red, width: 2)),
+                      suffixIcon: IconButton(
+                        icon: Icon(_obscureConfirmPassword ? Icons.visibility_off : Icons.visibility, color: Colors.grey),
+                        onPressed: () => setState(() => _obscureConfirmPassword = !_obscureConfirmPassword),
+                      ),
+                    ),
+                    validator: (value) {
+                      if (value != _passwordController.text) return 'Passwords do not match';
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 24),
+
+                  RichText(
+                    textAlign: TextAlign.center,
+                    text: TextSpan(
+                      style: TextStyle(fontSize: 11, color: Colors.grey.shade600, height: 1.5),
+                      children: [
+                        const TextSpan(text: 'By signing up, you agree to our '),
+                        TextSpan(
+                          text: 'Terms & Conditions',
+                          style: const TextStyle(color: AppTheme.primaryColor, fontWeight: FontWeight.bold),
+                          recognizer: _termsRecognizer,
+                        ),
+                        const TextSpan(text: ' and '),
+                        TextSpan(
+                          text: 'Privacy Policy',
+                          style: const TextStyle(color: AppTheme.primaryColor, fontWeight: FontWeight.bold),
+                          recognizer: _privacyRecognizer,
+                        ),
+                        const TextSpan(text: '.'),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
+                  ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.primaryColor,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      elevation: 0,
+                    ),
+                    onPressed: _isLoading ? null : _register,
+                    child: _isLoading
+                        ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                        : const Text('SIGN UP', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 1.2)),
+                  ),
+                  const SizedBox(height: 16),
+
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text("Already have an account? ", style: TextStyle(color: Colors.grey.shade600, fontSize: 14)),
+                      GestureDetector(
+                        onTap: widget.onGoToLogin,
+                        child: const Text(
+                          'LOG IN',
+                          style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 14),
+                        ),
+                      ),
+                    ],
+                  ),
                 ],
               ),
             ),
-            const SizedBox(height: 16),
-
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.primaryColor,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                elevation: 0,
-              ),
-              onPressed: _isLoading ? null : _register,
-              child: _isLoading
-                  ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                  : const Text('SIGN UP', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 1.2)),
-            ),
-            const SizedBox(height: 16),
-
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text("Already have an account? ", style: TextStyle(color: Colors.grey.shade600, fontSize: 14)),
-                GestureDetector(
-                  onTap: widget.onGoToLogin,
-                  child: const Text(
-                    'LOG IN',
-                    style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 14),
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

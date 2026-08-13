@@ -26,6 +26,22 @@
 		<string>$(FLUTTER_BUILD_NUMBER)</string>
 		<key>LSRequiresIPhoneOS</key>
 		<true/>
+
+		<key>CFBundleIdentifier</key>
+        <string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+
+<key>CFBundleURLTypes</key>
+<array>
+    <dict>
+        <key>CFBundleTypeRole</key>
+        <string>Editor</string>
+        <key>CFBundleURLSchemes</key>
+        <array>
+            <string>io.supabase.carbonsense</string>
+        </array>
+    </dict>
+</array>
+
 		<!-- Location Access -->
 		<key>NSLocationWhenInUseUsageDescription</key>
 		<string>This app requires access to your location to display your position on the map.</string>

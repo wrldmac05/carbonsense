@@ -74,8 +74,13 @@ flutter_launcher_icons:
 flutter_native_splash:
   color: '#1e4d2b' # Change this hex code if your app uses a dark theme
   image: 'assets/images/icon_final2.png'
+
+  # Optional: iOS-specific image override
+  image_ios: 'assets/images/icon_final2.png'
+
   android: true
   ios: true
+
   android_12:
     color: '#1e4d2b'
     image: 'assets/images/icon_final2.png'
