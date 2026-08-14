@@ -622,7 +622,10 @@ class _ForgotPasswordFormState extends State<_ForgotPasswordForm> {
     setState(() => _isLoading = true);
 
     try {
-      await Supabase.instance.client.auth.resetPasswordForEmail(email, redirectTo: 'io.supabase.carbonsense://reset-password');
+      await Supabase.instance.client.auth.resetPasswordForEmail(
+        email,
+        redirectTo: 'io.supabase.carbonsense://callback/reset-password', // Added dummy host
+      );
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Recovery link sent! Check your inbox.'), backgroundColor: Colors.green));
@@ -780,7 +783,7 @@ class _RegisterFormState extends State<_RegisterForm> {
         email: _emailController.text.trim(),
         password: _passwordController.text.trim(),
         data: {'full_name': _fullNameController.text.trim()},
-        emailRedirectTo: 'io.supabase.carbonsense://login',
+        emailRedirectTo: 'io.supabase.carbonsense://callback/login',
       );
       if (mounted) _showSuccessDialog(_emailController.text.trim());
     } catch (error) {

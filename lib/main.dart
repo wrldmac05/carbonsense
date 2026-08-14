@@ -255,9 +255,15 @@ class _CarbonSenseState extends ConsumerState<CarbonSense> {
   // ==============================================================
 
   void _listenToAuthChanges() {
+    // 🔍 TEMP DEBUG
+    debugPrint('🔍 LISTENER ATTACHED at ${DateTime.now()}');
+
     Supabase.instance.client.auth.onAuthStateChange.listen((data) {
       final event = data.event;
       final session = data.session;
+
+      // 🔍 TEMP DEBUG
+      debugPrint('🔍 AUTH EVENT: $event | session: ${session?.user.id} | at ${DateTime.now()}');
 
       // ----------------------------------------------------------
       // PASSWORD RECOVERY
