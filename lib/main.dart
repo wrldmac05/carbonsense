@@ -2,7 +2,6 @@ import 'package:carbonsense/features/activity/activity_log_screen.dart';
 import 'package:carbonsense/features/activity/log_activity_screen.dart';
 import 'package:carbonsense/features/network/network_provider.dart';
 import 'package:carbonsense/features/tasks/daily_tasks_screen.dart';
-import 'package:carbonsense/features/auth/forgot_password_screen.dart';
 import 'package:carbonsense/features/navigation/home_dashboard.dart';
 import 'package:carbonsense/features/navigation/main_navigation.dart';
 import 'package:carbonsense/features/navigation/help_support_screen.dart';
@@ -41,8 +40,6 @@ final _router = GoRouter(
     // AUTH & STANDALONE ROUTES
     // ============================================================
     GoRoute(path: '/login', builder: (context, state) => const AuthScreen()),
-
-    GoRoute(path: '/forgot-password', builder: (context, state) => const ForgotPasswordScreen()),
 
     // Password recovery destination
     GoRoute(path: '/reset-password', builder: (context, state) => const ResetPasswordScreen()),
@@ -429,7 +426,16 @@ class _CarbonSenseState extends ConsumerState<CarbonSense> {
           routerConfig: _router,
 
           builder: (context, routerChild) {
-            return GlobalNetworkBanner(child: routerChild ?? const SizedBox.shrink());
+            // 🌟 FIX: Pass _router.routerDelegate instead of _router
+            return ListenableBuilder(
+              listenable: _router.routerDelegate,
+              builder: (context, _) {
+                final currentPath = _router.routerDelegate.currentConfiguration.uri.path;
+                final isResetRoute = currentPath == '/reset-password';
+
+                return GlobalNetworkBanner(hideBanner: isResetRoute, child: routerChild ?? const SizedBox.shrink());
+              },
+            );
           },
         );
       },

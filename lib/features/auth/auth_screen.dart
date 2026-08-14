@@ -611,29 +611,65 @@ class _ForgotPasswordFormState extends State<_ForgotPasswordForm> {
   final _emailController = TextEditingController();
   bool _isLoading = false;
 
+  // 🌟 CUSTOM SUCCESS/ERROR MESSAGE HELPER
+  void _showCustomMessage(String message, {bool isError = false}) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            Icon(isError ? Icons.error_outline : Icons.check_circle_outline, color: Colors.white),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                message,
+                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+              ),
+            ),
+          ],
+        ),
+        // Uses AppTheme.primaryColor for success messages
+        backgroundColor: isError ? Colors.redAccent : AppTheme.primaryColor,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        margin: const EdgeInsets.all(16),
+        elevation: 6,
+      ),
+    );
+  }
+
   Future<void> _resetPassword() async {
     final email = _emailController.text.trim();
 
     if (email.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please enter your email address.')));
+      _showCustomMessage('Please enter your email address.', isError: true);
       return;
     }
 
     setState(() => _isLoading = true);
 
     try {
-      await Supabase.instance.client.auth.resetPasswordForEmail(
-        email,
-        redirectTo: 'io.supabase.carbonsense://callback/reset-password', // Added dummy host
-      );
+      // 🌟 DATABASE CHECK: Verify if the email exists in your database table first
+      // Note: Replace 'profiles' with your actual table name if different (e.g., 'users')
+      final existingUser = await Supabase.instance.client.from('users').select('user_id').eq('email', email).maybeSingle();
+
+      // If no matching user record is found, abort and display error message
+      if (existingUser == null) {
+        if (mounted) {
+          _showCustomMessage('No account found with this email address.', isError: true);
+        }
+        return;
+      }
+
+      // Email exists, proceed with password reset request
+      await Supabase.instance.client.auth.resetPasswordForEmail(email, redirectTo: 'io.supabase.carbonsense://reset-password');
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Recovery link sent! Check your inbox.'), backgroundColor: Colors.green));
+        _showCustomMessage('Recovery link sent! Check your inbox.');
         widget.onGoToLogin();
       }
     } catch (error) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: ${error.toString()}'), backgroundColor: Theme.of(context).colorScheme.error));
+        _showCustomMessage('Error: ${error.toString()}', isError: true);
       }
     } finally {
       if (mounted) {
@@ -691,7 +727,9 @@ class _ForgotPasswordFormState extends State<_ForgotPasswordForm> {
               focusedErrorBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Colors.red, width: 2)),
             ),
             validator: (value) {
-              if (value == null || value.trim().isEmpty) return 'Enter your email';
+              if (value == null || value.trim().isEmpty) {
+                return 'Enter your email';
+              }
               return null;
             },
           ),
@@ -783,7 +821,7 @@ class _RegisterFormState extends State<_RegisterForm> {
         email: _emailController.text.trim(),
         password: _passwordController.text.trim(),
         data: {'full_name': _fullNameController.text.trim()},
-        emailRedirectTo: 'io.supabase.carbonsense://callback/login',
+        emailRedirectTo: 'io.supabase.carbonsense://login',
       );
       if (mounted) _showSuccessDialog(_emailController.text.trim());
     } catch (error) {

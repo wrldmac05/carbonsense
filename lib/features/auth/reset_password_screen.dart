@@ -14,10 +14,13 @@ class ResetPasswordScreen extends StatefulWidget {
 
 class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
   final _passwordController = TextEditingController();
-  final _confirmPasswordController = TextEditingController(); // 🌟 ADDED: Confirm Password Controller
+  final _confirmPasswordController = TextEditingController();
   bool _isLoading = false;
 
-  // Reusing your password validation criteria
+  // 🌟 UX ENHANCEMENT: Password visibility toggles
+  bool _obscurePassword = true;
+  bool _obscureConfirmPassword = true;
+
   bool _hasMinLength = false;
   bool _hasUppercase = false;
   bool _hasNumber = false;
@@ -37,34 +40,54 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
     });
   }
 
+  // 🌟 CUSTOM SUCCESS/ERROR MESSAGE HELPER
+  void _showCustomMessage(String message, {bool isError = false}) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            Icon(isError ? Icons.error_outline : Icons.check_circle_outline, color: Colors.white),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                message,
+                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+              ),
+            ),
+          ],
+        ),
+        // Uses AppTheme.primaryColor for success messages
+        backgroundColor: isError ? Colors.redAccent : AppTheme.primaryColor,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        margin: const EdgeInsets.all(16),
+        elevation: 6,
+      ),
+    );
+  }
+
   Future<void> _updatePassword() async {
     final newPassword = _passwordController.text.trim();
-    final confirmPassword = _confirmPasswordController.text.trim(); // 🌟 ADDED: Get confirm text
+    final confirmPassword = _confirmPasswordController.text.trim();
 
-    // 🌟 ADDED: Validate that the fields are not empty
     if (newPassword.isEmpty || confirmPassword.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please fill out both password fields.')));
+      _showCustomMessage('Please fill out both password fields.', isError: true);
       return;
     }
 
-    // 🌟 ADDED: Validate that both passwords match
     if (newPassword != confirmPassword) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Passwords do not match.')));
+      _showCustomMessage('Passwords do not match.', isError: true);
       return;
     }
 
     if (!_hasMinLength || !_hasUppercase || !_hasNumber) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Password does not meet requirements.')));
+      _showCustomMessage('Password does not meet requirements.', isError: true);
       return;
     }
 
-    // 🌟 THE FIX: Check if Supabase actually established a session from the link
     final session = Supabase.instance.client.auth.currentSession;
     if (session == null) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('This reset link has expired or is invalid. Please request a new one.'), backgroundColor: Colors.red));
-      // Kick them back to the forgot password screen to try again
+      _showCustomMessage('This reset link has expired or is invalid. Please request a new one.', isError: true);
       context.go('/forgot-password');
       return;
     }
@@ -72,22 +95,18 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
     setState(() => _isLoading = true);
 
     try {
-      // Supabase magic: Updates the current user's password using the temporary email session
       await Supabase.instance.client.auth.updateUser(UserAttributes(password: newPassword));
 
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('Password updated successfully! Please login.'), backgroundColor: Colors.green));
-        // Wipe current session and force them to login with the new credentials
+        // 🌟 FIRE CUSTOM SUCCESS MESSAGE
+        _showCustomMessage('Password updated successfully! Please login with your new credentials.');
+
         await Supabase.instance.client.auth.signOut();
         context.go('/login');
       }
     } catch (error) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Failed to reset password: ${error.toString()}'), backgroundColor: Theme.of(context).colorScheme.error));
+        _showCustomMessage('Failed to reset password: ${error.toString()}', isError: true);
       }
     } finally {
       if (mounted) {
@@ -100,18 +119,31 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
   void dispose() {
     _passwordController.removeListener(_validatePassword);
     _passwordController.dispose();
-    _confirmPasswordController.dispose(); // 🌟 ADDED: Dispose to prevent memory leaks
+    _confirmPasswordController.dispose();
     super.dispose();
   }
 
+  // 🌟 UX ENHANCEMENT: Animated checklist for requirements
   Widget _buildRequirement(String text, bool isMet) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 4.0),
+      padding: const EdgeInsets.symmetric(vertical: 6.0),
       child: Row(
         children: [
-          Icon(isMet ? Icons.check_circle : Icons.radio_button_unchecked, color: isMet ? Colors.green : Colors.grey, size: 16),
-          const SizedBox(width: 8),
-          Text(text, style: TextStyle(color: isMet ? Colors.green : Colors.grey, fontSize: 12)),
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 300),
+            decoration: BoxDecoration(
+              color: isMet ? AppTheme.primaryColor : Colors.transparent,
+              shape: BoxShape.circle,
+              border: Border.all(color: isMet ? AppTheme.primaryColor : Colors.grey.shade400, width: 2),
+            ),
+            padding: const EdgeInsets.all(2),
+            child: Icon(Icons.check, size: 12, color: isMet ? Colors.white : Colors.transparent),
+          ),
+          const SizedBox(width: 12),
+          Text(
+            text,
+            style: TextStyle(color: isMet ? AppTheme.primaryColor : Colors.grey.shade600, fontSize: 14, fontWeight: isMet ? FontWeight.w600 : FontWeight.normal),
+          ),
         ],
       ),
     );
@@ -119,48 +151,96 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Scaffold background color is handled by AppTheme
     return Scaffold(
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.all(24.0),
+            padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 32.0),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const Center(child: Icon(Icons.lock_reset, size: 80, color: AppTheme.primaryColor)),
-                const SizedBox(height: 16),
-                Center(
-                  child: Text(
-                    'Enter New Password',
-                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(color: AppTheme.primaryColor, fontWeight: FontWeight.bold),
-                  ),
+                // 🌟 UX ENHANCEMENT: Header Icon with Theme Background
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: const BoxDecoration(color: AppTheme.secondaryColor, shape: BoxShape.circle),
+                  child: const Icon(Icons.lock_reset_rounded, size: 80, color: AppTheme.primaryColor),
                 ),
-                const SizedBox(height: 32),
-                TextField(
-                  controller: _passwordController,
-                  obscureText: true,
-                  decoration: const InputDecoration(hintText: 'New Password'),
-                ),
-                const SizedBox(height: 16), // 🌟 ADDED SPACING
-                // 🌟 NEW: Confirm Password Field
-                TextField(
-                  controller: _confirmPasswordController,
-                  obscureText: true,
-                  decoration: const InputDecoration(hintText: 'Confirm New Password'),
-                ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 24),
 
-                _buildRequirement('At least 6 characters', _hasMinLength),
-                _buildRequirement('At least 1 uppercase letter', _hasUppercase),
-                _buildRequirement('At least 1 number', _hasNumber),
-                const SizedBox(height: 32),
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: _isLoading ? null : _updatePassword,
-                    child: _isLoading ? const CircularProgressIndicator(color: Colors.white) : const Text('Save New Password'),
+                // 🌟 UX ENHANCEMENT: Better Typography Hierarchy
+                Text(
+                  'Secure Your Account',
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(color: AppTheme.primaryColor, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Please enter your new password below.',
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.grey.shade700),
+                ),
+                const SizedBox(height: 40),
+
+                // 🌟 UX ENHANCEMENT: Form wrapped in an elevated card
+                Container(
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).brightness == Brightness.light ? Colors.white : Colors.grey[900],
+                    borderRadius: BorderRadius.circular(24),
+                    boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 20, offset: const Offset(0, 10))],
                   ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      TextField(
+                        controller: _passwordController,
+                        obscureText: _obscurePassword,
+                        decoration: InputDecoration(
+                          hintText: 'New Password',
+                          prefixIcon: const Icon(Icons.lock_outline, color: AppTheme.primaryColor),
+                          suffixIcon: IconButton(
+                            icon: Icon(_obscurePassword ? Icons.visibility_off : Icons.visibility, color: Colors.grey),
+                            onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      TextField(
+                        controller: _confirmPasswordController,
+                        obscureText: _obscureConfirmPassword,
+                        decoration: InputDecoration(
+                          hintText: 'Confirm New Password',
+                          prefixIcon: const Icon(Icons.lock_outline, color: AppTheme.primaryColor),
+                          suffixIcon: IconButton(
+                            icon: Icon(_obscureConfirmPassword ? Icons.visibility_off : Icons.visibility, color: Colors.grey),
+                            onPressed: () => setState(() => _obscureConfirmPassword = !_obscureConfirmPassword),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+
+                      // Requirements Section
+                      const Text(
+                        'Password Requirements:',
+                        style: TextStyle(fontWeight: FontWeight.bold, color: AppTheme.primaryColor),
+                      ),
+                      const SizedBox(height: 12),
+                      _buildRequirement('At least 6 characters', _hasMinLength),
+                      _buildRequirement('At least 1 uppercase letter', _hasUppercase),
+                      _buildRequirement('At least 1 number', _hasNumber),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 32),
+
+                // Submit Button
+                ElevatedButton(
+                  onPressed: _isLoading ? null : _updatePassword,
+                  child: _isLoading
+                      ? const SizedBox(height: 24, width: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                      : const Text('Save New Password', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                 ),
               ],
             ),

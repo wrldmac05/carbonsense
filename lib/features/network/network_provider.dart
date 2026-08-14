@@ -84,8 +84,9 @@ final authStateProvider = StreamProvider<AuthState>((ref) {
 
 class GlobalNetworkBanner extends ConsumerWidget {
   final Widget child;
+  final bool hideBanner; // 🌟 ADDED: Allow screens to suppress the banner
 
-  const GlobalNetworkBanner({super.key, required this.child});
+  const GlobalNetworkBanner({super.key, required this.child, this.hideBanner = false});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -94,7 +95,8 @@ class GlobalNetworkBanner extends ConsumerWidget {
 
     final bool isLoggedIn = Supabase.instance.client.auth.currentSession != null;
 
-    final bool showBanner = (networkState == NetworkState.lost || networkState == NetworkState.weak) && isLoggedIn;
+    // 🌟 UPDATED: Hide the banner if hideBanner is true
+    final bool showBanner = (networkState == NetworkState.lost || networkState == NetworkState.weak) && isLoggedIn && !hideBanner;
 
     final String message = networkState == NetworkState.lost ? 'No Internet' : 'Weak Signal';
     final Color backgroundColor = networkState == NetworkState.lost ? Colors.red.shade600 : Colors.orange.shade600;
