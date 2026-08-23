@@ -419,7 +419,7 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
           SafeArea(
             bottom: false,
             child: logsAsync.when(
-              loading: () => const Center(child: CircularProgressIndicator(color: AppTheme.primaryColor)),
+              loading: () => const AnalyticsSkeletonView(),
               error: (err, stack) => Center(
                 child: Padding(
                   padding: const EdgeInsets.all(32.0),
@@ -492,7 +492,6 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
                   child: SingleChildScrollView(
                     physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
                     child: Center(
-                      // 🌟 RESPONSIVE WRAPPER: Constrains maximum width for web/tablets
                       child: ConstrainedBox(
                         constraints: const BoxConstraints(maxWidth: 600),
                         child: Column(
@@ -505,13 +504,7 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
                             Padding(
                               padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8),
                               child: generalAiAsync.when(
-                                loading: () => Container(
-                                  height: 120,
-                                  width: double.infinity,
-                                  padding: const EdgeInsets.all(20),
-                                  decoration: BoxDecoration(color: isDark ? Colors.grey[850] : Colors.grey.shade100, borderRadius: BorderRadius.circular(24)),
-                                  child: const Center(child: CircularProgressIndicator(color: AppTheme.primaryColor)),
-                                ),
+                                loading: () => const AiCardSkeleton(),
                                 error: (err, _) => const SizedBox.shrink(),
                                 data: (text) => _buildAiCard("GENERAL ECO-COACH", text, isGeneral: true),
                               ),
@@ -562,13 +555,7 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
                             Padding(
                               padding: const EdgeInsets.symmetric(horizontal: 16.0),
                               child: monthlyAiAsync.when(
-                                loading: () => Container(
-                                  height: 120,
-                                  width: double.infinity,
-                                  padding: const EdgeInsets.all(20),
-                                  decoration: BoxDecoration(color: isDark ? Colors.grey[850] : Colors.grey.shade100, borderRadius: BorderRadius.circular(24)),
-                                  child: const Center(child: CircularProgressIndicator(color: AppTheme.primaryColor)),
-                                ),
+                                loading: () => const AiCardSkeleton(),
                                 error: (err, _) => const SizedBox.shrink(),
                                 data: (text) {
                                   if (_selectedMonthIndex == DateTime.now().month - 1) {
@@ -600,7 +587,7 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
     );
   }
 
-  // --- 🌟 RESPONSIVE LIFESTYLE PROFILE CARD (FIXES OVERFLOW ON IPHONE 12 MINI) ---
+  // --- 🌟 RESPONSIVE LIFESTYLE PROFILE CARD ---
 
   Widget _buildDetailedLifestyleSection(Map<String, dynamic>? lifestyle) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -612,7 +599,7 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
     final commuteType = lifestyle?['commute_type'] ?? 'Analyzing...';
 
     return Container(
-      padding: const EdgeInsets.all(16), // Reduced padding slightly for small screens
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: cardBg,
         borderRadius: BorderRadius.circular(24),
@@ -641,8 +628,6 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
             ],
           ),
           const SizedBox(height: 14),
-
-          // 🌟 RESPONSIVE BADGE ROW (ADAPTS ON ULTRA-COMPACT SCREENS)
           LayoutBuilder(
             builder: (context, constraints) {
               final isSmall = constraints.maxWidth < 340;
@@ -664,11 +649,9 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
               );
             },
           ),
-
           const SizedBox(height: 14),
           Divider(color: isDark ? Colors.grey[800] : Colors.grey.shade200, height: 1),
           const SizedBox(height: 12),
-
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -704,7 +687,6 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
             children: [
               Icon(icon, size: 16, color: color),
               const SizedBox(width: 4),
-              // 🌟 FLEXIBLE TEXT PREVENTS RIGHT OVERFLOW
               Expanded(
                 child: Text(
                   label,
@@ -1302,7 +1284,6 @@ class _AnimatedAiCardState extends State<AnimatedAiCard> with TickerProviderStat
                 ],
               ),
               const SizedBox(height: 12),
-
               AnimatedSwitcher(
                 duration: const Duration(milliseconds: 400),
                 child: MarkdownBody(
@@ -1316,6 +1297,209 @@ class _AnimatedAiCardState extends State<AnimatedAiCard> with TickerProviderStat
                 ),
               ),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// 🌟 SKELETON LOADER WIDGETS
+
+class ShimmerLoading extends StatefulWidget {
+  final Widget child;
+  const ShimmerLoading({super.key, required this.child});
+
+  @override
+  State<ShimmerLoading> createState() => _ShimmerLoadingState();
+}
+
+class _ShimmerLoadingState extends State<ShimmerLoading> with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _animation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(vsync: this, duration: const Duration(milliseconds: 1100))..repeat(reverse: true);
+
+    _animation = Tween<double>(begin: 0.35, end: 0.85).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FadeTransition(opacity: _animation, child: widget.child);
+  }
+}
+
+class SkeletonBox extends StatelessWidget {
+  final double? width;
+  final double height;
+  final double borderRadius;
+
+  const SkeletonBox({super.key, this.width, required this.height, this.borderRadius = 12});
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final color = isDark ? const Color(0xFF2C2C2C) : Colors.grey.shade300;
+
+    return Container(
+      width: width,
+      height: height,
+      decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(borderRadius)),
+    );
+  }
+}
+
+class AiCardSkeleton extends StatelessWidget {
+  const AiCardSkeleton({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardBg = isDark ? Colors.grey[850] : Colors.white;
+
+    return ShimmerLoading(
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(18),
+        decoration: BoxDecoration(
+          color: cardBg,
+          borderRadius: BorderRadius.circular(22),
+          border: Border.all(color: isDark ? Colors.grey[800]! : Colors.grey.shade200),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: const [
+            Row(children: [SkeletonBox(width: 18, height: 18, borderRadius: 9), SizedBox(width: 8), SkeletonBox(width: 140, height: 12, borderRadius: 4)]),
+            SizedBox(height: 14),
+            SkeletonBox(width: double.infinity, height: 14, borderRadius: 4),
+            SizedBox(height: 8),
+            SkeletonBox(width: double.infinity, height: 14, borderRadius: 4),
+            SizedBox(height: 8),
+            SkeletonBox(width: 180, height: 14, borderRadius: 4),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class AnalyticsSkeletonView extends StatelessWidget {
+  const AnalyticsSkeletonView({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardBg = isDark ? Colors.grey[850] : Colors.white;
+
+    return SingleChildScrollView(
+      physics: const NeverScrollableScrollPhysics(),
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 600),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16.0),
+            child: ShimmerLoading(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Header
+                  const SizedBox(height: 8),
+                  const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 4.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [SkeletonBox(width: 160, height: 34, borderRadius: 8), SizedBox(height: 6), SkeletonBox(width: 280, height: 14, borderRadius: 4)],
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+
+                  // General AI Card Placeholder
+                  const AiCardSkeleton(),
+                  const SizedBox(height: 16),
+
+                  // Lifestyle Profile Placeholder
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: cardBg,
+                      borderRadius: BorderRadius.circular(24),
+                      border: Border.all(color: isDark ? Colors.grey[800]! : Colors.grey.shade200),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: const [
+                        Row(children: [SkeletonBox(width: 38, height: 38, borderRadius: 12), SizedBox(width: 10), SkeletonBox(width: 170, height: 16, borderRadius: 4)]),
+                        SizedBox(height: 14),
+                        Row(
+                          children: [
+                            Expanded(child: SkeletonBox(height: 60, borderRadius: 16)),
+                            SizedBox(width: 8),
+                            Expanded(child: SkeletonBox(height: 60, borderRadius: 16)),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Yearly Impact Chart Card Placeholder
+                  Container(
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: cardBg,
+                      borderRadius: BorderRadius.circular(28),
+                      border: Border.all(color: isDark ? Colors.grey[800]! : Colors.grey.shade200),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: const [
+                        SkeletonBox(width: 130, height: 13, borderRadius: 4),
+                        SizedBox(height: 8),
+                        SkeletonBox(width: 190, height: 30, borderRadius: 8),
+                        SizedBox(height: 24),
+                        SkeletonBox(width: double.infinity, height: 180, borderRadius: 16),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+
+                  // Month Deep Dive Section
+                  const Padding(padding: EdgeInsets.symmetric(horizontal: 4.0), child: SkeletonBox(width: 150, height: 18, borderRadius: 4)),
+                  const SizedBox(height: 12),
+
+                  // Month Selector Pills
+                  Row(
+                    children: List.generate(4, (index) => const Padding(padding: EdgeInsets.only(right: 8.0), child: SkeletonBox(width: 65, height: 40, borderRadius: 20))),
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Month Summary Box
+                  const SkeletonBox(width: double.infinity, height: 80, borderRadius: 20),
+                  const SizedBox(height: 12),
+
+                  // Quick Metrics 3 Columns
+                  Row(
+                    children: const [
+                      Expanded(child: SkeletonBox(height: 70, borderRadius: 16)),
+                      SizedBox(width: 8),
+                      Expanded(child: SkeletonBox(height: 70, borderRadius: 16)),
+                      SizedBox(width: 8),
+                      Expanded(child: SkeletonBox(height: 70, borderRadius: 16)),
+                    ],
+                  ),
+                  const SizedBox(height: 120),
+                ],
+              ),
+            ),
           ),
         ),
       ),

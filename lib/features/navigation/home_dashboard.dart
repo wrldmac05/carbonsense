@@ -157,7 +157,7 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
         debugPrint('Activity logs fetch notice: $e');
       }
 
-      final int requiredLogs = 10;
+      const int requiredLogs = 10;
 
       if (accountAgeDays >= 7 || logCount >= requiredLogs) {
         needsRegeneration = true;
@@ -320,7 +320,7 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
                   future: _fetchMonthlyBreakdownData(),
                   builder: (context, snapshot) {
                     if (snapshot.connectionState == ConnectionState.waiting) {
-                      return const Center(child: CircularProgressIndicator(color: AppTheme.primaryColor));
+                      return const MonthlyBreakdownSkeleton();
                     }
                     if (snapshot.hasError) {
                       return const Center(
@@ -343,7 +343,7 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
                     return SingleChildScrollView(
                       physics: const BouncingScrollPhysics(),
                       child: Padding(
-                        padding: const EdgeInsets.only(left: 24, top: 24, right: 24, bottom: 120),
+                        padding: const EdgeInsets.only(top: 12, bottom: 40),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -552,14 +552,11 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
     final scaffoldBg = isDark ? const Color(0xFF121212) : const Color(0xFFF9FFF9);
     final textColor = isDark ? Colors.white : Colors.black87;
 
-    if (profileAsync.hasError || _isLoading) {
-      if (_isLoading) {
-        return Scaffold(
-          backgroundColor: scaffoldBg,
-          body: const Center(child: CircularProgressIndicator(color: AppTheme.primaryColor)),
-        );
-      }
+    if (_isLoading) {
+      return const DashboardSkeletonView();
+    }
 
+    if (profileAsync.hasError) {
       return Scaffold(
         backgroundColor: scaffoldBg,
         body: SafeArea(
@@ -605,10 +602,7 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
     }
 
     return profileAsync.when(
-      loading: () => Scaffold(
-        backgroundColor: scaffoldBg,
-        body: const Center(child: CircularProgressIndicator(color: AppTheme.primaryColor)),
-      ),
+      loading: () => const DashboardSkeletonView(),
       error: (err, stack) => const SizedBox.shrink(),
       data: (profile) {
         return Scaffold(
@@ -1035,7 +1029,17 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
     final textColor = isDark ? Colors.white : Colors.black87;
 
     return tasksAsync.when(
-      loading: () => const Center(child: CircularProgressIndicator(color: AppTheme.primaryColor)),
+      loading: () => ShimmerLoading(
+        child: Column(
+          children: List.generate(
+            3,
+            (index) => const Padding(
+              padding: EdgeInsets.only(bottom: 12.0),
+              child: SkeletonBox(width: double.infinity, height: 72, borderRadius: 24),
+            ),
+          ),
+        ),
+      ),
       error: (error, stack) => Center(
         child: Padding(
           padding: const EdgeInsets.all(24.0),
@@ -1219,6 +1223,183 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
           },
         );
       },
+    );
+  }
+}
+
+class ShimmerLoading extends StatefulWidget {
+  final Widget child;
+  const ShimmerLoading({super.key, required this.child});
+
+  @override
+  State<ShimmerLoading> createState() => _ShimmerLoadingState();
+}
+
+class _ShimmerLoadingState extends State<ShimmerLoading> with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _animation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(vsync: this, duration: const Duration(milliseconds: 1100))..repeat(reverse: true);
+
+    _animation = Tween<double>(begin: 0.35, end: 0.85).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FadeTransition(opacity: _animation, child: widget.child);
+  }
+}
+
+class SkeletonBox extends StatelessWidget {
+  final double? width;
+  final double height;
+  final double borderRadius;
+
+  const SkeletonBox({super.key, this.width, required this.height, this.borderRadius = 12});
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final color = isDark ? const Color(0xFF2C2C2C) : Colors.grey.shade300;
+
+    return Container(
+      width: width,
+      height: height,
+      decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(borderRadius)),
+    );
+  }
+}
+
+class DashboardSkeletonView extends StatelessWidget {
+  const DashboardSkeletonView({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final scaffoldBg = isDark ? const Color(0xFF121212) : const Color(0xFFF9FFF9);
+
+    return Scaffold(
+      backgroundColor: scaffoldBg,
+      body: SafeArea(
+        bottom: false,
+        child: SingleChildScrollView(
+          physics: const NeverScrollableScrollPhysics(),
+          child: Padding(
+            padding: const EdgeInsets.only(left: 24, top: 24, right: 24, bottom: 120),
+            child: ShimmerLoading(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const SkeletonBox(width: 110, height: 14, borderRadius: 6),
+                  const SizedBox(height: 8),
+                  const SkeletonBox(width: 260, height: 28, borderRadius: 8),
+                  const SizedBox(height: 6),
+                  const SkeletonBox(width: 200, height: 14, borderRadius: 6),
+                  const SizedBox(height: 24),
+                  const SkeletonBox(width: double.infinity, height: 220, borderRadius: 32),
+                  const SizedBox(height: 32),
+                  const SkeletonBox(width: 90, height: 18, borderRadius: 6),
+                  const SizedBox(height: 16),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: List.generate(
+                      3,
+                      (index) => Column(children: const [SkeletonBox(width: 65, height: 65, borderRadius: 22), SizedBox(height: 8), SkeletonBox(width: 45, height: 12, borderRadius: 4)]),
+                    ),
+                  ),
+                  const SizedBox(height: 32),
+                  Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: const [SkeletonBox(width: 140, height: 20, borderRadius: 6), SkeletonBox(width: 100, height: 24, borderRadius: 12)]),
+                  const SizedBox(height: 16),
+                  Column(
+                    children: List.generate(
+                      3,
+                      (index) => const Padding(
+                        padding: EdgeInsets.only(bottom: 12.0),
+                        child: SkeletonBox(width: double.infinity, height: 72, borderRadius: 24),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class MonthlyBreakdownSkeleton extends StatelessWidget {
+  const MonthlyBreakdownSkeleton({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return ShimmerLoading(
+      child: SingleChildScrollView(
+        physics: const NeverScrollableScrollPhysics(),
+        child: Padding(
+          padding: const EdgeInsets.only(top: 12, bottom: 40),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Emissions Section Header
+              Row(children: const [SkeletonBox(width: 20, height: 20, borderRadius: 10), SizedBox(width: 8), SkeletonBox(width: 170, height: 16, borderRadius: 6)]),
+              const SizedBox(height: 16),
+              ...List.generate(
+                3,
+                (index) => const Padding(
+                  padding: EdgeInsets.only(bottom: 14.0),
+                  child: Row(
+                    children: [
+                      SkeletonBox(width: 40, height: 40, borderRadius: 20),
+                      SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [SkeletonBox(width: 150, height: 14, borderRadius: 4), SizedBox(height: 6), SkeletonBox(width: 100, height: 10, borderRadius: 4)],
+                        ),
+                      ),
+                      SkeletonBox(width: 55, height: 14, borderRadius: 4),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 24),
+              // Completed Tasks Section Header
+              Row(children: const [SkeletonBox(width: 20, height: 20, borderRadius: 10), SizedBox(width: 8), SkeletonBox(width: 160, height: 16, borderRadius: 6)]),
+              const SizedBox(height: 16),
+              ...List.generate(
+                2,
+                (index) => const Padding(
+                  padding: EdgeInsets.only(bottom: 14.0),
+                  child: Row(
+                    children: [
+                      SkeletonBox(width: 40, height: 40, borderRadius: 20),
+                      SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [SkeletonBox(width: 170, height: 14, borderRadius: 4), SizedBox(height: 6), SkeletonBox(width: 80, height: 10, borderRadius: 4)],
+                        ),
+                      ),
+                      SkeletonBox(width: 55, height: 14, borderRadius: 4),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

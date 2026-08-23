@@ -30,7 +30,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       final lifestyleResponse = await Supabase.instance.client.from('lifestyle_profiles').select().eq('user_id', userId).maybeSingle();
 
       if (profileResponse != null) {
-        final rawLocation = profileResponse['location']; // 👈 Fixed
+        final rawLocation = profileResponse['location'];
         final bool hasLocation = rawLocation != null && rawLocation.toString().trim().isNotEmpty;
         final bool isObProfileDone = profileResponse['ob_profile'] == true;
 
@@ -129,10 +129,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final subtitleColor = isDark ? Colors.grey[400] : Colors.grey;
 
     if (_isLoading) {
-      return Scaffold(
-        backgroundColor: scaffoldBg,
-        body: const Center(child: CircularProgressIndicator(color: AppTheme.primaryColor)),
-      );
+      return const ProfileSkeletonView();
     }
 
     final displayName = _userProfile?['display_name'] ?? 'Eco Warrior';
@@ -218,7 +215,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
               const SizedBox(height: 40),
 
-              // 🎯 Full-Width Adaptive Goal Hero Card
+              // Full-Width Adaptive Goal Hero Card
               _buildHeroTargetCard(monthlyTarget),
 
               const SizedBox(height: 24),
@@ -232,7 +229,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
               const SizedBox(height: 16),
 
-              // 🎯 2-Item Row below the Hero Card
+              // 2-Item Row below the Hero Card
               Row(
                 children: [
                   Expanded(child: _buildGridCard("Diet", dietType, dietType.contains('Analyzing') ? Icons.sync : Icons.restaurant)),
@@ -270,12 +267,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
                       String? currentPasswordApiError;
 
-                      // State variables for dynamic password requirements
                       bool hasMinLength = false;
                       bool hasUppercase = false;
                       bool noSpecialChars = false;
 
-                      // Helper widget for rendering the dynamic requirements
                       Widget buildRequirement(String text, bool isMet) {
                         final reqTextColor = isMet ? (isDark ? Colors.white : Colors.black87) : (isDark ? Colors.grey[400] : Colors.black54);
 
@@ -370,7 +365,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                       suffixIcon: IconButton(icon: Icon(isObscured ? Icons.visibility_off : Icons.visibility), onPressed: () => setModalState(() => isObscured = !isObscured)),
                                     ),
                                     onChanged: (value) {
-                                      // Update requirement checks in real-time
                                       setModalState(() {
                                         hasMinLength = value.length >= 6;
                                         hasUppercase = value.contains(RegExp(r'[A-Z]'));
@@ -428,9 +422,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                                   await Supabase.instance.client.auth.updateUser(UserAttributes(password: passwordController.text));
 
                                                   if (context.mounted) {
-                                                    Navigator.pop(context); // Close the bottom sheet
+                                                    Navigator.pop(context);
 
-                                                    // Show Custom Success Dialog
                                                     showDialog(
                                                       context: context,
                                                       builder: (context) => Dialog(
@@ -557,9 +550,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                     filled: true,
                                     fillColor: isDark ? Colors.grey[900] : Colors.transparent,
                                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                                    focusedBorder: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(12),
-                                      borderSide: const BorderSide(color: Colors.red, width: 2),
+                                    focusedBorder: const OutlineInputBorder(
+                                      borderRadius: BorderRadius.all(Radius.circular(12)),
+                                      borderSide: BorderSide(color: Colors.red, width: 2),
                                     ),
                                   ),
                                   onChanged: (value) {
@@ -629,7 +622,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   // --- UI WIDGET COMPONENTS ---
 
-  // 🎯 The Hero Card Component
   Widget _buildHeroTargetCard(String value) {
     return Container(
       width: double.infinity,
@@ -668,7 +660,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  // Fix 2: Fixed Grid Card Text Truncation
   Widget _buildGridCard(String title, String value, IconData icon) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final cardBg = isDark ? Colors.grey[850] : Colors.white;
@@ -695,7 +686,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           const SizedBox(height: 4),
           Text(
             value,
-            style: TextStyle(color: textColor, fontSize: 15, fontWeight: FontWeight.w800, height: 1.2), // 👈 Allows 2 lines cleanly
+            style: TextStyle(color: textColor, fontSize: 15, fontWeight: FontWeight.w800, height: 1.2),
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
           ),
@@ -723,6 +714,143 @@ class _ProfileScreenState extends State<ProfileScreen> {
       ),
       trailing: const Icon(Icons.chevron_right, color: Colors.grey),
       onTap: onTap,
+    );
+  }
+}
+
+// 🌟 SKELETON LOADER WIDGETS
+
+class ShimmerLoading extends StatefulWidget {
+  final Widget child;
+  const ShimmerLoading({super.key, required this.child});
+
+  @override
+  State<ShimmerLoading> createState() => _ShimmerLoadingState();
+}
+
+class _ShimmerLoadingState extends State<ShimmerLoading> with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _animation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(vsync: this, duration: const Duration(milliseconds: 1100))..repeat(reverse: true);
+
+    _animation = Tween<double>(begin: 0.35, end: 0.85).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FadeTransition(opacity: _animation, child: widget.child);
+  }
+}
+
+class SkeletonBox extends StatelessWidget {
+  final double? width;
+  final double height;
+  final double borderRadius;
+
+  const SkeletonBox({super.key, this.width, required this.height, this.borderRadius = 12});
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final color = isDark ? const Color(0xFF2C2C2C) : Colors.grey.shade300;
+
+    return Container(
+      width: width,
+      height: height,
+      decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(borderRadius)),
+    );
+  }
+}
+
+class ProfileSkeletonView extends StatelessWidget {
+  const ProfileSkeletonView({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final scaffoldBg = isDark ? const Color(0xFF121212) : const Color(0xFFF9FFF9);
+    final cardBg = isDark ? Colors.grey[850] : Colors.white;
+
+    return Scaffold(
+      backgroundColor: scaffoldBg,
+      appBar: AppBar(title: const SkeletonBox(width: 80, height: 20, borderRadius: 6), centerTitle: false, backgroundColor: Colors.transparent, elevation: 0),
+      body: SingleChildScrollView(
+        physics: const NeverScrollableScrollPhysics(),
+        padding: const EdgeInsets.only(left: 24, top: 24, right: 24, bottom: 120),
+        child: ShimmerLoading(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              // Avatar Placeholder
+              const SkeletonBox(width: 96, height: 96, borderRadius: 48),
+              const SizedBox(height: 16),
+
+              // Display Name
+              const SkeletonBox(width: 150, height: 24, borderRadius: 6),
+              const SizedBox(height: 8),
+
+              // Location
+              const SkeletonBox(width: 120, height: 16, borderRadius: 4),
+              const SizedBox(height: 20),
+
+              // Edit Profile Button
+              const SkeletonBox(width: 160, height: 44, borderRadius: 12),
+              const SizedBox(height: 40),
+
+              // Adaptive Goal Hero Card
+              const SkeletonBox(width: double.infinity, height: 160, borderRadius: 24),
+              const SizedBox(height: 24),
+
+              // Lifestyle Profile Header
+              const Align(alignment: Alignment.centerLeft, child: SkeletonBox(width: 140, height: 18, borderRadius: 4)),
+              const SizedBox(height: 16),
+
+              // 2 Grid Cards
+              Row(
+                children: const [
+                  Expanded(child: SkeletonBox(height: 110, borderRadius: 24)),
+                  SizedBox(width: 16),
+                  Expanded(child: SkeletonBox(height: 110, borderRadius: 24)),
+                ],
+              ),
+              const SizedBox(height: 40),
+
+              // Account & Settings Header
+              const Align(alignment: Alignment.centerLeft, child: SkeletonBox(width: 160, height: 18, borderRadius: 4)),
+              const SizedBox(height: 16),
+
+              // Settings Container with 2 Tile Placeholders
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                decoration: BoxDecoration(
+                  color: cardBg,
+                  borderRadius: BorderRadius.circular(24),
+                  border: Border.all(color: isDark ? Colors.grey[800]! : Colors.grey.shade200),
+                ),
+                child: Column(
+                  children: [
+                    Row(children: const [SkeletonBox(width: 40, height: 40, borderRadius: 12), SizedBox(width: 16), SkeletonBox(width: 130, height: 16, borderRadius: 4)]),
+                    const SizedBox(height: 16),
+                    Divider(height: 1, color: isDark ? Colors.grey[800] : Colors.grey.shade100),
+                    const SizedBox(height: 16),
+                    Row(children: const [SkeletonBox(width: 40, height: 40, borderRadius: 12), SizedBox(width: 16), SkeletonBox(width: 110, height: 16, borderRadius: 4)]),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

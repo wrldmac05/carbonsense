@@ -251,7 +251,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         iconTheme: IconThemeData(color: textColor),
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator(color: AppTheme.primaryColor))
+          ? const EditProfileSkeletonView()
           : SingleChildScrollView(
               physics: const BouncingScrollPhysics(),
               padding: const EdgeInsets.only(left: 24, top: 24, right: 24, bottom: 120),
@@ -355,8 +355,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                           label: 'Current Location',
                           hint: 'Click "Detect via GPS" above...',
                           icon: Icons.map_outlined,
-                          readOnly: true, // Prevents typing custom strings
-                          fillColor: isDark ? Colors.teal.withOpacity(0.12) : const Color(0xFFE6FFFA), // Soft teal indicator
+                          readOnly: true,
+                          fillColor: isDark ? Colors.teal.withOpacity(0.12) : const Color(0xFFE6FFFA),
                           validator: (value) {
                             if (value == null || value.trim().isEmpty) {
                               return 'Location verification is required';
@@ -522,6 +522,137 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
           borderSide: const BorderSide(color: AppTheme.primaryColor, width: 2),
+        ),
+      ),
+    );
+  }
+}
+
+// 🌟 SKELETON LOADER WIDGETS
+
+class ShimmerLoading extends StatefulWidget {
+  final Widget child;
+  const ShimmerLoading({super.key, required this.child});
+
+  @override
+  State<ShimmerLoading> createState() => _ShimmerLoadingState();
+}
+
+class _ShimmerLoadingState extends State<ShimmerLoading> with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _animation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(vsync: this, duration: const Duration(milliseconds: 1100))..repeat(reverse: true);
+
+    _animation = Tween<double>(begin: 0.35, end: 0.85).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FadeTransition(opacity: _animation, child: widget.child);
+  }
+}
+
+class SkeletonBox extends StatelessWidget {
+  final double? width;
+  final double height;
+  final double borderRadius;
+
+  const SkeletonBox({super.key, this.width, required this.height, this.borderRadius = 12});
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final color = isDark ? const Color(0xFF2C2C2C) : Colors.grey.shade300;
+
+    return Container(
+      width: width,
+      height: height,
+      decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(borderRadius)),
+    );
+  }
+}
+
+class EditProfileSkeletonView extends StatelessWidget {
+  const EditProfileSkeletonView({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardBg = isDark ? Colors.grey[850] : Colors.white;
+
+    return SingleChildScrollView(
+      physics: const NeverScrollableScrollPhysics(),
+      padding: const EdgeInsets.only(left: 24, top: 24, right: 24, bottom: 120),
+      child: ShimmerLoading(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // Center Avatar Skeleton
+            Center(child: const SkeletonBox(width: 104, height: 104, borderRadius: 52)),
+            const SizedBox(height: 32),
+
+            // Identity Section Header
+            const SkeletonBox(width: 80, height: 16, borderRadius: 4),
+            const SizedBox(height: 12),
+
+            // Identity Form Card Skeleton
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: cardBg,
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(color: isDark ? Colors.grey[800]! : Colors.grey.shade200),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const SkeletonBox(width: double.infinity, height: 56, borderRadius: 16),
+                  const SizedBox(height: 20),
+                  Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: const [SkeletonBox(width: 80, height: 14, borderRadius: 4), SkeletonBox(width: 120, height: 32, borderRadius: 12)]),
+                  const SizedBox(height: 12),
+                  const SkeletonBox(width: double.infinity, height: 56, borderRadius: 16),
+                ],
+              ),
+            ),
+            const SizedBox(height: 32),
+
+            // Monthly Carbon Goals Header
+            const SkeletonBox(width: 170, height: 16, borderRadius: 4),
+            const SizedBox(height: 12),
+
+            // Carbon Goals Card Skeleton
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: cardBg,
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(color: isDark ? Colors.grey[800]! : Colors.grey.shade200),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: const [
+                  SkeletonBox(width: double.infinity, height: 56, borderRadius: 16),
+                  SizedBox(height: 18),
+                  SkeletonBox(width: double.infinity, height: 110, borderRadius: 16),
+                ],
+              ),
+            ),
+            const SizedBox(height: 32),
+
+            // Save Button Skeleton
+            const SkeletonBox(width: double.infinity, height: 60, borderRadius: 16),
+            const SizedBox(height: 40),
+          ],
         ),
       ),
     );

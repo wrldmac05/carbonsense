@@ -278,7 +278,7 @@ class _ActivityLogScreenState extends ConsumerState<ActivityLogScreen> {
           SafeArea(
             bottom: false,
             child: logsAsync.when(
-              loading: () => const Center(child: CircularProgressIndicator(color: AppTheme.primaryColor)),
+              loading: () => const ActivityLogSkeletonView(),
               error: (err, stack) => Center(
                 child: Padding(
                   padding: const EdgeInsets.all(32.0),
@@ -737,6 +737,159 @@ class _ActivityLogScreenState extends ConsumerState<ActivityLogScreen> {
             style: TextStyle(color: isDark ? Colors.grey[400] : Colors.grey.shade600, fontSize: 13, height: 1.5),
           ),
         ],
+      ),
+    );
+  }
+}
+
+// 🌟 SKELETON LOADER WIDGETS
+
+class ShimmerLoading extends StatefulWidget {
+  final Widget child;
+  const ShimmerLoading({super.key, required this.child});
+
+  @override
+  State<ShimmerLoading> createState() => _ShimmerLoadingState();
+}
+
+class _ShimmerLoadingState extends State<ShimmerLoading> with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _animation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(vsync: this, duration: const Duration(milliseconds: 1100))..repeat(reverse: true);
+
+    _animation = Tween<double>(begin: 0.35, end: 0.85).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FadeTransition(opacity: _animation, child: widget.child);
+  }
+}
+
+class SkeletonBox extends StatelessWidget {
+  final double? width;
+  final double height;
+  final double borderRadius;
+
+  const SkeletonBox({super.key, this.width, required this.height, this.borderRadius = 12});
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final color = isDark ? const Color(0xFF2C2C2C) : Colors.grey.shade300;
+
+    return Container(
+      width: width,
+      height: height,
+      decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(borderRadius)),
+    );
+  }
+}
+
+class ActivityLogSkeletonView extends StatelessWidget {
+  const ActivityLogSkeletonView({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardBg = isDark ? Colors.grey[850] : Colors.white;
+
+    return SingleChildScrollView(
+      physics: const NeverScrollableScrollPhysics(),
+      child: Padding(
+        padding: const EdgeInsets.only(left: 24, top: 24, right: 24, bottom: 120),
+        child: ShimmerLoading(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Header Skeleton
+              const SkeletonBox(width: 170, height: 28, borderRadius: 8),
+              const SizedBox(height: 6),
+              const SkeletonBox(width: 190, height: 14, borderRadius: 4),
+              const SizedBox(height: 32),
+
+              // 3 Category Cards Skeleton
+              Row(
+                children: const [
+                  Expanded(child: SkeletonBox(height: 140, borderRadius: 22)),
+                  SizedBox(width: 16),
+                  Expanded(child: SkeletonBox(height: 140, borderRadius: 22)),
+                  SizedBox(width: 16),
+                  Expanded(child: SkeletonBox(height: 140, borderRadius: 22)),
+                ],
+              ),
+              const SizedBox(height: 48),
+
+              // Timeline Header Skeleton
+              Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: const [SkeletonBox(width: 130, height: 22, borderRadius: 6), SkeletonBox(width: 85, height: 14, borderRadius: 4)]),
+              const SizedBox(height: 16),
+
+              // Date Selector Month Header Skeleton
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: const [SkeletonBox(width: 32, height: 32, borderRadius: 16), SkeletonBox(width: 120, height: 16, borderRadius: 4), SkeletonBox(width: 32, height: 32, borderRadius: 16)],
+              ),
+              const SizedBox(height: 12),
+
+              // Horizontal Date Pills Skeleton
+              SizedBox(
+                height: 75,
+                child: ListView.builder(
+                  scrollDirection: Axis.horizontal,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: 6,
+                  itemBuilder: (context, index) => const Padding(padding: EdgeInsets.only(right: 12.0), child: SkeletonBox(width: 65, height: 75, borderRadius: 20)),
+                ),
+              ),
+              const SizedBox(height: 24),
+
+              // Activity Log Items Container Skeleton
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                decoration: BoxDecoration(
+                  color: cardBg,
+                  borderRadius: BorderRadius.circular(24),
+                  border: Border.all(color: isDark ? Colors.grey[800]! : Colors.grey.shade200),
+                ),
+                child: Column(
+                  children: List.generate(
+                    3,
+                    (index) => Padding(
+                      padding: EdgeInsets.only(bottom: index == 2 ? 0 : 20.0),
+                      child: Row(
+                        children: [
+                          const SkeletonBox(width: 48, height: 48, borderRadius: 16),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: const [SkeletonBox(width: 140, height: 15, borderRadius: 4), SizedBox(height: 6), SkeletonBox(width: 80, height: 12, borderRadius: 4)],
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: const [SkeletonBox(width: 50, height: 16, borderRadius: 4), SizedBox(height: 4), SkeletonBox(width: 35, height: 10, borderRadius: 4)],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
