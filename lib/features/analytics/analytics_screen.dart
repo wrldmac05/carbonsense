@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:carbonsense/theme/app_theme.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
@@ -26,6 +27,14 @@ class AnalyticsScreen extends ConsumerStatefulWidget {
 
 class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
   int _selectedMonthIndex = DateTime.now().month - 1; // Defaults to current month
+  final GlobalKey _categoryBreakdownKey = GlobalKey();
+
+  void _scrollToCategoryBreakdown() {
+    final ctx = _categoryBreakdownKey.currentContext;
+    if (ctx != null) {
+      Scrollable.ensureVisible(ctx, duration: const Duration(milliseconds: 400), curve: Curves.easeOutCubic);
+    }
+  }
 
   @override
   void initState() {
@@ -69,26 +78,6 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
       return 'Energy';
     }
     return 'General';
-  }
-
-  // 🌟 HELPER 2: Robust resolution for activity names with multiple fallbacks
-  String _extractActivityName(Map<String, dynamic> log, Map<String, dynamic>? factorData) {
-    if (log['food_name'] != null && log['food_name'].toString().trim().isNotEmpty) {
-      return log['food_name'].toString();
-    }
-    if (factorData != null) {
-      final name = factorData['activity_name'] ?? factorData['name'] ?? factorData['title'];
-      if (name != null && name.toString().trim().isNotEmpty) {
-        return name.toString();
-      }
-    }
-    if (log['activity_name'] != null && log['activity_name'].toString().trim().isNotEmpty) {
-      return log['activity_name'].toString();
-    }
-    if (log['title'] != null && log['title'].toString().trim().isNotEmpty) {
-      return log['title'].toString();
-    }
-    return 'Activity Log';
   }
 
   List<double> _getYearlyData(List<Map<String, dynamic>> logs) {
@@ -165,215 +154,6 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
     if (diet.contains('Beef') || diet.contains('Meat')) return Icons.kebab_dining;
     if (diet.contains('Analyzing')) return Icons.sync;
     return Icons.restaurant;
-  }
-
-  // 📝 Helper to show detailed information when a log is tapped
-  void _showLogDetails(Map<String, dynamic> log, Map<String, dynamic>? factorData) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final sheetBg = isDark ? Colors.grey[900] : Colors.white;
-    final textColor = isDark ? Colors.white : Colors.black87;
-    final subtitleColor = isDark ? Colors.grey[400] : Colors.grey.shade600;
-
-    final activityName = _extractActivityName(log, factorData);
-    final rawCategory = factorData?['category'] ?? log['category'];
-    final category = _normalizeCategory(rawCategory?.toString());
-    final unit = factorData?['unit'] ?? log['unit'] ?? '';
-    final inputValue = log['input_value']?.toString() ?? '0';
-
-    String formatCo2(num? rawCo2) {
-      if (rawCo2 == null || rawCo2 == 0) return '0.00';
-      final double value = rawCo2.toDouble();
-      if (value.abs() < 0.1) {
-        return value.toStringAsFixed(4).replaceAll(RegExp(r"([.]*0+)(?!.*\d)"), "");
-      }
-      return value.toStringAsFixed(2);
-    }
-
-    final totalCo2 = formatCo2(log['total_co2e'] as num?);
-    final String? startLocation = log['start_location'];
-    final String? endLocation = log['end_location'];
-    final loggedAt = DateTime.parse(log['logged_at']).toLocal();
-    final formattedTime = DateFormat('h:mm a, MMMM d, yyyy').format(loggedAt);
-    final List<dynamic>? rawIngredients = log['ingredients'];
-    final List<String> ingredients = rawIngredients?.map((e) => e.toString()).toList() ?? [];
-
-    showModalBottomSheet(
-      context: context,
-      useRootNavigator: true,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) {
-        return Container(
-          padding: const EdgeInsets.all(24),
-          decoration: BoxDecoration(
-            color: sheetBg,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-          ),
-          child: SafeArea(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(color: _getColorForCategory(category).withOpacity(0.15), borderRadius: BorderRadius.circular(16)),
-                      child: Icon(_getIconForCategory(category), color: _getColorForCategory(category), size: 32),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            activityName,
-                            style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: textColor),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            category,
-                            style: TextStyle(color: subtitleColor, fontWeight: FontWeight.w600, fontSize: 14),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 24),
-                Divider(color: isDark ? Colors.grey[800] : Colors.grey.shade200),
-                const SizedBox(height: 16),
-                _buildDetailRow('Input Amount', '$inputValue $unit'),
-                const SizedBox(height: 16),
-                _buildDetailRow('Time Logged', formattedTime),
-                const SizedBox(height: 24),
-                if (category == 'Transport' && startLocation != null && endLocation != null) ...[
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: isDark ? Colors.blue.withOpacity(0.12) : Colors.blue.shade50.withOpacity(0.5),
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: isDark ? Colors.blue.withOpacity(0.3) : Colors.blue.shade100),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'TRIP ROUTE',
-                          style: TextStyle(fontSize: 11, fontWeight: FontWeight.w900, color: Colors.blue, letterSpacing: 1.0),
-                        ),
-                        const SizedBox(height: 12),
-                        Row(
-                          children: [
-                            const Icon(Icons.trip_origin, size: 16, color: Colors.blue),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: Text(
-                                startLocation,
-                                style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: textColor),
-                              ),
-                            ),
-                          ],
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.only(left: 7.0),
-                          child: Container(height: 16, width: 2, color: Colors.blue.shade300),
-                        ),
-                        Row(
-                          children: [
-                            const Icon(Icons.place, size: 16, color: Colors.redAccent),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: Text(
-                                endLocation,
-                                style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: textColor),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                ],
-                if (ingredients.isNotEmpty) ...[
-                  Text(
-                    'Detected Ingredients',
-                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: isDark ? Colors.grey[400] : Colors.black54),
-                  ),
-                  const SizedBox(height: 12),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: ingredients
-                        .map(
-                          (ingredient) => Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                            decoration: BoxDecoration(
-                              color: isDark ? Colors.grey[800] : Colors.grey.shade50,
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: isDark ? Colors.grey[700]! : Colors.grey.shade200),
-                            ),
-                            child: Text(
-                              ingredient,
-                              style: TextStyle(fontSize: 13, color: isDark ? Colors.grey[200] : Colors.grey.shade800, fontWeight: FontWeight.w500),
-                            ),
-                          ),
-                        )
-                        .toList(),
-                  ),
-                  const SizedBox(height: 24),
-                ],
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: isDark ? AppTheme.primaryColor.withOpacity(0.15) : AppTheme.primaryColor.withOpacity(0.05),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: AppTheme.primaryColor.withOpacity(0.2)),
-                  ),
-                  child: _buildDetailRow('Carbon Footprint', '$totalCo2 kg CO₂', isHighlight: true),
-                ),
-                const SizedBox(height: 24),
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: () => Navigator.pop(context),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.primaryColor,
-                      foregroundColor: Colors.white,
-                      elevation: 0,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                    ),
-                    child: const Text('Close', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildDetailRow(String label, String value, {bool isHighlight = false}) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final labelColor = isDark ? Colors.grey[400]! : Colors.grey.shade600;
-    final valueColor = isHighlight ? (isDark ? Colors.white : AppTheme.primaryColor) : (isDark ? Colors.white : Colors.black87);
-
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(
-          label,
-          style: TextStyle(color: labelColor, fontSize: 15, fontWeight: FontWeight.w500),
-        ),
-        Text(
-          value,
-          style: TextStyle(color: valueColor, fontSize: isHighlight ? 18 : 16, fontWeight: isHighlight ? FontWeight.w900 : FontWeight.bold),
-        ),
-      ],
-    );
   }
 
   Widget _buildHeader() {
@@ -500,23 +280,33 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
                             Padding(padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 8.0), child: _buildHeader()),
                             const SizedBox(height: 12),
 
-                            // 1. GENERAL AI INSIGHT
+                            // 1. GENERAL AI INSIGHT — now also surfaces the lifestyle profile as its stat chips
                             Padding(
                               padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8),
                               child: generalAiAsync.when(
                                 loading: () => const AiCardSkeleton(),
                                 error: (err, _) => const SizedBox.shrink(),
-                                data: (text) => _buildAiCard("GENERAL ECO-COACH", text, isGeneral: true),
-                              ),
-                            ),
+                                data: (text) {
+                                  final lifestyle = lifestyleAsync.asData?.value;
+                                  final dietType = lifestyle?['diet_type'] as String? ?? 'Analyzing...';
+                                  final commuteType = lifestyle?['commute_type'] as String? ?? 'Analyzing...';
 
-                            // 2. DETAILED LIFESTYLE PROFILE & IMPACT SECTION
-                            Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8),
-                              child: lifestyleAsync.when(
-                                loading: () => const SizedBox.shrink(),
-                                error: (_, __) => const SizedBox.shrink(),
-                                data: (lifestyle) => _buildDetailedLifestyleSection(lifestyle),
+                                  return _buildAiCard(
+                                    "GENERAL ECO-COACH",
+                                    text,
+                                    isGeneral: true,
+                                    actionLabel: "See breakdown",
+                                    onActionTap: _scrollToCategoryBreakdown,
+                                    overrideStat1Label: "Diet habit",
+                                    overrideStat1Value: dietType,
+                                    overrideStat1Icon: _getDietIcon(dietType),
+                                    overrideStat1Color: Colors.red.shade600,
+                                    overrideStat2Label: "Commute habit",
+                                    overrideStat2Value: commuteType,
+                                    overrideStat2Icon: _getCommuteIcon(commuteType),
+                                    overrideStat2Color: Colors.blue.shade600,
+                                  );
+                                },
                               ),
                             ),
 
@@ -547,7 +337,7 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
                             const SizedBox(height: 16),
 
                             // 6. CATEGORY BREAKDOWN PIE CHART
-                            Padding(padding: const EdgeInsets.symmetric(horizontal: 16.0), child: _buildCategoryBreakdownCard(categoryTotals, selectedMonthImpact)),
+                            Padding(key: _categoryBreakdownKey, padding: const EdgeInsets.symmetric(horizontal: 16.0), child: _buildCategoryBreakdownCard(categoryTotals, selectedMonthImpact)),
 
                             const SizedBox(height: 16),
 
@@ -558,19 +348,50 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
                                 loading: () => const AiCardSkeleton(),
                                 error: (err, _) => const SizedBox.shrink(),
                                 data: (text) {
-                                  if (_selectedMonthIndex == DateTime.now().month - 1) {
-                                    text = "Activity tracking in progress... Your full AI summary will be generated on the 1st of next month!";
+                                  final isCurrentMonth = _selectedMonthIndex == DateTime.now().month - 1;
+                                  final monthName = DateFormat('MMMM').format(DateTime(DateTime.now().year, _selectedMonthIndex + 1));
+
+                                  // 1. Current Active Month: Completely hide chips and refresh button
+                                  if (isCurrentMonth) {
+                                    return _buildAiCard(
+                                      "${monthName.toUpperCase()} INSIGHT",
+                                      "Activity tracking in progress... Your full AI summary will be generated on the 1st of next month!",
+                                      isGeneral: false,
+                                    );
                                   }
 
-                                  return _buildAiCard("${DateFormat('MMMM').format(DateTime(DateTime.now().year, _selectedMonthIndex + 1)).toUpperCase()} INSIGHT", text, isGeneral: false);
+                                  // Compute top category live from logs for past months
+                                  String topCategoryName = "None";
+                                  double highestCo2 = 0;
+                                  categoryTotals.forEach((cat, co2) {
+                                    if (co2 > highestCo2) {
+                                      highestCo2 = co2;
+                                      topCategoryName = cat;
+                                    }
+                                  });
+
+                                  // 2. Past Month with no AI summary recorded
+                                  if (text == null || text.trim().isEmpty) {
+                                    return _buildAiCard("${monthName.toUpperCase()} INSIGHT", "No activity summary recorded for $monthName.", isGeneral: false);
+                                  }
+
+                                  // 3. Past Month with summary: Show live footprint & category chips
+                                  return _buildAiCard(
+                                    "${monthName.toUpperCase()} INSIGHT",
+                                    text,
+                                    isGeneral: false,
+                                    overrideStat1Label: "Monthly footprint",
+                                    overrideStat1Value: "${selectedMonthImpact.toStringAsFixed(1)} kg CO₂e",
+                                    overrideStat1Icon: Icons.calendar_today,
+                                    overrideStat1Color: AppTheme.primaryColor,
+                                    overrideStat2Label: "Top category",
+                                    overrideStat2Value: topCategoryName,
+                                    overrideStat2Icon: _getIconForCategory(topCategoryName),
+                                    overrideStat2Color: _getColorForCategory(topCategoryName),
+                                  );
                                 },
                               ),
                             ),
-
-                            const SizedBox(height: 24),
-
-                            // 8. MONTHLY ACTIVITY LOGS LIST
-                            Padding(padding: const EdgeInsets.symmetric(horizontal: 16.0), child: _buildMonthlyActivitySection(monthLogs)),
 
                             const SizedBox(height: 120),
                           ],
@@ -589,130 +410,38 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
 
   // --- 🌟 RESPONSIVE LIFESTYLE PROFILE CARD ---
 
-  Widget _buildDetailedLifestyleSection(Map<String, dynamic>? lifestyle) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final cardBg = isDark ? Colors.grey[850] : Colors.white;
-    final textColor = isDark ? Colors.white : Colors.black87;
-    final subtitleColor = isDark ? Colors.grey[400]! : Colors.grey.shade600;
-
-    final dietType = lifestyle?['diet_type'] ?? 'Analyzing...';
-    final commuteType = lifestyle?['commute_type'] ?? 'Analyzing...';
-
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: cardBg,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: AppTheme.primaryColor.withOpacity(0.15)),
-        boxShadow: [BoxShadow(color: AppTheme.primaryColor.withOpacity(isDark ? 0.1 : 0.05), blurRadius: 20, offset: const Offset(0, 8))],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(color: AppTheme.primaryColor.withOpacity(0.12), borderRadius: BorderRadius.circular(12)),
-                child: const Icon(Icons.psychology, color: AppTheme.primaryColor, size: 22),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  "Lifestyle & Habit Profile",
-                  style: TextStyle(fontWeight: FontWeight.w900, fontSize: 15, color: textColor),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 14),
-          LayoutBuilder(
-            builder: (context, constraints) {
-              final isSmall = constraints.maxWidth < 340;
-              if (isSmall) {
-                return Column(
-                  children: [
-                    _buildHabitBadge("Diet Habit", dietType, _getDietIcon(dietType), Colors.red.shade600),
-                    const SizedBox(height: 8),
-                    _buildHabitBadge("Commute Habit", commuteType, _getCommuteIcon(commuteType), Colors.blue.shade600),
-                  ],
-                );
-              }
-              return Row(
-                children: [
-                  Expanded(child: _buildHabitBadge("Diet Habit", dietType, _getDietIcon(dietType), Colors.red.shade600)),
-                  const SizedBox(width: 8),
-                  Expanded(child: _buildHabitBadge("Commute Habit", commuteType, _getCommuteIcon(commuteType), Colors.blue.shade600)),
-                ],
-              );
-            },
-          ),
-          const SizedBox(height: 14),
-          Divider(color: isDark ? Colors.grey[800] : Colors.grey.shade200, height: 1),
-          const SizedBox(height: 12),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Icon(Icons.info_outline_rounded, size: 15, color: subtitleColor),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  "How this works: Your profile dynamically adapts based on smart analysis of your recent activity patterns. As your daily habits shift, your lifestyle tags update automatically.",
-                  style: TextStyle(fontSize: 11.5, height: 1.35, color: subtitleColor, fontWeight: FontWeight.w500),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildHabitBadge(String label, String value, IconData icon, Color color) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
-      decoration: BoxDecoration(
-        color: color.withOpacity(isDark ? 0.15 : 0.08),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: color.withOpacity(0.3)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(icon, size: 16, color: color),
-              const SizedBox(width: 4),
-              Expanded(
-                child: Text(
-                  label,
-                  style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: isDark ? Colors.grey[400] : Colors.grey.shade700),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 6),
-          Text(
-            value,
-            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w900, color: isDark ? Colors.white : Colors.black87, height: 1.2),
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-          ),
-        ],
-      ),
-    );
-  }
-
   // --- 🌟 ANIMATED AI COACH CARD ---
 
-  Widget _buildAiCard(String title, String text, {required bool isGeneral}) {
-    return AnimatedAiCard(title: title, text: text, isGeneral: isGeneral);
+  Widget _buildAiCard(
+    String title,
+    String text, {
+    required bool isGeneral,
+    String? actionLabel,
+    VoidCallback? onActionTap,
+    String? overrideStat1Label,
+    String? overrideStat1Value,
+    IconData? overrideStat1Icon,
+    Color? overrideStat1Color,
+    String? overrideStat2Label,
+    String? overrideStat2Value,
+    IconData? overrideStat2Icon,
+    Color? overrideStat2Color,
+  }) {
+    return AnimatedAiCard(
+      title: title,
+      text: text,
+      isGeneral: isGeneral,
+      actionLabel: actionLabel,
+      onActionTap: onActionTap,
+      overrideStat1Label: overrideStat1Label,
+      overrideStat1Value: overrideStat1Value,
+      overrideStat1Icon: overrideStat1Icon,
+      overrideStat1Color: overrideStat1Color,
+      overrideStat2Label: overrideStat2Label,
+      overrideStat2Value: overrideStat2Value,
+      overrideStat2Icon: overrideStat2Icon,
+      overrideStat2Color: overrideStat2Color,
+    );
   }
 
   Widget _buildYearlyChartCard(List<double> data, double total) {
@@ -1094,127 +823,79 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
       ),
     );
   }
+}
 
-  Widget _buildMonthlyActivitySection(List<Map<String, dynamic>> monthLogs) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final cardBg = isDark ? Colors.grey[850] : Colors.white;
-    final textColor = isDark ? Colors.white : Colors.black87;
+// 🌟 Structured AI insight model. The eco_coach edge function now stores a JSON
+// string in `ai_text` shaped like {headline, detail, stat1_label, stat1_value,
+// stat2_label, stat2_value}. Older rows (or placeholder strings like "Analyzing...")
+// aren't JSON, so parsing falls back to treating the whole string as plain detail text.
+class EcoInsight {
+  final String? headline;
+  final String detail;
+  final String? stat1Label;
+  final String? stat1Value;
+  final String? stat2Label;
+  final String? stat2Value;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              "Logged Activities",
-              style: TextStyle(fontWeight: FontWeight.w900, fontSize: 17, color: textColor),
-            ),
-            Text(
-              "${monthLogs.length} items",
-              style: TextStyle(color: isDark ? Colors.grey[400] : Colors.grey.shade600, fontWeight: FontWeight.bold, fontSize: 12),
-            ),
-          ],
-        ),
-        const SizedBox(height: 10),
-        monthLogs.isEmpty
-            ? Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(color: isDark ? Colors.grey[850] : Colors.grey.shade50, borderRadius: BorderRadius.circular(18)),
-                child: Center(
-                  child: Text("No activities logged for this month.", style: TextStyle(color: isDark ? Colors.grey[400] : Colors.grey, fontSize: 12)),
-                ),
-              )
-            : Container(
-                decoration: BoxDecoration(
-                  color: cardBg,
-                  borderRadius: BorderRadius.circular(22),
-                  border: Border.all(color: AppTheme.primaryColor.withOpacity(0.1)),
-                  boxShadow: [BoxShadow(color: AppTheme.primaryColor.withOpacity(isDark ? 0.1 : 0.03), blurRadius: 10, offset: const Offset(0, 4))],
-                ),
-                child: ListView.separated(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: monthLogs.length,
-                  separatorBuilder: (context, index) => Divider(height: 1, color: isDark ? Colors.grey[800] : Colors.grey.shade100, indent: 64),
-                  itemBuilder: (context, index) {
-                    final log = monthLogs[index];
-                    final factorData = log['emission_factors'] as Map<String, dynamic>?;
+  const EcoInsight({this.headline, required this.detail, this.stat1Label, this.stat1Value, this.stat2Label, this.stat2Value});
 
-                    final activityName = _extractActivityName(log, factorData);
-                    final rawCategory = factorData?['category'] ?? log['category'];
-                    final category = _normalizeCategory(rawCategory?.toString());
-                    final unit = factorData?['unit'] ?? log['unit'] ?? '';
-                    final inputValue = log['input_value']?.toString() ?? '0';
-                    final totalCo2 = (log['total_co2e'] as num?)?.toStringAsFixed(2) ?? '0.00';
+  bool get hasStats => (stat1Value != null && stat1Value!.isNotEmpty) || (stat2Value != null && stat2Value!.isNotEmpty);
+  bool get isStructured => headline != null && headline!.isNotEmpty;
 
-                    return Material(
-                      color: Colors.transparent,
-                      child: InkWell(
-                        onTap: () => _showLogDetails(log, factorData),
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                          child: Row(
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.all(8),
-                                decoration: BoxDecoration(color: _getColorForCategory(category).withOpacity(0.15), borderRadius: BorderRadius.circular(12)),
-                                child: Icon(_getIconForCategory(category), color: _getColorForCategory(category), size: 20),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      activityName,
-                                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: textColor),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                    const SizedBox(height: 2),
-                                    Text(
-                                      '$inputValue $unit',
-                                      style: TextStyle(color: isDark ? Colors.grey[400] : Colors.grey.shade500, fontSize: 11.5, fontWeight: FontWeight.w500),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              Column(
-                                crossAxisAlignment: CrossAxisAlignment.end,
-                                children: [
-                                  Text(
-                                    '+$totalCo2',
-                                    style: TextStyle(fontWeight: FontWeight.w900, fontSize: 14, color: _getColorForCategory(category)),
-                                  ),
-                                  const SizedBox(height: 2),
-                                  Text(
-                                    'kg CO₂',
-                                    style: TextStyle(color: isDark ? Colors.grey[400] : Colors.grey.shade500, fontSize: 9.5, fontWeight: FontWeight.bold),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              ),
-      ],
-    );
+  factory EcoInsight.parse(String raw) {
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is Map<String, dynamic>) {
+        return EcoInsight(
+          headline: decoded['headline']?.toString(),
+          detail: decoded['detail']?.toString() ?? raw,
+          stat1Label: decoded['stat1_label']?.toString(),
+          stat1Value: decoded['stat1_value']?.toString(),
+          stat2Label: decoded['stat2_label']?.toString(),
+          stat2Value: decoded['stat2_value']?.toString(),
+        );
+      }
+    } catch (_) {
+      // Not JSON — legacy row or a placeholder like "Analyzing...". Fall through.
+    }
+    return EcoInsight(detail: raw);
   }
 }
 
-// 🌟 ANIMATED STATEFUL AI CARD WIDGET
 class AnimatedAiCard extends StatefulWidget {
   final String title;
   final String text;
   final bool isGeneral;
+  final String? actionLabel;
+  final VoidCallback? onActionTap;
 
-  const AnimatedAiCard({super.key, required this.title, required this.text, required this.isGeneral});
+  // Optional overrides — when provided, these replace the stats parsed from the
+  // AI JSON (used to show the lifestyle profile on the general card instead).
+  final String? overrideStat1Label;
+  final String? overrideStat1Value;
+  final IconData? overrideStat1Icon;
+  final Color? overrideStat1Color;
+  final String? overrideStat2Label;
+  final String? overrideStat2Value;
+  final IconData? overrideStat2Icon;
+  final Color? overrideStat2Color;
+
+  const AnimatedAiCard({
+    super.key,
+    required this.title,
+    required this.text,
+    required this.isGeneral,
+    this.actionLabel,
+    this.onActionTap,
+    this.overrideStat1Label,
+    this.overrideStat1Value,
+    this.overrideStat1Icon,
+    this.overrideStat1Color,
+    this.overrideStat2Label,
+    this.overrideStat2Value,
+    this.overrideStat2Icon,
+    this.overrideStat2Color,
+  });
 
   @override
   State<AnimatedAiCard> createState() => _AnimatedAiCardState();
@@ -1227,6 +908,8 @@ class _AnimatedAiCardState extends State<AnimatedAiCard> with TickerProviderStat
 
   late AnimationController _pulseController;
   late Animation<double> _pulseAnimation;
+
+  bool _detailExpanded = false;
 
   @override
   void initState() {
@@ -1254,6 +937,21 @@ class _AnimatedAiCardState extends State<AnimatedAiCard> with TickerProviderStat
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final cardBg = widget.isGeneral ? (isDark ? Colors.grey[850]! : Colors.white) : const Color(0xFF1A1A1A);
     final cardTextColor = widget.isGeneral ? (isDark ? Colors.white : Colors.black87) : Colors.white;
+    final subtleTextColor = widget.isGeneral ? (isDark ? Colors.grey[400]! : Colors.grey.shade600) : Colors.grey[400]!;
+    final accentColor = widget.isGeneral ? (isDark ? Colors.white : AppTheme.primaryColor) : Colors.greenAccent;
+    final chipBg = widget.isGeneral ? (isDark ? Colors.white.withOpacity(0.06) : AppTheme.primaryColor.withOpacity(0.06)) : Colors.white.withOpacity(0.08);
+
+    final insight = EcoInsight.parse(widget.text);
+
+    final stat1Label = widget.overrideStat1Label ?? insight.stat1Label;
+    final stat1Value = widget.overrideStat1Value ?? insight.stat1Value;
+    final stat1Icon = widget.overrideStat1Icon;
+    final stat1Color = widget.overrideStat1Color;
+    final stat2Label = widget.overrideStat2Label ?? insight.stat2Label;
+    final stat2Value = widget.overrideStat2Value ?? insight.stat2Value;
+    final stat2Icon = widget.overrideStat2Icon;
+    final stat2Color = widget.overrideStat2Color;
+    final hasStats = (stat1Value != null && stat1Value.isNotEmpty) || (stat2Value != null && stat2Value.isNotEmpty);
 
     return FadeTransition(
       opacity: _fadeAnimation,
@@ -1274,31 +972,133 @@ class _AnimatedAiCardState extends State<AnimatedAiCard> with TickerProviderStat
                 children: [
                   ScaleTransition(
                     scale: _pulseAnimation,
-                    child: Icon(Icons.auto_awesome, color: widget.isGeneral ? (isDark ? Colors.white : AppTheme.primaryColor) : Colors.greenAccent, size: 18),
+                    child: Icon(Icons.auto_awesome, color: accentColor, size: 18),
                   ),
                   const SizedBox(width: 8),
                   Text(
                     widget.title,
-                    style: TextStyle(color: widget.isGeneral ? (isDark ? Colors.white : AppTheme.primaryColor) : Colors.greenAccent, fontWeight: FontWeight.w900, fontSize: 11, letterSpacing: 1.2),
+                    style: TextStyle(color: accentColor, fontWeight: FontWeight.w900, fontSize: 11, letterSpacing: 1.2),
                   ),
                 ],
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 14),
+
+              // Stat chips — lifestyle habits on the general card (via overrides), or the
+              // backend-computed footprint/category stats elsewhere.
+              if (hasStats) ...[
+                Row(
+                  children: [
+                    if (stat1Value != null && stat1Value.isNotEmpty)
+                      Expanded(
+                        child: _statChip(stat1Label ?? '', stat1Value, chipBg, cardTextColor, subtleTextColor, icon: stat1Icon, iconColor: stat1Color),
+                      ),
+                    if (stat1Value != null && stat2Value != null) const SizedBox(width: 10),
+                    if (stat2Value != null && stat2Value.isNotEmpty)
+                      Expanded(
+                        child: _statChip(stat2Label ?? '', stat2Value, chipBg, cardTextColor, subtleTextColor, icon: stat2Icon, iconColor: stat2Color),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+              ],
+
+              // Headline — the one-line takeaway. Falls back to nothing for legacy plain-text rows.
+              if (insight.isStructured) ...[
+                Text(
+                  insight.headline!,
+                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: cardTextColor, height: 1.35),
+                ),
+                const SizedBox(height: 8),
+              ],
+
+              // Detail — collapsible when there's a headline above it to summarize;
+              // shown in full for legacy/placeholder text so nothing gets hidden unexpectedly.
               AnimatedSwitcher(
                 duration: const Duration(milliseconds: 400),
-                child: MarkdownBody(
-                  key: ValueKey<String>(widget.text),
-                  data: widget.text,
-                  styleSheet: MarkdownStyleSheet(
-                    p: TextStyle(fontSize: 13.5, height: 1.45, color: cardTextColor),
-                    strong: TextStyle(fontWeight: FontWeight.w900, color: cardTextColor),
-                    blockSpacing: 12.0,
+                child: KeyedSubtree(
+                  key: ValueKey<String>('${widget.text}_$_detailExpanded'),
+                  child: ClipRect(
+                    child: AnimatedAlign(
+                      duration: const Duration(milliseconds: 250),
+                      curve: Curves.easeInOut,
+                      alignment: Alignment.topCenter,
+                      heightFactor: (!insight.isStructured || _detailExpanded) ? 1.0 : 0.0001,
+                      child: MarkdownBody(
+                        data: insight.detail,
+                        styleSheet: MarkdownStyleSheet(
+                          p: TextStyle(fontSize: 13.5, height: 1.45, color: insight.isStructured ? subtleTextColor : cardTextColor),
+                          strong: TextStyle(fontWeight: FontWeight.w900, color: cardTextColor),
+                          blockSpacing: 12.0,
+                        ),
+                      ),
+                    ),
                   ),
+                ),
+              ),
+
+              if (insight.isStructured)
+                Padding(
+                  padding: const EdgeInsets.only(top: 4),
+                  child: InkWell(
+                    onTap: () => setState(() => _detailExpanded = !_detailExpanded),
+                    child: Text(
+                      _detailExpanded ? 'Show less' : 'Show more',
+                      style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: accentColor),
+                    ),
+                  ),
+                ),
+
+              if (widget.actionLabel != null && widget.onActionTap != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 12),
+                  child: OutlinedButton(
+                    onPressed: widget.onActionTap,
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: accentColor,
+                      side: BorderSide(color: accentColor.withOpacity(0.4)),
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      minimumSize: Size.zero,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                    child: Text(widget.actionLabel!, style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700)),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _statChip(String label, String value, Color bg, Color textColor, Color labelColor, {IconData? icon, Color? iconColor}) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(12)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              if (icon != null) ...[Icon(icon, size: 12, color: iconColor ?? labelColor), const SizedBox(width: 4)],
+              Expanded(
+                child: Text(
+                  label,
+                  style: TextStyle(fontSize: 10.5, color: labelColor),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
             ],
           ),
-        ),
+          const SizedBox(height: 2),
+          Text(
+            value,
+            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: textColor),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ],
       ),
     );
   }
@@ -1424,31 +1224,6 @@ class AnalyticsSkeletonView extends StatelessWidget {
 
                   // General AI Card Placeholder
                   const AiCardSkeleton(),
-                  const SizedBox(height: 16),
-
-                  // Lifestyle Profile Placeholder
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: cardBg,
-                      borderRadius: BorderRadius.circular(24),
-                      border: Border.all(color: isDark ? Colors.grey[800]! : Colors.grey.shade200),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: const [
-                        Row(children: [SkeletonBox(width: 38, height: 38, borderRadius: 12), SizedBox(width: 10), SkeletonBox(width: 170, height: 16, borderRadius: 4)]),
-                        SizedBox(height: 14),
-                        Row(
-                          children: [
-                            Expanded(child: SkeletonBox(height: 60, borderRadius: 16)),
-                            SizedBox(width: 8),
-                            Expanded(child: SkeletonBox(height: 60, borderRadius: 16)),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
                   const SizedBox(height: 16),
 
                   // Yearly Impact Chart Card Placeholder

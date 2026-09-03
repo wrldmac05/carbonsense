@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
@@ -30,9 +31,13 @@ class _FoodCameraScreenState extends State<FoodCameraScreen> {
 
   // --- CAPTURE IMAGE FUNCTION ---
   Future<void> _getImage(ImageSource source) async {
-    final XFile? pickedFile = await _picker.pickImage(source: source, imageQuality: 80);
+    // Prevent overlapping trigger calls while an analysis or save is running
+    if (_isAnalyzing) return;
 
-    if (pickedFile != null) {
+    // Optimization: Constrain max dimensions to reduce file size, memory, and transfer payload
+    final XFile? pickedFile = await _picker.pickImage(source: source, imageQuality: 80, maxWidth: 1024, maxHeight: 1024);
+
+    if (pickedFile != null && mounted) {
       setState(() {
         _selectedImage = File(pickedFile.path);
         _foodName = null;
@@ -48,6 +53,8 @@ class _FoodCameraScreenState extends State<FoodCameraScreen> {
   }
 
   void _showMessageDialog(String title, String message, {bool isError = false, VoidCallback? onSecondaryAction, String? secondaryActionText}) {
+    if (!mounted) return;
+
     showDialog(
       context: context,
       builder: (BuildContext context) {
@@ -125,15 +132,18 @@ class _FoodCameraScreenState extends State<FoodCameraScreen> {
 
     try {
       final bytes = await _selectedImage!.readAsBytes();
-      final base64Image = base64Encode(bytes);
+      // Optimization: Offload base64 encoding to a background isolate to keep UI responsive
+      final base64Image = await compute(base64Encode, bytes);
 
       final response = await Supabase.instance.client.functions.invoke('analyze-food-image', body: {'image': base64Image});
 
-      if (response.status == 200) {
-        final data = response.data as Map<String, dynamic>;
+      if (!mounted) return;
+
+      if (response.status == 200 && response.data is Map) {
+        final data = Map<String, dynamic>.from(response.data as Map);
         debugPrint('🧠 GEMINI RESPONSE: $data');
 
-        final bool isFood = data['is_food'] ?? true;
+        final bool isFood = data['is_food'] == true;
 
         if (!isFood || data['food_name'] == 'Not Food') {
           setState(() {
@@ -141,94 +151,116 @@ class _FoodCameraScreenState extends State<FoodCameraScreen> {
             _selectedImage = null;
           });
 
-          if (mounted) {
-            _showMessageDialog('Invalid Image', 'No food detected in this image. Please try again!', isError: true);
-          }
+          _showMessageDialog('Invalid Image', 'No food detected in this image. Please try again!', isError: true);
           return;
         }
 
+        // Security / Sanitization: Trim input lengths and validate bounds before parsing
+        final rawFoodName = data['food_name']?.toString().trim() ?? 'Unknown Food';
+        final sanitizedFoodName = rawFoodName.length > 100 ? rawFoodName.substring(0, 100) : rawFoodName;
+
+        final rawCategory = data['db_category']?.toString().trim() ?? '';
+        final sanitizedCategory = rawCategory.length > 50 ? rawCategory.substring(0, 50) : rawCategory;
+
+        final parsedWeight = double.tryParse(data['weight_g']?.toString() ?? '0') ?? 0.0;
+        final parsedCo2e = double.tryParse(data['estimated_co2e']?.toString() ?? '0') ?? 0.0;
+
+        // Ensure non-negative numbers
+        final validWeight = parsedWeight.clamp(0.0, 10000.0);
+        final validCo2e = parsedCo2e.clamp(0.0, 500.0);
+
+        List<String> sanitizedIngredients = [];
+        if (data['ingredients'] is List) {
+          sanitizedIngredients = (data['ingredients'] as List)
+              .take(25) // Cap maximum tags to avoid memory/payload abuse
+              .map((e) => e.toString().trim())
+              .where((e) => e.isNotEmpty && e.length <= 50)
+              .toList();
+        }
+
+        final bool aiIsMeatless = data['is_meatless'] == true;
+        final bool categoryImpliesMeatless = sanitizedCategory.toLowerCase().contains('plant-based') || sanitizedCategory.toLowerCase().contains('gulay');
+
         setState(() {
-          _foodName = data['food_name']?.toString() ?? 'Unknown Food';
-          _foodCategory = data['db_category']?.toString() ?? '';
+          _foodName = sanitizedFoodName;
+          _foodCategory = sanitizedCategory;
           _factorId = data['factor_id']?.toString();
-
-          if (data['ingredients'] != null) {
-            _ingredients = List<String>.from(data['ingredients']);
-          } else {
-            _ingredients = [];
-          }
-
-          final bool aiIsMeatless = data['is_meatless'] ?? false;
-          final bool categoryImpliesMeatless = _foodCategory!.toLowerCase().contains('plant-based') || _foodCategory!.toLowerCase().contains('gulay');
-
+          _ingredients = sanitizedIngredients;
           _isMeatless = aiIsMeatless || categoryImpliesMeatless;
-          _weightG = double.tryParse(data['weight_g']?.toString() ?? '0');
-          _co2e = double.tryParse(data['estimated_co2e']?.toString() ?? '0');
+          _weightG = validWeight;
+          _co2e = validCo2e;
           _isAnalyzing = false;
         });
       } else {
-        throw Exception("Server responded with code ${response.status}");
+        throw Exception("Invalid server response code: ${response.status}");
       }
     } catch (e) {
       debugPrint('❌ Vision AI Error: $e');
+      if (!mounted) return;
+
       setState(() {
         _isAnalyzing = false;
         _selectedImage = null;
       });
 
-      if (mounted) {
-        final errorStr = e.toString().toLowerCase();
-        if (errorStr.contains('quota') || errorStr.contains('429') || errorStr.contains('exhausted')) {
-          _showMessageDialog(
-            'AI Quota Reached',
-            'Our AI is taking a quick breather due to high demand. You can still log your meal manually!',
-            isError: true,
-            secondaryActionText: 'Log Meal Manually',
-            onSecondaryAction: () => context.push('/activity/manual-food'),
-          );
-        } else {
-          _showMessageDialog('Analysis Failed', 'AI analysis failed: $e', isError: true);
-        }
+      final errorStr = e.toString().toLowerCase();
+      if (errorStr.contains('quota') || errorStr.contains('429') || errorStr.contains('exhausted')) {
+        _showMessageDialog(
+          'AI Quota Reached',
+          'Our AI is taking a quick breather due to high demand. You can still log your meal manually!',
+          isError: true,
+          secondaryActionText: 'Log Meal Manually',
+          onSecondaryAction: () => context.push('/activity/manual-food'),
+        );
+      } else {
+        // Security: Avoid leaking low-level code exception traces directly to end users
+        _showMessageDialog('Analysis Failed', 'We were unable to process your meal image. Please ensure good lighting and try again.', isError: true);
       }
     }
   }
 
   // --- SAVE TO DATABASE ---
   Future<void> _saveFoodLog() async {
-    if (_foodName == null || _weightG == null || _co2e == null) return;
+    if (_foodName == null || _weightG == null || _co2e == null || _isAnalyzing) return;
 
     setState(() => _isAnalyzing = true);
 
     try {
       final user = Supabase.instance.client.auth.currentUser;
-      if (user == null) throw Exception("No authenticated user found.");
+      if (user == null) throw Exception("No authenticated user session.");
+
+      // Ensure clamped, precise numerical values
+      final safeWeight = double.parse(_weightG!.clamp(0.0, 10000.0).toStringAsFixed(2));
+      final safeCo2e = double.parse(_co2e!.clamp(0.0, 500.0).toStringAsFixed(4));
 
       await Supabase.instance.client.from('activity_logs').insert({
         'user_id': user.id,
         'factor_id': _factorId,
-        'input_value': double.parse(_weightG!.toStringAsFixed(2)),
-        'total_co2e': double.parse(_co2e!.toStringAsFixed(4)),
+        'input_value': safeWeight,
+        'total_co2e': safeCo2e,
         'ingredients': _ingredients,
         'food_name': _foodName,
       });
 
       final completedMissions = await MissionEngine.evaluateTelemetry(userId: user.id, category: 'Diet', activityName: _foodName!, isMeatless: _isMeatless);
 
-      if (mounted) {
-        setState(() => _isAnalyzing = false);
-        _showSuccessDialog(completedMissions);
-      }
+      if (!mounted) return;
+
+      setState(() => _isAnalyzing = false);
+      _showSuccessDialog(completedMissions);
     } catch (e) {
       debugPrint('❌ DB Save Error: $e');
-      if (mounted) {
-        setState(() => _isAnalyzing = false);
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to save meal log: $e')));
-      }
+      if (!mounted) return;
+
+      setState(() => _isAnalyzing = false);
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Failed to save meal log. Please try again.')));
     }
   }
 
   // --- CUSTOM SUCCESS DIALOG ---
   void _showSuccessDialog(List<String> completedMissions) {
+    if (!mounted) return;
+
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final dialogBg = isDark ? Colors.grey[900] : Colors.white;
     final textColor = isDark ? Colors.white : Colors.black87;
@@ -237,7 +269,7 @@ class _FoodCameraScreenState extends State<FoodCameraScreen> {
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (BuildContext context) {
+      builder: (BuildContext dialogContext) {
         return Dialog(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
           elevation: 0,
@@ -280,7 +312,7 @@ class _FoodCameraScreenState extends State<FoodCameraScreen> {
                       elevation: 0,
                     ),
                     onPressed: () {
-                      Navigator.of(context, rootNavigator: true).pop();
+                      Navigator.of(dialogContext, rootNavigator: true).pop();
 
                       if (completedMissions.isNotEmpty) {
                         _showMissionUnlockedPopup(completedMissions);
@@ -305,6 +337,8 @@ class _FoodCameraScreenState extends State<FoodCameraScreen> {
   }
 
   void _showMissionUnlockedPopup(List<String> missions) {
+    if (!mounted) return;
+
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final dialogBg = isDark ? Colors.grey[900] : Colors.white;
     final textColor = isDark ? Colors.white : Colors.black87;
@@ -312,7 +346,7 @@ class _FoodCameraScreenState extends State<FoodCameraScreen> {
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (context) {
+      builder: (BuildContext dialogContext) {
         return AlertDialog(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
           backgroundColor: dialogBg,
@@ -363,7 +397,7 @@ class _FoodCameraScreenState extends State<FoodCameraScreen> {
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
               ),
               onPressed: () {
-                Navigator.of(context, rootNavigator: true).pop();
+                Navigator.of(dialogContext, rootNavigator: true).pop();
                 WidgetsBinding.instance.addPostFrameCallback((_) {
                   if (mounted) context.pop();
                 });
@@ -464,7 +498,6 @@ class _FoodCameraScreenState extends State<FoodCameraScreen> {
                 child: IntrinsicHeight(
                   child: Column(
                     children: [
-                      // TOP: Clean Image Preview or Placeholder
                       SizedBox(
                         height: MediaQuery.of(context).size.height * 0.35,
                         child: Container(
@@ -483,8 +516,6 @@ class _FoodCameraScreenState extends State<FoodCameraScreen> {
                         ),
                       ),
                       const SizedBox(height: 24),
-
-                      // BOTTOM: Dynamic Content
                       if (_isAnalyzing) ...[
                         const CircularProgressIndicator(color: AppTheme.primaryColor),
                         const SizedBox(height: 12),
@@ -553,7 +584,6 @@ class _FoodCameraScreenState extends State<FoodCameraScreen> {
     );
   }
 
-  // 🌟 Themed Photo Instructions + Visual Aid
   Widget _buildPhotoInstructions() {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final cardBg = isDark ? Colors.grey[850] : Colors.white;
@@ -581,8 +611,6 @@ class _FoodCameraScreenState extends State<FoodCameraScreen> {
             ],
           ),
           const SizedBox(height: 16),
-
-          // --- 📸 VISUAL AID ---
           Container(
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(12),
@@ -610,8 +638,6 @@ class _FoodCameraScreenState extends State<FoodCameraScreen> {
             ),
           ),
           const SizedBox(height: 16),
-
-          // --- THE CHECKLIST ---
           _buildInstructionRow(icon: Icons.camera_alt_outlined, color: AppTheme.primaryColor, text: 'Take a direct top-down photo to help the AI estimate portion sizes.'),
           const SizedBox(height: 10),
           _buildInstructionRow(icon: Icons.fullscreen_exit, color: isDark ? Colors.orange[300]! : Colors.orange.shade700, text: 'Ensure the entire plate or bowl is visible within the frame.'),
@@ -651,7 +677,7 @@ class _FoodCameraScreenState extends State<FoodCameraScreen> {
               padding: const EdgeInsets.symmetric(vertical: 16),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
             ),
-            onPressed: () => _getImage(ImageSource.camera),
+            onPressed: _isAnalyzing ? null : () => _getImage(ImageSource.camera),
             icon: const Icon(Icons.camera_alt_rounded, color: Colors.white),
             label: const Text(
               'Take Photo',
@@ -667,7 +693,7 @@ class _FoodCameraScreenState extends State<FoodCameraScreen> {
               side: const BorderSide(color: AppTheme.primaryColor),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
             ),
-            onPressed: () => _getImage(ImageSource.gallery),
+            onPressed: _isAnalyzing ? null : () => _getImage(ImageSource.gallery),
             icon: const Icon(Icons.photo_library_rounded, color: AppTheme.primaryColor),
             label: const Text(
               'Gallery',
@@ -733,7 +759,6 @@ class _FoodCameraScreenState extends State<FoodCameraScreen> {
               ),
             ],
           ),
-
           if (_ingredients.isNotEmpty) ...[
             const SizedBox(height: 16),
             Text(
@@ -761,7 +786,6 @@ class _FoodCameraScreenState extends State<FoodCameraScreen> {
             ),
             const SizedBox(height: 20),
           ],
-
           const SizedBox(height: 20),
           SizedBox(
             width: double.infinity,
@@ -771,7 +795,7 @@ class _FoodCameraScreenState extends State<FoodCameraScreen> {
                 padding: const EdgeInsets.symmetric(vertical: 14),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               ),
-              onPressed: _saveFoodLog,
+              onPressed: _isAnalyzing ? null : _saveFoodLog,
               child: const Text(
                 'Confirm & Log Diet',
                 style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
@@ -780,7 +804,7 @@ class _FoodCameraScreenState extends State<FoodCameraScreen> {
           ),
           const SizedBox(height: 8),
           TextButton.icon(
-            onPressed: () => _getImage(ImageSource.camera),
+            onPressed: _isAnalyzing ? null : () => _getImage(ImageSource.camera),
             icon: Icon(Icons.refresh, size: 16, color: subtitleColor),
             label: Text("Not quite right? Retake photo", style: TextStyle(color: subtitleColor, fontSize: 12)),
           ),

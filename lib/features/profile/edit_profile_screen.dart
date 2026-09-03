@@ -24,6 +24,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
   String? _currentAvatarUrl;
 
+  // Add this line:
+  double _initialTarget = 150.0;
+
   // Web-Safe Variables for the new image
   Uint8List? _avatarBytes;
   String? _avatarExtension;
@@ -54,6 +57,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           _locationController.text = profileData?['location'] ?? '';
           _targetController.text = profileData?['monthly_co2_target']?.toString() ?? '';
           _currentAvatarUrl = profileData?['avatar_url'];
+
+          // Add this line:
+          _initialTarget = double.tryParse(profileData?['monthly_co2_target']?.toString() ?? '150.0') ?? 150.0;
 
           // Check 30-day lockout status
           if (profileData?['target_updated_at'] != null) {
@@ -192,6 +198,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     }
   }
 
+  // Track initial target in _loadCurrentData:
+  // double _initialTarget = 150.0;
+
   Future<void> _saveProfile() async {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _isSaving = true);
@@ -202,22 +211,28 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
       if (_avatarBytes != null) {
         final fileName = '${userId}_${DateTime.now().millisecondsSinceEpoch}.$_avatarExtension';
-
         await Supabase.instance.client.storage.from('avatars').uploadBinary(fileName, _avatarBytes!, fileOptions: const FileOptions(upsert: true));
-
         finalAvatarUrl = Supabase.instance.client.storage.from('avatars').getPublicUrl(fileName);
       }
 
-      await Supabase.instance.client
-          .from('user_profiles')
-          .update({
-            'display_name': _nameController.text.trim(),
-            'location': _locationController.text.trim(),
-            'monthly_co2_target': double.tryParse(_targetController.text.trim()) ?? 150.0,
-            'target_updated_at': DateTime.now().toUtc().toIso8601String(),
-            'avatar_url': finalAvatarUrl,
-          })
-          .eq('user_id', userId);
+      final newTarget = double.tryParse(_targetController.text.trim()) ?? 150.0;
+
+      // Check if target was actually changed
+      final bool targetChanged = !_isTargetLocked && (newTarget != _initialTarget);
+
+      final Map<String, dynamic> updatePayload = {
+        'display_name': _nameController.text.trim(),
+        'location': _locationController.text.trim(),
+        'monthly_co2_target': newTarget,
+        'avatar_url': finalAvatarUrl,
+      };
+
+      // Only reset the 30-day evaluation window if the target was actually altered
+      if (targetChanged) {
+        updatePayload['target_updated_at'] = DateTime.now().toUtc().toIso8601String();
+      }
+
+      await Supabase.instance.client.from('user_profiles').update(updatePayload).eq('user_id', userId);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Profile updated successfully!'), backgroundColor: AppTheme.primaryColor));

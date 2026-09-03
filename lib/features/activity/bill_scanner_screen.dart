@@ -1,5 +1,5 @@
 import 'dart:convert';
-import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
@@ -14,7 +14,9 @@ class BillScannerScreen extends StatefulWidget {
 }
 
 class _BillScannerScreenState extends State<BillScannerScreen> {
-  File? _selectedImage;
+  // Use XFile and Uint8List for full cross-platform compatibility (Web, iOS, Android)
+  XFile? _selectedImage;
+  Uint8List? _imageBytes;
   bool _isAnalyzing = false;
   final ImagePicker _picker = ImagePicker();
 
@@ -25,11 +27,17 @@ class _BillScannerScreenState extends State<BillScannerScreen> {
 
   // --- CAPTURE IMAGE FUNCTION ---
   Future<void> _getImage(ImageSource source) async {
-    final XFile? pickedFile = await _picker.pickImage(source: source, imageQuality: 80);
+    if (_isAnalyzing) return;
 
-    if (pickedFile != null) {
+    // Constrain resolution to keep payloads small and avoid memory spikes
+    final XFile? pickedFile = await _picker.pickImage(source: source, imageQuality: 80, maxWidth: 1024, maxHeight: 1024);
+
+    if (pickedFile != null && mounted) {
+      final bytes = await pickedFile.readAsBytes();
+
       setState(() {
-        _selectedImage = File(pickedFile.path);
+        _selectedImage = pickedFile;
+        _imageBytes = bytes;
         _kwhUsed = null;
         _co2e = null;
         _factorId = null;
@@ -40,10 +48,12 @@ class _BillScannerScreenState extends State<BillScannerScreen> {
   }
 
   void _showMessageDialog(String title, String message, {bool isError = false, VoidCallback? onSecondaryAction, String? secondaryActionText}) {
+    if (!mounted) return;
+
     showDialog(
       context: context,
-      builder: (BuildContext context) {
-        final theme = Theme.of(context);
+      builder: (BuildContext dialogContext) {
+        final theme = Theme.of(dialogContext);
         final isDark = theme.brightness == Brightness.dark;
         final primaryColor = theme.primaryColor;
         final iconColor = isError ? Colors.redAccent : primaryColor;
@@ -77,7 +87,7 @@ class _BillScannerScreenState extends State<BillScannerScreen> {
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
-                    onPressed: () => Navigator.of(context).pop(),
+                    onPressed: () => Navigator.of(dialogContext).pop(),
                     child: const Text('Got it', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16)),
                   ),
                 ),
@@ -91,7 +101,7 @@ class _BillScannerScreenState extends State<BillScannerScreen> {
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                       ),
                       onPressed: () {
-                        Navigator.of(context).pop();
+                        Navigator.of(dialogContext).pop();
                         onSecondaryAction();
                       },
                       child: Text(
@@ -111,38 +121,48 @@ class _BillScannerScreenState extends State<BillScannerScreen> {
 
   // --- SUPABASE EDGE FUNCTION BRIDGE ---
   Future<void> _analyzeImageWithGemini() async {
-    if (_selectedImage == null) return;
+    if (_imageBytes == null) return;
 
     setState(() => _isAnalyzing = true);
 
     try {
-      final bytes = await _selectedImage!.readAsBytes();
-      final base64Image = base64Encode(bytes);
+      // Offload Base64 encoding to background isolate on mobile/desktop; synchronous on Web
+      final base64Image = kIsWeb ? base64Encode(_imageBytes!) : await compute(base64Encode, _imageBytes!);
 
       final response = await Supabase.instance.client.functions.invoke('analyze-bill-image', body: {'image': base64Image});
 
-      if (response.status == 200) {
-        final data = response.data as Map<String, dynamic>;
+      if (!mounted) return;
+
+      if (response.status == 200 && response.data is Map) {
+        final data = Map<String, dynamic>.from(response.data as Map);
         debugPrint('⚡ GEMINI BILL RESPONSE: $data');
 
-        final bool isValidBill = data['is_valid_bill'] ?? true;
+        final bool isValidBill = data['is_valid_bill'] == true;
 
         if (!isValidBill) {
           setState(() {
             _isAnalyzing = false;
             _selectedImage = null;
+            _imageBytes = null;
           });
 
-          if (mounted) {
-            _showMessageDialog('Invalid Image', 'No electricity bill detected in this image. Please try again!', isError: true);
-          }
+          _showMessageDialog('Invalid Image', 'No electricity bill detected in this image. Please try again!', isError: true);
           return;
         }
 
+        // Sanitization & bounds clamping: realistic monthly residential limits (0 to 50,000 kWh)
+        final parsedKwh = double.tryParse(data['kwh_used']?.toString() ?? '0') ?? 0.0;
+        final parsedCo2e = double.tryParse(data['estimated_co2e']?.toString() ?? '0') ?? 0.0;
+        final rawFactorId = data['factor_id']?.toString().trim();
+
+        final validKwh = parsedKwh.clamp(0.0, 50000.0);
+        final validCo2e = parsedCo2e.clamp(0.0, 100000.0);
+        final safeFactorId = (rawFactorId != null && rawFactorId.length <= 64) ? rawFactorId : null;
+
         setState(() {
-          _factorId = data['factor_id']?.toString();
-          _kwhUsed = double.tryParse(data['kwh_used']?.toString() ?? '0');
-          _co2e = double.tryParse(data['estimated_co2e']?.toString() ?? '0');
+          _factorId = safeFactorId;
+          _kwhUsed = validKwh;
+          _co2e = validCo2e;
           _isAnalyzing = false;
         });
       } else {
@@ -150,30 +170,33 @@ class _BillScannerScreenState extends State<BillScannerScreen> {
       }
     } catch (e) {
       debugPrint('❌ Vision AI Error: $e');
+      if (!mounted) return;
+
       setState(() {
         _isAnalyzing = false;
         _selectedImage = null;
+        _imageBytes = null;
       });
-      if (mounted) {
-        final errorStr = e.toString().toLowerCase();
-        if (errorStr.contains('quota') || errorStr.contains('429') || errorStr.contains('exhausted')) {
-          _showMessageDialog(
-            'AI Quota Reached',
-            'Our AI is taking a quick breather due to high demand. You can still log your bill manually!',
-            isError: true,
-            secondaryActionText: 'Enter Data Manually',
-            onSecondaryAction: () => context.push('/activity/manual-bill'),
-          );
-        } else {
-          _showMessageDialog('Analysis Failed', 'Failed to read bill: $e', isError: true);
-        }
+
+      final errorStr = e.toString().toLowerCase();
+      if (errorStr.contains('quota') || errorStr.contains('429') || errorStr.contains('exhausted')) {
+        _showMessageDialog(
+          'AI Quota Reached',
+          'Our AI is taking a quick breather due to high demand. You can still log your bill manually!',
+          isError: true,
+          secondaryActionText: 'Enter Data Manually',
+          onSecondaryAction: () => context.push('/activity/manual-bill'),
+        );
+      } else {
+        // Generic failure message avoids leaking API routes or stack traces
+        _showMessageDialog('Analysis Failed', 'Failed to process your electricity bill. Please ensure clear lighting and retake the photo.', isError: true);
       }
     }
   }
 
   // --- SAVE TO DATABASE ---
   Future<void> _saveEnergyLog() async {
-    if (_kwhUsed == null || _co2e == null || _factorId == null) return;
+    if (_kwhUsed == null || _co2e == null || _factorId == null || _isAnalyzing) return;
 
     setState(() => _isAnalyzing = true);
 
@@ -181,28 +204,28 @@ class _BillScannerScreenState extends State<BillScannerScreen> {
       final user = Supabase.instance.client.auth.currentUser;
       if (user == null) throw Exception("No authenticated user found.");
 
-      await Supabase.instance.client.from('activity_logs').insert({
-        'user_id': user.id,
-        'factor_id': _factorId,
-        'input_value': double.parse(_kwhUsed!.toStringAsFixed(2)),
-        'total_co2e': double.parse(_co2e!.toStringAsFixed(4)),
-      });
+      final safeKwh = double.parse(_kwhUsed!.clamp(0.0, 50000.0).toStringAsFixed(2));
+      final safeCo2e = double.parse(_co2e!.clamp(0.0, 100000.0).toStringAsFixed(4));
 
-      if (mounted) {
-        setState(() => _isAnalyzing = false);
-        _showSuccessDialog();
-      }
+      await Supabase.instance.client.from('activity_logs').insert({'user_id': user.id, 'factor_id': _factorId, 'input_value': safeKwh, 'total_co2e': safeCo2e});
+
+      if (!mounted) return;
+
+      setState(() => _isAnalyzing = false);
+      _showSuccessDialog();
     } catch (e) {
       debugPrint('❌ DB Save Error: $e');
-      if (mounted) {
-        setState(() => _isAnalyzing = false);
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to save energy log: $e')));
-      }
+      if (!mounted) return;
+
+      setState(() => _isAnalyzing = false);
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Failed to save energy log. Please try again.')));
     }
   }
 
   // --- CUSTOM SUCCESS DIALOG ---
   void _showSuccessDialog() {
+    if (!mounted) return;
+
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final dialogBg = isDark ? Colors.grey[900] : Colors.white;
     final textColor = isDark ? Colors.white : Colors.black87;
@@ -211,7 +234,7 @@ class _BillScannerScreenState extends State<BillScannerScreen> {
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (BuildContext context) {
+      builder: (BuildContext dialogContext) {
         return Dialog(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
           elevation: 0,
@@ -254,7 +277,7 @@ class _BillScannerScreenState extends State<BillScannerScreen> {
                       elevation: 0,
                     ),
                     onPressed: () {
-                      Navigator.of(context, rootNavigator: true).pop();
+                      Navigator.of(dialogContext).pop();
                       WidgetsBinding.instance.addPostFrameCallback((_) {
                         if (mounted) context.pop();
                       });
@@ -278,7 +301,7 @@ class _BillScannerScreenState extends State<BillScannerScreen> {
 
     final bool? shouldExit = await showDialog<bool>(
       context: context,
-      builder: (BuildContext context) {
+      builder: (BuildContext dialogContext) {
         return AlertDialog(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
           backgroundColor: isDark ? Colors.grey[900] : Colors.white,
@@ -292,7 +315,7 @@ class _BillScannerScreenState extends State<BillScannerScreen> {
           ),
           actions: [
             TextButton(
-              onPressed: () => Navigator.of(context).pop(false),
+              onPressed: () => Navigator.of(dialogContext).pop(false),
               child: Text('Cancel', style: TextStyle(color: isDark ? Colors.grey[400] : Colors.grey)),
             ),
             ElevatedButton(
@@ -300,7 +323,7 @@ class _BillScannerScreenState extends State<BillScannerScreen> {
                 backgroundColor: Colors.redAccent,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
               ),
-              onPressed: () => Navigator.of(context).pop(true),
+              onPressed: () => Navigator.of(dialogContext).pop(true),
               child: const Text('Exit & Cancel', style: TextStyle(color: Colors.white)),
             ),
           ],
@@ -359,7 +382,7 @@ class _BillScannerScreenState extends State<BillScannerScreen> {
                   child: IntrinsicHeight(
                     child: Column(
                       children: [
-                        // TOP: Image Preview or Visual Aid
+                        // TOP: Image Preview or Visual Aid (Cross-platform Image.memory)
                         SizedBox(
                           height: constraints.maxHeight * 0.40,
                           child: Container(
@@ -369,15 +392,14 @@ class _BillScannerScreenState extends State<BillScannerScreen> {
                               borderRadius: BorderRadius.circular(24),
                               border: Border.all(color: isDark ? Colors.grey[800]! : Colors.grey.shade300, width: 2),
                             ),
-                            child: _selectedImage != null
+                            child: _imageBytes != null
                                 ? ClipRRect(
                                     borderRadius: BorderRadius.circular(22),
-                                    child: Image.file(_selectedImage!, fit: BoxFit.cover),
+                                    child: Image.memory(_imageBytes!, fit: BoxFit.cover),
                                   )
                                 : _buildScannerPlaceholder(),
                           ),
                         ),
-
                         const SizedBox(height: 24),
 
                         // BOTTOM: Dynamic Content
@@ -407,7 +429,6 @@ class _BillScannerScreenState extends State<BillScannerScreen> {
     );
   }
 
-  // 🌟 Cleaned up Scanner Placeholder
   Widget _buildScannerPlaceholder() {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final textColor = isDark ? Colors.white : Colors.black87;
@@ -434,7 +455,6 @@ class _BillScannerScreenState extends State<BillScannerScreen> {
     );
   }
 
-  // 🌟 Themed Privacy Instructions + Visual Aid
   Widget _buildPrivacyInstructions() {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final cardBg = isDark ? Colors.grey[850] : Colors.white;
@@ -462,8 +482,6 @@ class _BillScannerScreenState extends State<BillScannerScreen> {
             ],
           ),
           const SizedBox(height: 16),
-
-          // --- 📸 VISUAL AID INSIDE THE CARD ---
           Container(
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(12),
@@ -492,8 +510,6 @@ class _BillScannerScreenState extends State<BillScannerScreen> {
             ),
           ),
           const SizedBox(height: 16),
-
-          // --- THE CHECKLIST ---
           _buildInstructionRow(icon: Icons.zoom_in, color: AppTheme.primaryColor, text: 'Zoom in ONLY on the "Actual Consumption" or "Total kWh" number.'),
           const SizedBox(height: 10),
           _buildInstructionRow(icon: Icons.visibility_off, color: Colors.redAccent, text: 'Do NOT capture your name, address, or account numbers.'),
@@ -533,7 +549,7 @@ class _BillScannerScreenState extends State<BillScannerScreen> {
               padding: const EdgeInsets.symmetric(vertical: 16),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
             ),
-            onPressed: () => _getImage(ImageSource.camera),
+            onPressed: _isAnalyzing ? null : () => _getImage(ImageSource.camera),
             icon: const Icon(Icons.camera_alt_rounded, color: Colors.white),
             label: const Text(
               'Scan Bill',
@@ -549,7 +565,7 @@ class _BillScannerScreenState extends State<BillScannerScreen> {
               side: const BorderSide(color: AppTheme.primaryColor),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
             ),
-            onPressed: () => _getImage(ImageSource.gallery),
+            onPressed: _isAnalyzing ? null : () => _getImage(ImageSource.gallery),
             icon: const Icon(Icons.photo_library_rounded, color: AppTheme.primaryColor),
             label: const Text(
               'Gallery',
@@ -614,7 +630,7 @@ class _BillScannerScreenState extends State<BillScannerScreen> {
                 padding: const EdgeInsets.symmetric(vertical: 14),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               ),
-              onPressed: _saveEnergyLog,
+              onPressed: _isAnalyzing ? null : _saveEnergyLog,
               child: const Text(
                 'Confirm & Log Energy',
                 style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
@@ -623,7 +639,7 @@ class _BillScannerScreenState extends State<BillScannerScreen> {
           ),
           const SizedBox(height: 8),
           TextButton.icon(
-            onPressed: () => _getImage(ImageSource.camera),
+            onPressed: _isAnalyzing ? null : () => _getImage(ImageSource.camera),
             icon: Icon(Icons.refresh, size: 16, color: subtitleColor),
             label: Text("Incorrect reading? Retake photo", style: TextStyle(color: subtitleColor, fontSize: 12)),
           ),

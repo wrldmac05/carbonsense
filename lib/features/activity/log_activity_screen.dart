@@ -80,10 +80,13 @@ class _LogActivityScreenState extends State<LogActivityScreen> with SingleTicker
       final Map<String, VehicleData> fetchedFactors = {};
 
       for (var item in response) {
-        final name = item['activity_name'].toString();
-        final id = item['factor_id'].toString();
-        final factor = double.tryParse(item['co2_per_unit'].toString()) ?? 0.0;
-        fetchedFactors[name] = VehicleData(id: id, factor: factor);
+        final name = item['activity_name']?.toString().trim() ?? '';
+        final id = item['factor_id']?.toString().trim() ?? '';
+        final factor = double.tryParse(item['co2_per_unit']?.toString() ?? '0') ?? 0.0;
+
+        if (name.isNotEmpty && id.isNotEmpty) {
+          fetchedFactors[name] = VehicleData(id: id, factor: factor.clamp(0.0, 10.0));
+        }
       }
 
       if (mounted) {
@@ -104,8 +107,24 @@ class _LogActivityScreenState extends State<LogActivityScreen> with SingleTicker
     }
   }
 
+  Future<String> _safeReverseGeocode(Position position) async {
+    try {
+      final List<Placemark> marks = await placemarkFromCoordinates(position.latitude, position.longitude).timeout(const Duration(seconds: 4));
+
+      if (marks.isNotEmpty) {
+        final p = marks.first;
+        final parts = [p.street, p.subLocality, p.locality];
+        final cleanParts = parts.where((e) => e != null && e.isNotEmpty && e != 'Unnamed Road').toList();
+        return cleanParts.isNotEmpty ? cleanParts.join(', ') : 'Local Area';
+      }
+    } catch (e) {
+      debugPrint('Geocoding timeout or error: $e');
+    }
+    return 'Local Area';
+  }
+
   Future<void> _saveTripToDatabase() async {
-    if (_selectedVehicle == null || _distanceKm <= 0) return;
+    if (_selectedVehicle == null || _distanceKm <= 0 || _isSavingLog) return;
 
     setState(() => _isSavingLog = true);
 
@@ -116,31 +135,23 @@ class _LogActivityScreenState extends State<LogActivityScreen> with SingleTicker
       final targetVehicleData = _vehicleEmissionFactors[_selectedVehicle!];
       if (targetVehicleData == null) throw Exception("Invalid vehicle factor tracking identity.");
 
+      // Bounds validation & clamping
+      final safeDistance = double.parse(_distanceKm.clamp(0.01, 2000.0).toStringAsFixed(2));
+      final calculatedCo2e = safeDistance * targetVehicleData.factor;
+      final safeCo2e = double.parse(calculatedCo2e.clamp(0.0, 5000.0).toStringAsFixed(4));
+
       if (_startPosition != null && _lastPosition != null) {
-        try {
-          String buildAddress(Placemark p) {
-            final parts = [p.street, p.subLocality, p.locality];
-            final cleanParts = parts.where((e) => e != null && e.isNotEmpty && e != 'Unnamed Road').toList();
-            return cleanParts.isNotEmpty ? cleanParts.join(', ') : 'Local Area';
-          }
-
-          List<Placemark> startMarks = await placemarkFromCoordinates(_startPosition!.latitude, _startPosition!.longitude);
-          if (startMarks.isNotEmpty) _startAddress = buildAddress(startMarks.first);
-
-          List<Placemark> endMarks = await placemarkFromCoordinates(_lastPosition!.latitude, _lastPosition!.longitude);
-          if (endMarks.isNotEmpty) _endAddress = buildAddress(endMarks.first);
-        } catch (e) {
-          debugPrint('❌ Geocoding error: $e');
-        }
+        _startAddress = await _safeReverseGeocode(_startPosition!);
+        _endAddress = await _safeReverseGeocode(_lastPosition!);
       }
 
       await Supabase.instance.client.from('activity_logs').insert({
         'user_id': user.id,
         'factor_id': targetVehicleData.id,
-        'input_value': double.parse(_distanceKm.toStringAsFixed(2)),
-        'total_co2e': double.parse(_co2Emissions.toStringAsFixed(4)),
-        'start_location': _startAddress,
-        'end_location': _endAddress,
+        'input_value': safeDistance,
+        'total_co2e': safeCo2e,
+        'start_location': _startAddress.length > 150 ? _startAddress.substring(0, 150) : _startAddress,
+        'end_location': _endAddress.length > 150 ? _endAddress.substring(0, 150) : _endAddress,
       });
 
       final completedMissions = await MissionEngine.evaluateTelemetry(userId: user.id, category: 'Commute', activityName: _selectedVehicle!);
@@ -152,7 +163,7 @@ class _LogActivityScreenState extends State<LogActivityScreen> with SingleTicker
       debugPrint('❌ Insertion Error: $e');
       if (!mounted) return;
       setState(() => _isSavingLog = false);
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to record log to database: $e')));
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Failed to record trip. Please try again.')));
     }
   }
 
@@ -237,6 +248,8 @@ class _LogActivityScreenState extends State<LogActivityScreen> with SingleTicker
         }
       });
     } else {
+      if (_isGettingLocation) return;
+
       setState(() {
         _isGettingLocation = true;
         _distanceKm = 0.0;
@@ -247,7 +260,7 @@ class _LogActivityScreenState extends State<LogActivityScreen> with SingleTicker
       try {
         final initialPos = await LocationTracker.getCurrentLocation();
 
-        if (initialPos != null) {
+        if (initialPos != null && mounted) {
           setState(() {
             _lastPosition = initialPos;
             _startPosition = initialPos;
@@ -259,16 +272,19 @@ class _LogActivityScreenState extends State<LogActivityScreen> with SingleTicker
           _bounceController.repeat(reverse: true);
 
           _positionStream = LocationTracker.getContinuousLocationStream().listen((Position currentPosition) {
+            // Drop low accuracy points
             if (currentPosition.accuracy > 25.0) return;
 
             if (_lastPosition != null) {
               final addedDistance = LocationTracker.calculateDistanceInKm(_lastPosition!, currentPosition);
 
+              // Discard GPS drift jumps (> 200m in one tick)
               if (addedDistance > 0.2) {
                 _lastPosition = currentPosition;
                 return;
               }
 
+              // Drop micro vibrations
               if (addedDistance < 0.005) return;
 
               if (mounted) {
@@ -280,7 +296,7 @@ class _LogActivityScreenState extends State<LogActivityScreen> with SingleTicker
                   _co2Emissions = _distanceKm * factor;
 
                   if (currentPosition.speed >= 0) {
-                    _currentSpeedKmH = currentPosition.speed * 3.6;
+                    _currentSpeedKmH = (currentPosition.speed * 3.6).clamp(0.0, 300.0);
                   }
 
                   _lastPosition = currentPosition;
@@ -288,11 +304,13 @@ class _LogActivityScreenState extends State<LogActivityScreen> with SingleTicker
               }
             }
           });
+        } else if (mounted) {
+          setState(() => _isGettingLocation = false);
         }
       } catch (e) {
         if (mounted) {
           setState(() => _isGettingLocation = false);
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Could not access current GPS location.')));
         }
       }
     }
@@ -303,7 +321,7 @@ class _LogActivityScreenState extends State<LogActivityScreen> with SingleTicker
 
     final bool? shouldExit = await showDialog<bool>(
       context: context,
-      builder: (BuildContext context) {
+      builder: (BuildContext dialogContext) {
         return AlertDialog(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
           backgroundColor: isDark ? Colors.grey[900] : Colors.white,
@@ -317,7 +335,7 @@ class _LogActivityScreenState extends State<LogActivityScreen> with SingleTicker
           ),
           actions: [
             TextButton(
-              onPressed: () => Navigator.of(context).pop(false),
+              onPressed: () => Navigator.of(dialogContext).pop(false),
               child: Text('Cancel', style: TextStyle(color: isDark ? Colors.grey[400] : Colors.grey)),
             ),
             ElevatedButton(
@@ -325,7 +343,7 @@ class _LogActivityScreenState extends State<LogActivityScreen> with SingleTicker
                 backgroundColor: Colors.redAccent,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
               ),
-              onPressed: () => Navigator.of(context).pop(true),
+              onPressed: () => Navigator.of(dialogContext).pop(true),
               child: const Text('Exit & Stop', style: TextStyle(color: Colors.white)),
             ),
           ],
@@ -395,13 +413,9 @@ class _LogActivityScreenState extends State<LogActivityScreen> with SingleTicker
                   constraints: BoxConstraints(minHeight: constraints.maxHeight - 24 > 0 ? constraints.maxHeight - 24 : 0),
                   child: IntrinsicHeight(
                     child: Column(
-                      // 🌟 spaceBetween evenly distributes space across all 4 section blocks!
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        // SECTION 1: Selector Widget (Top)
                         _buildVehicleSelector(),
-
-                        // SECTION 2: Timer Hub (Upper Middle)
                         Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
@@ -434,16 +448,12 @@ class _LogActivityScreenState extends State<LogActivityScreen> with SingleTicker
                               ),
                           ],
                         ),
-
-                        // SECTION 3: Dashboard / Tips / Summary (Lower Middle)
                         if (_isTracking)
                           _buildLiveMetricsDashboard(isSmallScreen)
                         else if (!_isTracking && _distanceKm == 0)
                           _buildTrackingTips(isSmallScreen)
                         else if (hasFinishedTrip)
                           _buildResultsCard(isSmallScreen),
-
-                        // SECTION 4: Bottom Action Button (Bottom)
                         Padding(padding: const EdgeInsets.only(bottom: 8.0), child: !_isTracking && !hasFinishedTrip ? _buildHeroButton(isSmallScreen) : _buildActiveTripControls(isSmallScreen)),
                       ],
                     ),
@@ -958,6 +968,8 @@ class _LogActivityScreenState extends State<LogActivityScreen> with SingleTicker
   }
 
   void _showSuccessDialog(List<String> completedMissions) {
+    if (!mounted) return;
+
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final dialogBg = isDark ? Colors.grey[900] : Colors.white;
     final textColor = isDark ? Colors.white : Colors.black87;
@@ -966,7 +978,7 @@ class _LogActivityScreenState extends State<LogActivityScreen> with SingleTicker
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (BuildContext context) {
+      builder: (BuildContext dialogContext) {
         return Dialog(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
           elevation: 0,
@@ -1010,7 +1022,7 @@ class _LogActivityScreenState extends State<LogActivityScreen> with SingleTicker
                       elevation: 0,
                     ),
                     onPressed: () {
-                      Navigator.of(context, rootNavigator: true).pop();
+                      Navigator.of(dialogContext, rootNavigator: true).pop();
                       if (completedMissions.isNotEmpty) {
                         _showMissionUnlockedPopup(completedMissions);
                       } else {
@@ -1040,6 +1052,8 @@ class _LogActivityScreenState extends State<LogActivityScreen> with SingleTicker
   }
 
   void _showMissionUnlockedPopup(List<String> missions) {
+    if (!mounted) return;
+
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final dialogBg = isDark ? Colors.grey[900] : Colors.white;
     final textColor = isDark ? Colors.white : Colors.black87;
@@ -1047,7 +1061,7 @@ class _LogActivityScreenState extends State<LogActivityScreen> with SingleTicker
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (context) {
+      builder: (dialogContext) {
         return AlertDialog(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
           backgroundColor: dialogBg,
@@ -1098,7 +1112,7 @@ class _LogActivityScreenState extends State<LogActivityScreen> with SingleTicker
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
               ),
               onPressed: () {
-                Navigator.of(context, rootNavigator: true).pop();
+                Navigator.of(dialogContext, rootNavigator: true).pop();
                 WidgetsBinding.instance.addPostFrameCallback((_) {
                   if (mounted) {
                     if (Navigator.canPop(context)) {

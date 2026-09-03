@@ -28,6 +28,12 @@ class _ActivityLogScreenState extends ConsumerState<ActivityLogScreen> {
     }
   }
 
+  // 📝 Safe Timestamp Parser
+  DateTime? _safeParseDate(dynamic rawDate) {
+    if (rawDate == null) return null;
+    return DateTime.tryParse(rawDate.toString())?.toLocal();
+  }
+
   // 📝 Helper to show detailed information when a log is tapped
   void _showLogDetails(Map<String, dynamic> log, Map<String, dynamic>? factorData) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -35,9 +41,10 @@ class _ActivityLogScreenState extends ConsumerState<ActivityLogScreen> {
     final textColor = isDark ? Colors.white : Colors.black87;
     final subtitleColor = isDark ? Colors.grey[400] : Colors.grey.shade600;
 
-    final activityName = log['food_name'] ?? factorData?['activity_name'] ?? 'Unknown Activity';
-    final category = factorData?['category'] ?? 'General';
-    final unit = factorData?['unit'] ?? '';
+    final rawName = log['food_name'] ?? factorData?['activity_name'] ?? 'Unknown Activity';
+    final activityName = rawName.toString().length > 80 ? '${rawName.toString().substring(0, 80)}...' : rawName.toString();
+    final category = factorData?['category']?.toString() ?? 'General';
+    final unit = factorData?['unit']?.toString() ?? '';
     final inputValue = log['input_value']?.toString() ?? '0';
 
     String formatCo2(num? rawCo2) {
@@ -52,168 +59,171 @@ class _ActivityLogScreenState extends ConsumerState<ActivityLogScreen> {
 
     final totalCo2 = formatCo2(log['total_co2e'] as num?);
 
-    final String? startLocation = log['start_location'];
-    final String? endLocation = log['end_location'];
+    final String? startLocation = log['start_location']?.toString();
+    final String? endLocation = log['end_location']?.toString();
 
-    final loggedAt = DateTime.parse(log['logged_at']).toLocal();
+    final loggedAt = _safeParseDate(log['logged_at']) ?? DateTime.now();
     final formattedTime = DateFormat('h:mm a, MMMM d, yyyy').format(loggedAt);
 
-    final List<dynamic>? rawIngredients = log['ingredients'];
-    final List<String> ingredients = rawIngredients?.map((e) => e.toString()).toList() ?? [];
+    final List<dynamic>? rawIngredients = log['ingredients'] is List ? log['ingredients'] as List : null;
+    final List<String> ingredients = rawIngredients?.take(25).map((e) => e.toString().trim()).where((e) => e.isNotEmpty && e.length <= 40).toList() ?? [];
 
     showModalBottomSheet(
       context: context,
       useRootNavigator: true,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) {
+      builder: (modalContext) {
         return Container(
-          padding: const EdgeInsets.only(left: 24, top: 24, right: 24, bottom: 24),
+          constraints: BoxConstraints(maxHeight: MediaQuery.of(modalContext).size.height * 0.85),
+          padding: const EdgeInsets.all(24),
           decoration: BoxDecoration(
             color: sheetBg,
             borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
           ),
           child: SafeArea(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(color: AppTheme.primaryColor.withOpacity(0.12), borderRadius: BorderRadius.circular(16)),
+                        child: Icon(_getIconForCategory(category), color: AppTheme.primaryColor, size: 32),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              activityName,
+                              style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: textColor),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              category,
+                              style: TextStyle(color: subtitleColor, fontWeight: FontWeight.w600, fontSize: 14),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 24),
+                  Divider(color: isDark ? Colors.grey[800] : Colors.grey.shade200),
+                  const SizedBox(height: 16),
+                  _buildDetailRow(context, 'Input Amount', '$inputValue $unit'),
+                  const SizedBox(height: 16),
+                  _buildDetailRow(context, 'Time Logged', formattedTime),
+                  const SizedBox(height: 24),
+                  if (category == 'Transport' && startLocation != null && endLocation != null) ...[
+                    const SizedBox(height: 8),
                     Container(
                       padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(color: AppTheme.primaryColor.withOpacity(0.12), borderRadius: BorderRadius.circular(16)),
-                      child: Icon(_getIconForCategory(category), color: AppTheme.primaryColor, size: 32),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
+                      decoration: BoxDecoration(
+                        color: isDark ? Colors.blue.withOpacity(0.15) : Colors.blue.shade50.withOpacity(0.5),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: isDark ? Colors.blue.withOpacity(0.3) : Colors.blue.shade100),
+                      ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            activityName,
-                            style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: textColor),
+                          const Text(
+                            'TRIP ROUTE',
+                            style: TextStyle(fontSize: 11, fontWeight: FontWeight.w900, color: Colors.blue, letterSpacing: 1.0),
                           ),
-                          const SizedBox(height: 4),
-                          Text(
-                            category,
-                            style: TextStyle(color: subtitleColor, fontWeight: FontWeight.w600, fontSize: 14),
+                          const SizedBox(height: 12),
+                          Row(
+                            children: [
+                              const Icon(Icons.trip_origin, size: 16, color: Colors.blue),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Text(
+                                  startLocation,
+                                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: textColor),
+                                ),
+                              ),
+                            ],
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.only(left: 7.0),
+                            child: Container(height: 16, width: 2, color: Colors.blue.shade300),
+                          ),
+                          Row(
+                            children: [
+                              const Icon(Icons.place, size: 16, color: Colors.redAccent),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Text(
+                                  endLocation,
+                                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: textColor),
+                                ),
+                              ),
+                            ],
                           ),
                         ],
                       ),
                     ),
+                    const SizedBox(height: 16),
                   ],
-                ),
-                const SizedBox(height: 24),
-                Divider(color: isDark ? Colors.grey[800] : Colors.grey.shade200),
-                const SizedBox(height: 16),
-                _buildDetailRow(context, 'Input Amount', '$inputValue $unit'),
-                const SizedBox(height: 16),
-                _buildDetailRow(context, 'Time Logged', formattedTime),
-                const SizedBox(height: 24),
-                if (category == 'Transport' && startLocation != null && endLocation != null) ...[
-                  const SizedBox(height: 8),
+                  if (ingredients.isNotEmpty) ...[
+                    Text(
+                      'Detected Ingredients',
+                      style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: isDark ? Colors.grey[400] : Colors.black54),
+                    ),
+                    const SizedBox(height: 12),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: ingredients
+                          .map(
+                            (ingredient) => Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                              decoration: BoxDecoration(
+                                color: isDark ? Colors.grey[850] : Colors.grey.shade50,
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: isDark ? Colors.grey[800]! : Colors.grey.shade200),
+                              ),
+                              child: Text(
+                                ingredient,
+                                style: TextStyle(fontSize: 13, color: isDark ? Colors.grey[300] : Colors.grey.shade800, fontWeight: FontWeight.w500),
+                              ),
+                            ),
+                          )
+                          .toList(),
+                    ),
+                    const SizedBox(height: 24),
+                  ],
                   Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      color: isDark ? Colors.blue.withOpacity(0.15) : Colors.blue.shade50.withOpacity(0.5),
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: isDark ? Colors.blue.withOpacity(0.3) : Colors.blue.shade100),
+                      color: AppTheme.primaryColor.withOpacity(0.08),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: AppTheme.primaryColor.withOpacity(0.2)),
                     ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'TRIP ROUTE',
-                          style: TextStyle(fontSize: 11, fontWeight: FontWeight.w900, color: Colors.blue, letterSpacing: 1.0),
-                        ),
-                        const SizedBox(height: 12),
-                        Row(
-                          children: [
-                            const Icon(Icons.trip_origin, size: 16, color: Colors.blue),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: Text(
-                                startLocation,
-                                style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: textColor),
-                              ),
-                            ),
-                          ],
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.only(left: 7.0),
-                          child: Container(height: 16, width: 2, color: Colors.blue.shade300),
-                        ),
-                        Row(
-                          children: [
-                            const Icon(Icons.place, size: 16, color: Colors.redAccent),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: Text(
-                                endLocation,
-                                style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: textColor),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
+                    child: _buildDetailRow(context, 'Carbon Footprint', '$totalCo2 kg CO₂', isHighlight: true),
+                  ),
+                  const SizedBox(height: 32),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: () => Navigator.pop(modalContext),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.primaryColor,
+                        foregroundColor: Colors.white,
+                        elevation: 0,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      ),
+                      child: const Text('Close', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                     ),
                   ),
-                  const SizedBox(height: 16),
                 ],
-                if (ingredients.isNotEmpty) ...[
-                  Text(
-                    'Detected Ingredients',
-                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: isDark ? Colors.grey[400] : Colors.black54),
-                  ),
-                  const SizedBox(height: 12),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: ingredients
-                        .map(
-                          (ingredient) => Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                            decoration: BoxDecoration(
-                              color: isDark ? Colors.grey[850] : Colors.grey.shade50,
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: isDark ? Colors.grey[800]! : Colors.grey.shade200),
-                            ),
-                            child: Text(
-                              ingredient,
-                              style: TextStyle(fontSize: 13, color: isDark ? Colors.grey[300] : Colors.grey.shade800, fontWeight: FontWeight.w500),
-                            ),
-                          ),
-                        )
-                        .toList(),
-                  ),
-                  const SizedBox(height: 24),
-                ],
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: AppTheme.primaryColor.withOpacity(0.08),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: AppTheme.primaryColor.withOpacity(0.2)),
-                  ),
-                  child: _buildDetailRow(context, 'Carbon Footprint', '$totalCo2 kg CO₂', isHighlight: true),
-                ),
-                const SizedBox(height: 32),
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: () => Navigator.pop(context),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.primaryColor,
-                      foregroundColor: Colors.white,
-                      elevation: 0,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                    ),
-                    child: const Text('Close', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                  ),
-                ),
-              ],
+              ),
             ),
           ),
         );
@@ -299,9 +309,7 @@ class _ActivityLogScreenState extends ConsumerState<ActivityLogScreen> {
                       ),
                       const SizedBox(height: 24),
                       ElevatedButton.icon(
-                        onPressed: () {
-                          ref.invalidate(activityLogsStreamProvider);
-                        },
+                        onPressed: () => ref.refresh(activityLogsStreamProvider),
                         icon: const Icon(Icons.refresh, size: 18),
                         label: const Text("Try Again"),
                         style: ElevatedButton.styleFrom(
@@ -316,28 +324,37 @@ class _ActivityLogScreenState extends ConsumerState<ActivityLogScreen> {
                 ),
               ),
               data: (allLogs) {
-                final selectedDayLogs = allLogs.where((log) {
-                  if (log['logged_at'] == null) return false;
-                  final logDate = DateTime.parse(log['logged_at']).toLocal();
-                  return logDate.year == _selectedDate.year && logDate.month == _selectedDate.month && logDate.day == _selectedDate.day;
-                }).toList()..sort((a, b) => b['logged_at'].compareTo(a['logged_at']));
-
+                final List<Map<String, dynamic>> typedLogs = [];
                 final Set<int> daysWithData = {};
+
                 final startOfMonth = DateTime(_focusedMonth.year, _focusedMonth.month, 1);
                 final endOfMonth = DateTime(_focusedMonth.year, _focusedMonth.month + 1, 0, 23, 59, 59);
 
-                for (var log in allLogs) {
-                  if (log['logged_at'] == null) continue;
-                  final logDate = DateTime.parse(log['logged_at']).toLocal();
+                // Single pass over logs to compute monthly indicators and filter selected day
+                for (var item in allLogs) {
+                  if (item is! Map<String, dynamic>) continue;
+                  final logDate = _safeParseDate(item['logged_at']);
+                  if (logDate == null) continue;
+
                   if (logDate.isAfter(startOfMonth.subtract(const Duration(seconds: 1))) && logDate.isBefore(endOfMonth.add(const Duration(seconds: 1)))) {
                     daysWithData.add(logDate.day);
                   }
+
+                  if (logDate.year == _selectedDate.year && logDate.month == _selectedDate.month && logDate.day == _selectedDate.day) {
+                    typedLogs.add(item);
+                  }
                 }
+
+                typedLogs.sort((a, b) {
+                  final dateA = _safeParseDate(a['logged_at']) ?? DateTime(1970);
+                  final dateB = _safeParseDate(b['logged_at']) ?? DateTime(1970);
+                  return dateB.compareTo(dateA);
+                });
 
                 return RefreshIndicator(
                   color: AppTheme.primaryColor,
                   onRefresh: () async {
-                    ref.invalidate(activityLogsStreamProvider);
+                    ref.refresh(activityLogsStreamProvider);
                   },
                   child: CustomScrollView(
                     physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
@@ -390,7 +407,7 @@ class _ActivityLogScreenState extends ConsumerState<ActivityLogScreen> {
                             const SizedBox(height: 16),
                             _buildDateSelector(daysWithData),
                             const SizedBox(height: 24),
-                            selectedDayLogs.isEmpty
+                            typedLogs.isEmpty
                                 ? _buildEmptyState()
                                 : Container(
                                     decoration: BoxDecoration(
@@ -403,15 +420,16 @@ class _ActivityLogScreenState extends ConsumerState<ActivityLogScreen> {
                                       shrinkWrap: true,
                                       physics: const NeverScrollableScrollPhysics(),
                                       padding: EdgeInsets.zero,
-                                      itemCount: selectedDayLogs.length,
+                                      itemCount: typedLogs.length,
                                       separatorBuilder: (context, index) => Divider(height: 1, color: isDark ? Colors.grey[800] : Colors.grey.shade100, indent: 70),
                                       itemBuilder: (context, index) {
-                                        final log = selectedDayLogs[index];
-                                        final factorData = log['emission_factors'] as Map<String, dynamic>?;
+                                        final log = typedLogs[index];
+                                        final factorData = log['emission_factors'] is Map<String, dynamic> ? log['emission_factors'] as Map<String, dynamic> : null;
 
-                                        final activityName = log['food_name'] ?? factorData?['activity_name'] ?? 'Unknown';
-                                        final category = factorData?['category'] ?? 'General';
-                                        final unit = factorData?['unit'] ?? '';
+                                        final rawActivity = log['food_name'] ?? factorData?['activity_name'] ?? 'Unknown';
+                                        final activityName = rawActivity.toString().length > 60 ? '${rawActivity.toString().substring(0, 60)}...' : rawActivity.toString();
+                                        final category = factorData?['category']?.toString() ?? 'General';
+                                        final unit = factorData?['unit']?.toString() ?? '';
                                         final inputValue = log['input_value']?.toString() ?? '0';
                                         final totalCo2 = (log['total_co2e'] as num?)?.toStringAsFixed(2) ?? '0.00';
 
@@ -492,7 +510,7 @@ class _ActivityLogScreenState extends ConsumerState<ActivityLogScreen> {
               final isToday = date.year == now.year && date.month == now.month && date.day == now.day;
 
               final hasData = daysWithData.contains(dayNumber);
-              String dayLabel = isToday ? "Today" : DateFormat('EEE').format(date);
+              final String dayLabel = isToday ? "Today" : DateFormat('EEE').format(date);
 
               final unselectedBg = isDark ? Colors.grey[850] : Colors.white;
               final unselectedBorder = isDark ? Colors.grey[800]! : Colors.grey.shade200;
@@ -720,7 +738,7 @@ class _ActivityLogScreenState extends ConsumerState<ActivityLogScreen> {
       decoration: BoxDecoration(
         color: AppTheme.primaryColor.withOpacity(0.05),
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: AppTheme.primaryColor.withOpacity(0.15), style: BorderStyle.solid),
+        border: Border.all(color: AppTheme.primaryColor.withOpacity(0.15)),
       ),
       child: Column(
         children: [
@@ -812,13 +830,10 @@ class ActivityLogSkeletonView extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Header Skeleton
               const SkeletonBox(width: 170, height: 28, borderRadius: 8),
               const SizedBox(height: 6),
               const SkeletonBox(width: 190, height: 14, borderRadius: 4),
               const SizedBox(height: 32),
-
-              // 3 Category Cards Skeleton
               Row(
                 children: const [
                   Expanded(child: SkeletonBox(height: 140, borderRadius: 22)),
@@ -829,19 +844,13 @@ class ActivityLogSkeletonView extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 48),
-
-              // Timeline Header Skeleton
               Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: const [SkeletonBox(width: 130, height: 22, borderRadius: 6), SkeletonBox(width: 85, height: 14, borderRadius: 4)]),
               const SizedBox(height: 16),
-
-              // Date Selector Month Header Skeleton
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: const [SkeletonBox(width: 32, height: 32, borderRadius: 16), SkeletonBox(width: 120, height: 16, borderRadius: 4), SkeletonBox(width: 32, height: 32, borderRadius: 16)],
               ),
               const SizedBox(height: 12),
-
-              // Horizontal Date Pills Skeleton
               SizedBox(
                 height: 75,
                 child: ListView.builder(
@@ -852,8 +861,6 @@ class ActivityLogSkeletonView extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 24),
-
-              // Activity Log Items Container Skeleton
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
                 decoration: BoxDecoration(

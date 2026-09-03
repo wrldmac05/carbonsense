@@ -8,13 +8,12 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type",
 };
 
-// Helper to normalize category strings across variations
 function normalizeCategory(rawCategory?: string): string {
   if (!rawCategory || !rawCategory.trim()) return "General";
   const cat = rawCategory.trim().toLowerCase();
   if (
     cat.includes("transport") || cat.includes("commute") ||
-    cat.includes("travel") || cat.includes("car")
+    cat.includes("travel") || cat.includes("car") || cat.includes("vehicle")
   ) {
     return "Transport";
   }
@@ -60,9 +59,7 @@ serve(async (req: Request) => {
 
     let generatedCount = 0;
 
-    // ==========================================
-    // DATA FETCH 1: LIFESTYLE PROFILE
-    // ==========================================
+    // 1. DATA FETCH: LIFESTYLE PROFILE
     const { data: lifestyle } = await supabase
       .from("lifestyle_profiles")
       .select("diet_type, commute_type, has_car")
@@ -73,28 +70,25 @@ serve(async (req: Request) => {
     const commuteHabit = lifestyle?.commute_type ?? "Unknown";
     const hasCar = lifestyle?.has_car ?? false;
 
-    // ==========================================
-    // DATA FETCH 2: ACTIVITY LOGS & EMISSION FACTORS
-    // ==========================================
+    // 2. DATA FETCH: ALL ACTIVITY LOGS
     const { data: allLogs, error: logErr } = await supabase
       .from("activity_logs")
-      .select("total_co2e, logged_at, emission_factors(category)") // 👈 Removed top-level 'category'
+      .select("total_co2e, logged_at, emission_factors(category)")
       .eq("user_id", user_id);
 
     if (logErr) {
       console.error("Error fetching logs:", logErr);
     }
 
-    // 1. Calculate Historical Total
-    const totalHistoricalCo2 = allLogs?.reduce((sum, log) =>
-      sum + (Number(log.total_co2e) || 0), 0) || 0;
-    const totalLogCount = allLogs?.length || 0;
+    const logsList = allLogs || [];
+    const totalHistoricalCo2 = logsList.reduce(
+      (sum, log) => sum + (Number(log.total_co2e) || 0),
+      0,
+    );
+    const totalLogCount = logsList.length;
 
-    // 2. Calculate YTD Total
-    const ytdLogs = (allLogs || []).filter((log) => {
-      if (!log.logged_at) {
-        return false;
-      }
+    const ytdLogs = logsList.filter((log) => {
+      if (!log.logged_at) return false;
       return new Date(log.logged_at).getFullYear() === currentYear;
     });
 
@@ -103,16 +97,13 @@ serve(async (req: Request) => {
       0,
     );
 
-    // 🌟 SMART FALLBACK: If YTD is 0 but historical data exists, use historical total
-    const displayFootprint = (ytdCo2 > 0) ? ytdCo2 : totalHistoricalCo2;
+    const displayFootprint = ytdCo2 > 0 ? ytdCo2 : totalHistoricalCo2;
 
-    console.log(
-      `[DEBUG] User: ${user_id} | Total Logs: ${totalLogCount} | YTD Co2: ${ytdCo2} | Display Co2: ${displayFootprint}`,
-    );
-
-    // 3. Calculate Current Month Category Share + Daily Avg
-    const currentMonthLogs = ytdLogs.filter((log) =>
-      new Date(log.logged_at).getMonth() === currentMonthIndex
+    // ==========================================
+    // TASK 1: DAILY GENERAL INSIGHT
+    // ==========================================
+    const currentMonthLogs = ytdLogs.filter(
+      (log) => new Date(log.logged_at).getMonth() === currentMonthIndex,
     );
     const currentMonthCo2 = currentMonthLogs.reduce(
       (sum, log) => sum + (Number(log.total_co2e) || 0),
@@ -128,12 +119,14 @@ serve(async (req: Request) => {
       General: 0,
     };
 
-    currentMonthLogs.forEach((log) => {
-      const rawCat = (log as any).emission_factors?.category; // 👈 Fixed reference
-      const cat = normalizeCategory(rawCat);
-      categoryTotals[cat] = (categoryTotals[cat] || 0) +
-        (Number(log.total_co2e) || 0);
-    });
+    (currentMonthLogs.length > 0 ? currentMonthLogs : ytdLogs).forEach(
+      (log) => {
+        const rawCat = (log as any).emission_factors?.category;
+        const cat = normalizeCategory(rawCat);
+        categoryTotals[cat] = (categoryTotals[cat] || 0) +
+          (Number(log.total_co2e) || 0);
+      },
+    );
 
     let topCategory = "None";
     let topCo2 = 0;
@@ -144,32 +137,8 @@ serve(async (req: Request) => {
       }
     });
 
-    // 🌟 FALLBACK: If current month has no logs, calculate top category from YTD
-    if (topCategory === "None") {
-      const ytdCategoryTotals: Record<string, number> = {
-        Transport: 0,
-        Diet: 0,
-        Energy: 0,
-        General: 0,
-      };
-      (ytdLogs || []).forEach((log) => {
-        const rawCat = (log as any).emission_factors?.category; // 👈 Fixed reference
-        const cat = normalizeCategory(rawCat);
-        ytdCategoryTotals[cat] = (ytdCategoryTotals[cat] || 0) +
-          (Number(log.total_co2e) || 0);
-      });
-      Object.entries(ytdCategoryTotals).forEach(([cat, val]) => {
-        if (val > topCo2) {
-          topCo2 = val;
-          topCategory = cat;
-        }
-      });
-      if (topCategory === "None") topCategory = "Energy";
-    }
+    if (topCategory === "None") topCategory = "Energy";
 
-    // ==========================================
-    // TASK 1: THE DAILY GENERAL INSIGHT
-    // ==========================================
     const { data: latestGeneral } = await supabase
       .from("ai_prescriptions")
       .select("insight_id, created_at, ai_text")
@@ -212,7 +181,6 @@ You are CarbonSense, an AI Eco-Coach companion. Do not introduce yourself or use
 USER TELEMETRY DATA:
 - Diet Habit Profile: "${dietHabit}"
 - Commute Habit Profile: "${commuteHabit}" (Owns Car: ${hasCar})
-- Total Historical Footprint: ${totalHistoricalCo2.toFixed(1)} kg CO2e
 - Active Footprint: ${
             displayFootprint.toFixed(1)
           } kg CO2e across ${totalLogCount} total logs
@@ -220,30 +188,22 @@ USER TELEMETRY DATA:
 - Top Emissions Source Category: ${topCategory} (${topCo2.toFixed(1)} kg CO2e)
 
 TASK:
-Write an encouraging, conversational, and highly scannable daily insight.
-Format your response into EXACTLY two distinct paragraphs with a double line break (\n\n) between them:
+Respond with ONLY valid JSON, no markdown code fences, no text before or after it, matching exactly this shape:
+{"headline": "one short encouraging sentence, under 16 words, no numbers", "detail": "2-3 plain sentences: a habit assessment that explicitly references their actual diet habit (\\"${dietHabit}\\") and commute habit (\\"${commuteHabit}\\"), then one specific daily tip targeted at the ${topCategory} category"}
 
-Paragraph 1 (Habit Assessment):
-- Provide a brief 2-sentence assessment of their lifestyle habits.
-- Explicitly acknowledge their actual footprint (**${
-            displayFootprint.toFixed(1)
-          } kg CO2e**). Praise their active sustainable habits for helping keep emissions down, OR point out areas where they can improve.
-
-Paragraph 2 (Action Step):
-- Start with "**💡 Tip for Today:**"
-- Provide 1 specific daily tip targeted at their top emissions driver category (${topCategory}) to help them trim emissions further.
+PERSONALIZATION RULES:
+1. Ground the assessment in the real diet and commute tags above.
+2. The tip must be consistent with existing habits: never suggest something they are already doing.
+3. If a habit tag is "Unknown" or "Analyzing...", write around it.
 
 STRICT ACCURACY RULES:
 1. NEVER use the words "zero", "effectively at zero", "negligible", or "zero footprint".
-2. The user's active footprint is **${
-            displayFootprint.toFixed(1)
-          } kg CO2e**. Treat this as real, measurable impact.
-3. Use markdown **bolding** for numbers and key habit tags.
-4. Separate Paragraph 1 and Paragraph 2 with a double newline (\n\n).
+2. Do not restate or invent numbers inside the JSON string values.
+3. No markdown formatting inside the JSON string values.
 `.trim();
 
           const geminiUrl =
-            `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent?key=${geminiKey}`;
+            `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`;
 
           const geminiResponse = await fetch(geminiUrl, {
             method: "POST",
@@ -259,10 +219,31 @@ STRICT ACCURACY RULES:
           }
 
           const geminiData = await geminiResponse.json();
-          const aiResponse = geminiData.candidates[0].content.parts[0].text;
+          const rawText =
+            geminiData.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
+          const cleanedText = rawText.replace(/```json|```/g, "").trim();
+
+          let parsedAi: { headline: string; detail: string };
+          try {
+            parsedAi = JSON.parse(cleanedText);
+          } catch {
+            parsedAi = {
+              headline: "Your eco-coach has an update",
+              detail: rawText,
+            };
+          }
+
+          const structuredGeneral = {
+            headline: parsedAi.headline,
+            detail: parsedAi.detail,
+            stat1_label: "Active footprint",
+            stat1_value: `${displayFootprint.toFixed(1)} kg CO2e`,
+            stat2_label: "Top category",
+            stat2_value: topCategory,
+          };
 
           await supabase.from("ai_prescriptions").update({
-            ai_text: aiResponse,
+            ai_text: JSON.stringify(structuredGeneral),
           }).eq("insight_id", placeholder.insight_id);
           generatedCount++;
         } catch (e) {
@@ -276,7 +257,7 @@ STRICT ACCURACY RULES:
     }
 
     // ==========================================
-    // TASK 2: THE END-OF-MONTH SUMMARY
+    // TASK 2: END-OF-MONTH SUMMARY (Previous Month)
     // ==========================================
     const lastMonthDate = new Date(
       today.getFullYear(),
@@ -284,6 +265,7 @@ STRICT ACCURACY RULES:
       1,
     );
     const lastMonthIndex = lastMonthDate.getMonth();
+    const lastMonthYear = lastMonthDate.getFullYear();
     const monthNames = [
       "January",
       "February",
@@ -299,8 +281,7 @@ STRICT ACCURACY RULES:
       "December",
     ];
 
-    const targetContext =
-      `month_${lastMonthIndex}_${lastMonthDate.getFullYear()}`;
+    const targetContext = `month_${lastMonthIndex}_${lastMonthYear}`;
 
     const { data: lastMonthTip } = await supabase
       .from("ai_prescriptions")
@@ -333,33 +314,24 @@ STRICT ACCURACY RULES:
 
       if (!insertError && placeholder) {
         try {
-          const startDate = new Date(
-            lastMonthDate.getFullYear(),
-            lastMonthDate.getMonth(),
-            1,
-          ).toISOString();
-          const endDate = new Date(
-            lastMonthDate.getFullYear(),
-            lastMonthDate.getMonth() + 1,
+          // Filter logs directly in memory matching Flutter's month resolution
+          const lastMonthLogs = logsList.filter((log) => {
+            if (!log.logged_at) return false;
+            const logDate = new Date(log.logged_at);
+            return (
+              logDate.getFullYear() === lastMonthYear &&
+              logDate.getMonth() === lastMonthIndex
+            );
+          });
+
+          const monthFootprint = lastMonthLogs.reduce(
+            (sum, log) => sum + (Number(log.total_co2e) || 0),
             0,
-            23,
-            59,
-            59,
-          ).toISOString();
-
-          const { data: lastMonthLogs } = await supabase
-            .from("activity_logs")
-            .select("total_co2e, category, emission_factors(category)")
-            .eq("user_id", user_id)
-            .gte("logged_at", startDate)
-            .lte("logged_at", endDate);
-
-          const monthFootprint = lastMonthLogs?.reduce((sum, log) =>
-            sum + (log.total_co2e || 0), 0) || 0;
-          const monthLogCount = lastMonthLogs?.length || 0;
+          );
+          const monthLogCount = lastMonthLogs.length;
           const daysInLastMonth = new Date(
-            lastMonthDate.getFullYear(),
-            lastMonthDate.getMonth() + 1,
+            lastMonthYear,
+            lastMonthIndex + 1,
             0,
           ).getDate();
           const monthDailyAvg = monthFootprint / daysInLastMonth;
@@ -370,12 +342,12 @@ STRICT ACCURACY RULES:
             Energy: 0,
             General: 0,
           };
-          (lastMonthLogs || []).forEach((log) => {
-            const rawCat = (log as any).emission_factors?.category ||
-              log.category;
+
+          lastMonthLogs.forEach((log) => {
+            const rawCat = (log as any).emission_factors?.category;
             const cat = normalizeCategory(rawCat);
             lastMonthCategoryTotals[cat] = (lastMonthCategoryTotals[cat] || 0) +
-              (log.total_co2e || 0);
+              (Number(log.total_co2e) || 0);
           });
 
           let lastMonthTopCategory = "None";
@@ -387,12 +359,12 @@ STRICT ACCURACY RULES:
             }
           });
 
+          if (lastMonthTopCategory === "None") lastMonthTopCategory = "General";
+
           const monthlyPrompt = `
 You are CarbonSense, an AI Eco-Coach companion. Do not introduce yourself.
 
-MONTHLY PERFORMANCE DATA (${
-            monthNames[lastMonthIndex]
-          } ${lastMonthDate.getFullYear()}):
+MONTHLY PERFORMANCE DATA (${monthNames[lastMonthIndex]} ${lastMonthYear}):
 - Total Monthly Footprint: ${monthFootprint.toFixed(2)} kg CO2e
 - Daily Average: ${monthDailyAvg.toFixed(2)} kg CO2e/day
 - Total Logged Activities: ${monthLogCount} logs
@@ -402,17 +374,23 @@ MONTHLY PERFORMANCE DATA (${
 - User Lifestyle Tags: Diet="${dietHabit}", Commute="${commuteHabit}"
 
 TASK:
-1. Summarize their performance for ${
+Respond with ONLY valid JSON, no markdown code fences, no text before or after it, matching exactly this shape:
+{"headline": "one short sentence naming how ${
             monthNames[lastMonthIndex]
-          } in 2 clear sentences. Explain how their active diet and commute habits contributed to their total footprint of **${
-            monthFootprint.toFixed(1)
-          } kg CO2e**.
-2. Propose 1 actionable mitigation goal for the upcoming month to help lower their top category (${lastMonthTopCategory}) impact.
-Keep output under 4 sentences.
-          `.trim();
+          } went, under 16 words, no numbers", "detail": "2-3 plain sentences: how their actual diet habit (\\"${dietHabit}\\") and commute habit (\\"${commuteHabit}\\") shaped the month, then one actionable goal for lowering ${lastMonthTopCategory} impact next month"}
+
+PERSONALIZATION RULES:
+1. Ground the summary in the real diet and commute tags above.
+2. The goal must build on their existing habits, not repeat one back to them.
+3. If a habit tag is "Unknown", write around it.
+
+STRICT ACCURACY RULES:
+1. Do not restate or invent numbers inside the JSON string values.
+2. No markdown formatting inside the JSON string values.
+`.trim();
 
           const geminiUrl =
-            `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent?key=${geminiKey}`;
+            `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`;
 
           const geminiResponse = await fetch(geminiUrl, {
             method: "POST",
@@ -428,10 +406,31 @@ Keep output under 4 sentences.
           }
 
           const geminiData = await geminiResponse.json();
-          const aiResponse = geminiData.candidates[0].content.parts[0].text;
+          const rawText =
+            geminiData.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
+          const cleanedText = rawText.replace(/```json|```/g, "").trim();
+
+          let parsedAi: { headline: string; detail: string };
+          try {
+            parsedAi = JSON.parse(cleanedText);
+          } catch {
+            parsedAi = {
+              headline: `Your ${monthNames[lastMonthIndex]} summary is in`,
+              detail: rawText,
+            };
+          }
+
+          const structuredMonthly = {
+            headline: parsedAi.headline,
+            detail: parsedAi.detail,
+            stat1_label: "Monthly footprint",
+            stat1_value: `${monthFootprint.toFixed(1)} kg CO2e`,
+            stat2_label: "Top category",
+            stat2_value: lastMonthTopCategory,
+          };
 
           await supabase.from("ai_prescriptions").update({
-            ai_text: aiResponse,
+            ai_text: JSON.stringify(structuredMonthly),
           }).eq("insight_id", placeholder.insight_id);
           generatedCount++;
         } catch (e) {

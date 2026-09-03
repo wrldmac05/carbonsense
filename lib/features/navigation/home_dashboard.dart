@@ -629,6 +629,7 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
                           _buildHeader(),
                           const SizedBox(height: 24),
                           _buildOnboardingCard(),
+                          _buildGoalAchievementBanner(profile),
                           _buildImpactHeroCard(),
                           const SizedBox(height: 32),
                           Text(
@@ -827,6 +828,70 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Future<void> _dismissGoalMessage() async {
+    try {
+      await Supabase.instance.client.from('user_profiles').update({'goal_message_dismissed': true}).eq('user_id', _userId);
+    } catch (e) {
+      debugPrint('Error dismissing goal message: $e');
+    }
+  }
+
+  Widget _buildGoalAchievementBanner(Map<String, dynamic>? profile) {
+    final message = profile?['last_goal_message']?.toString();
+    final isDismissed = profile?['goal_message_dismissed'] as bool? ?? false;
+
+    if (message == null || message.trim().isEmpty || isDismissed) {
+      return const SizedBox.shrink();
+    }
+
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 24),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF1B382B) : const Color(0xFFE8F5E9),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: isDark ? Colors.green.shade700 : Colors.green.shade300, width: 1.2),
+        boxShadow: [BoxShadow(color: Colors.green.withOpacity(isDark ? 0.2 : 0.08), blurRadius: 12, offset: const Offset(0, 4))],
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(color: Colors.green.withOpacity(0.2), shape: BoxShape.circle),
+            child: const Icon(Icons.stars_rounded, color: Colors.green, size: 24),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  "Goal Adapted!",
+                  style: TextStyle(fontWeight: FontWeight.w900, fontSize: 14, color: Colors.green),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  message,
+                  style: TextStyle(fontSize: 13, height: 1.35, fontWeight: FontWeight.w500, color: isDark ? Colors.white : Colors.black87),
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            icon: Icon(Icons.close, size: 18, color: isDark ? Colors.grey[400] : Colors.grey[600]),
+            onPressed: _dismissGoalMessage,
+            visualDensity: VisualDensity.compact,
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(),
+          ),
+        ],
       ),
     );
   }

@@ -16,13 +16,11 @@ serve(async (_req: Request) => {
     const genAI = new GoogleGenerativeAI(Deno.env.get("GEMINI_API_KEY") ?? "");
     const geminiModel = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
-    // 2. Setup Firebase Auth (HTTP v1 API requires an OAuth token)
     // 2. Setup Firebase Auth (HTTP v1 API)
     const serviceAccountStr = Deno.env.get("FIREBASE_SERVICE_ACCOUNT_KEY");
     if (!serviceAccountStr) throw new Error("Missing Firebase Service Account");
 
     let serviceAccount = JSON.parse(serviceAccountStr);
-    // Failsafe: if the dashboard accidentally double-stringified the JSON
     if (typeof serviceAccount === "string") {
       serviceAccount = JSON.parse(serviceAccount);
     }
@@ -31,7 +29,6 @@ serve(async (_req: Request) => {
       throw new Error("Error: private_key is missing from the secret.");
     }
 
-    // 🛡️ The Fix: explicitly format the newlines so the crypto library accepts it
     const privateKey = serviceAccount.private_key.replace(/\\n/g, "\n");
 
     const firebaseAuth = new GoogleAuth({
@@ -46,7 +43,7 @@ serve(async (_req: Request) => {
     const thirtyDaysAgo = new Date(now.getTime() - (30 * 24 * 60 * 60 * 1000))
       .toISOString();
 
-    // Query users, now including fcm_token, push_enabled, and display_name
+    // Query users due for evaluation
     const { data: profiles, error: profileError } = await supabaseClient
       .from("user_profiles")
       .select(
@@ -84,7 +81,7 @@ serve(async (_req: Request) => {
         .lt("logged_at", evaluationEnd.toISOString());
 
       if (logsError || !logs || logs.length === 0) {
-        // Ghost user logic...
+        // Ghost user logic: update timestamp and skip
         await supabaseClient.from("user_profiles")
           .update({ target_updated_at: evaluationEnd.toISOString() })
           .eq("user_id", profile.user_id);
@@ -106,16 +103,7 @@ serve(async (_req: Request) => {
             `✅ User ${profile.user_id} SUCCEEDED. New target: ${newTarget}`,
           );
 
-          // A. Update the database
-          await supabaseClient
-            .from("user_profiles")
-            .update({
-              monthly_co2_target: parseFloat(newTarget.toFixed(2)),
-              target_updated_at: evaluationEnd.toISOString(),
-            })
-            .eq("user_id", profile.user_id);
-
-          // B. Generate AI Notification with Gemini
+          // 1. Generate AI Message FIRST so it exists before the database update
           let aiMessage =
             `Great job! You stayed under ${currentTarget}kg. Your new goal is ${newTarget}kg.`; // Fallback
           try {
@@ -132,10 +120,20 @@ serve(async (_req: Request) => {
             );
           }
 
-          /// C. Send Push Notification via Firebase
+          // 2. Update Database with the generated aiMessage
+          await supabaseClient
+            .from("user_profiles")
+            .update({
+              monthly_co2_target: parseFloat(newTarget.toFixed(2)),
+              target_updated_at: evaluationEnd.toISOString(),
+              last_goal_message: aiMessage,
+              goal_message_dismissed: false,
+            })
+            .eq("user_id", profile.user_id);
+
+          // 3. Send Push Notification via Firebase
           if (profile.push_enabled && profile.fcm_token) {
             try {
-              // 🛡️ The Fix: GoogleAuth returns the string directly
               const token = await firebaseAuth.getAccessToken();
 
               await fetch(
@@ -144,7 +142,7 @@ serve(async (_req: Request) => {
                   method: "POST",
                   headers: {
                     "Content-Type": "application/json",
-                    "Authorization": `Bearer ${token}`, // Use the token here
+                    "Authorization": `Bearer ${token}`,
                   },
                   body: JSON.stringify({
                     message: {
@@ -186,10 +184,7 @@ serve(async (_req: Request) => {
     });
   } catch (err) {
     console.error("🔥 Critical Error:", err);
-
-    // Narrow the 'unknown' type to safely extract the message
     const errorMessage = err instanceof Error ? err.message : String(err);
-
     return new Response(JSON.stringify({ error: errorMessage }), {
       status: 500,
     });
