@@ -426,11 +426,13 @@ class _LoginFormState extends State<_LoginForm> {
     } on AuthException catch (e) {
       if (mounted) {
         final errorMsg = e.message.toLowerCase();
-        if (errorMsg.contains('banned') || e.statusCode == '400') {
+
+        // Check specifically for suspension or ban messages, not the generic 400 status
+        if (errorMsg.contains('banned') || errorMsg.contains('suspended')) {
           _showCustomBanDialog(title: 'Account Suspended', message: 'Your account is currently suspended. Access is restricted by an administrator.');
         } else {
           setState(() {
-            _errorMessage = 'Incorrect email or password. Please try again.';
+            _errorMessage = 'Account not found or incorrect credentials.';
           });
         }
       }
