@@ -6,7 +6,7 @@ class HelpSupportScreen extends StatelessWidget {
   const HelpSupportScreen({super.key});
 
   Future<void> _launchWebsite(BuildContext context) async {
-    final Uri url = Uri.parse('https://carbon-sense-web.vercel.app/');
+    final Uri url = Uri.parse('https://carbonsense-web.vercel.app/');
 
     try {
       if (!await launchUrl(url, mode: LaunchMode.externalApplication)) {
