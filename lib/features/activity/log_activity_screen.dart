@@ -659,6 +659,38 @@ class _LogActivityScreenState extends State<LogActivityScreen> with SingleTicker
             text: 'Tap END TRIP immediately upon arrival for accurate carbon calculations.',
             isSmallScreen: isSmallScreen,
           ),
+          SizedBox(height: isSmallScreen ? 12 : 16),
+          Divider(color: isDark ? Colors.grey[800] : Colors.grey.shade200, height: 1),
+          SizedBox(height: isSmallScreen ? 10 : 12),
+          Center(
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.shield_outlined, size: 14, color: isDark ? Colors.grey[400] : Colors.grey.shade600),
+                const SizedBox(width: 6),
+                Text.rich(
+                  TextSpan(
+                    text: 'Learn how your data is handled ',
+                    style: TextStyle(fontSize: isSmallScreen ? 11 : 12, color: isDark ? Colors.grey[400] : Colors.grey.shade600),
+                    children: [
+                      WidgetSpan(
+                        alignment: PlaceholderAlignment.baseline,
+                        baseline: TextBaseline.alphabetic,
+                        child: GestureDetector(
+                          onTap: () => context.push('/help-support'),
+                          child: const Text(
+                            'here',
+                            style: TextStyle(fontSize: 12, color: AppTheme.primaryColor, fontWeight: FontWeight.bold, decoration: TextDecoration.underline, decorationColor: AppTheme.primaryColor),
+                          ),
+                        ),
+                      ),
+                      const TextSpan(text: '.'),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );

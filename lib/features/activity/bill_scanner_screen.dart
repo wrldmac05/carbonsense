@@ -515,6 +515,38 @@ class _BillScannerScreenState extends State<BillScannerScreen> {
           _buildInstructionRow(icon: Icons.visibility_off, color: Colors.redAccent, text: 'Do NOT capture your name, address, or account numbers.'),
           const SizedBox(height: 10),
           _buildInstructionRow(icon: Icons.lightbulb_outline, color: isDark ? Colors.amber[300]! : Colors.amber.shade600, text: 'Ensure the number is well-lit and readable.'),
+          const SizedBox(height: 16),
+          Divider(color: isDark ? Colors.grey[800] : Colors.grey.shade200, height: 1),
+          const SizedBox(height: 12),
+          Center(
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.shield_outlined, size: 14, color: isDark ? Colors.grey[400] : Colors.grey.shade600),
+                const SizedBox(width: 6),
+                Text.rich(
+                  TextSpan(
+                    text: 'Learn how your data is handled ',
+                    style: TextStyle(fontSize: 12, color: isDark ? Colors.grey[400] : Colors.grey.shade600),
+                    children: [
+                      WidgetSpan(
+                        alignment: PlaceholderAlignment.baseline,
+                        baseline: TextBaseline.alphabetic,
+                        child: GestureDetector(
+                          onTap: () => context.push('/help-support'),
+                          child: const Text(
+                            'here',
+                            style: TextStyle(fontSize: 12, color: AppTheme.primaryColor, fontWeight: FontWeight.bold, decoration: TextDecoration.underline, decorationColor: AppTheme.primaryColor),
+                          ),
+                        ),
+                      ),
+                      const TextSpan(text: '.'),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );

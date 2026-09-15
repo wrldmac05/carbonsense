@@ -643,6 +643,38 @@ class _FoodCameraScreenState extends State<FoodCameraScreen> {
           _buildInstructionRow(icon: Icons.fullscreen_exit, color: isDark ? Colors.orange[300]! : Colors.orange.shade700, text: 'Ensure the entire plate or bowl is visible within the frame.'),
           const SizedBox(height: 10),
           _buildInstructionRow(icon: Icons.lightbulb_outline, color: isDark ? Colors.amber[300]! : Colors.amber.shade600, text: 'Use good lighting so all ingredients can be accurately identified.'),
+          const SizedBox(height: 16),
+          Divider(color: isDark ? Colors.grey[800] : Colors.grey.shade200, height: 1),
+          const SizedBox(height: 12),
+          Center(
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.shield_outlined, size: 14, color: isDark ? Colors.grey[400] : Colors.grey.shade600),
+                const SizedBox(width: 6),
+                Text.rich(
+                  TextSpan(
+                    text: 'Learn how your data is handled ',
+                    style: TextStyle(fontSize: 12, color: isDark ? Colors.grey[400] : Colors.grey.shade600),
+                    children: [
+                      WidgetSpan(
+                        alignment: PlaceholderAlignment.baseline,
+                        baseline: TextBaseline.alphabetic,
+                        child: GestureDetector(
+                          onTap: () => context.push('/help-support'),
+                          child: const Text(
+                            'here',
+                            style: TextStyle(fontSize: 12, color: AppTheme.primaryColor, fontWeight: FontWeight.bold, decoration: TextDecoration.underline, decorationColor: AppTheme.primaryColor),
+                          ),
+                        ),
+                      ),
+                      const TextSpan(text: '.'),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );
