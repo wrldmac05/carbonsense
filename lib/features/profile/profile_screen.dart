@@ -62,7 +62,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return Icons.directions_car;
   }
 
-  // Functional Bottom Sheet for the Settings Menu
   void _openSettingsMenu(String title, IconData icon, Widget content) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final sheetBg = isDark ? Colors.grey[900] : Colors.white;
@@ -135,7 +134,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final displayName = _userProfile?['display_name'] ?? 'Eco Warrior';
     final location = _userProfile?['location'] ?? 'Location not set';
 
-    // Extract the Adaptive Target Goal
     final targetRaw = _userProfile?['monthly_co2_target'];
     final String monthlyTarget = targetRaw != null ? '${(targetRaw as num).toStringAsFixed(0)} kg CO₂e' : 'Not Set';
 
@@ -215,7 +213,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
               const SizedBox(height: 40),
 
-              // Full-Width Adaptive Goal Hero Card
               _buildHeroTargetCard(monthlyTarget),
 
               const SizedBox(height: 24),
@@ -229,7 +226,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
               const SizedBox(height: 16),
 
-              // 2-Item Row below the Hero Card
               Row(
                 children: [
                   Expanded(child: _buildGridCard("Diet", dietType, dietType.contains('Analyzing') ? Icons.sync : Icons.restaurant)),
@@ -269,7 +265,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
                       bool hasMinLength = false;
                       bool hasUppercase = false;
-                      bool noSpecialChars = false;
+                      bool hasNumber = false;
+                      bool hasSpecialChar = false;
 
                       Widget buildRequirement(String text, bool isMet) {
                         final reqTextColor = isMet ? (isDark ? Colors.white : Colors.black87) : (isDark ? Colors.grey[400] : Colors.black54);
@@ -314,9 +311,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                           style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: textColor),
                                         ),
                                         const SizedBox(height: 12),
-                                        buildRequirement("Minimum of 6 characters", hasMinLength),
+                                        buildRequirement("At least 6 characters", hasMinLength),
                                         buildRequirement("At least 1 uppercase letter", hasUppercase),
-                                        buildRequirement("No special characters allowed", noSpecialChars),
+                                        buildRequirement("At least 1 number", hasNumber),
+                                        buildRequirement("At least 1 special character", hasSpecialChar),
                                       ],
                                     ),
                                   ),
@@ -368,16 +366,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                       setModalState(() {
                                         hasMinLength = value.length >= 6;
                                         hasUppercase = value.contains(RegExp(r'[A-Z]'));
-                                        noSpecialChars = value.isNotEmpty && RegExp(r'^[a-zA-Z0-9]+$').hasMatch(value);
+                                        hasNumber = value.contains(RegExp(r'[0-9]'));
+                                        hasSpecialChar = value.contains(RegExp(r'[^a-zA-Z0-9]'));
                                       });
                                     },
                                     validator: (value) {
                                       if (value == null || value.trim().isEmpty) {
                                         return 'Please enter a new password';
                                       }
-                                      if (!hasMinLength) return 'Minimum 6 characters required';
+                                      if (!hasMinLength) return 'At least 6 characters required';
                                       if (!hasUppercase) return 'Must contain at least 1 uppercase letter';
-                                      if (!noSpecialChars) return 'No special characters allowed';
+                                      if (!hasNumber) return 'Must contain at least 1 number';
+                                      if (!hasSpecialChar) return 'Must contain at least 1 special character';
                                       return null;
                                     },
                                   ),
@@ -514,10 +514,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     }),
                     Divider(height: 1, color: isDark ? Colors.grey[800] : Colors.grey.shade100, indent: 60),
 
-                    // --- DANGER ZONE: DELETE ACCOUNT ---
+                    // --- DANGER ZONE: ARCHIVE ACCOUNT ---
                     _buildListTile(Icons.delete_forever, "Delete Account", isDestructive: true, () {
                       final confirmDeleteController = TextEditingController();
-                      bool isDeleting = false;
+                      bool isArchiving = false;
                       bool isConfirmed = false;
 
                       _openSettingsMenu(
@@ -535,7 +535,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                     border: Border.all(color: isDark ? Colors.red.withOpacity(0.3) : Colors.red.shade200),
                                   ),
                                   child: const Text(
-                                    "WARNING: This action is permanent and cannot be undone. All of your activity logs, profile data, and AI prescriptions will be permanently erased.",
+                                    "WARNING: This action is irreversible. Your logs and profile will no longer be active, and you will be signed out.",
                                     style: TextStyle(color: Colors.red, height: 1.5, fontWeight: FontWeight.bold),
                                   ),
                                 ),
@@ -566,14 +566,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 SizedBox(
                                   width: double.infinity,
                                   child: ElevatedButton(
-                                    onPressed: (!isConfirmed || isDeleting)
+                                    onPressed: (!isConfirmed || isArchiving)
                                         ? null
                                         : () async {
-                                            setModalState(() => isDeleting = true);
+                                            setModalState(() => isArchiving = true);
                                             try {
                                               final myUserId = Supabase.instance.client.auth.currentUser!.id;
 
-                                              await Supabase.instance.client.rpc('delete_user_account', params: {'target_user_id': myUserId});
+                                              await Supabase.instance.client.from('user_profiles').update({'is_archived': true}).eq('user_id', myUserId);
 
                                               await Supabase.instance.client.auth.signOut();
 
@@ -583,10 +583,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                               }
                                             } catch (e) {
                                               if (context.mounted) {
-                                                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to delete account: $e'), backgroundColor: Colors.red));
+                                                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to archive account: $e'), backgroundColor: Colors.red));
                                               }
                                             } finally {
-                                              setModalState(() => isDeleting = false);
+                                              setModalState(() => isArchiving = false);
                                             }
                                           },
                                     style: ElevatedButton.styleFrom(
@@ -595,7 +595,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                       padding: const EdgeInsets.symmetric(vertical: 16),
                                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                                     ),
-                                    child: isDeleting
+                                    child: isArchiving
                                         ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
                                         : Text(
                                             'I understand, delete my account',
@@ -619,8 +619,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
       ),
     );
   }
-
-  // --- UI WIDGET COMPONENTS ---
 
   Widget _buildHeroTargetCard(String value) {
     return Container(
@@ -718,8 +716,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 }
 
-// 🌟 SKELETON LOADER WIDGETS
-
 class ShimmerLoading extends StatefulWidget {
   final Widget child;
   const ShimmerLoading({super.key, required this.child});
@@ -736,7 +732,6 @@ class _ShimmerLoadingState extends State<ShimmerLoading> with SingleTickerProvid
   void initState() {
     super.initState();
     _controller = AnimationController(vsync: this, duration: const Duration(milliseconds: 1100))..repeat(reverse: true);
-
     _animation = Tween<double>(begin: 0.35, end: 0.85).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
   }
 
@@ -791,31 +786,18 @@ class ProfileSkeletonView extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              // Avatar Placeholder
               const SkeletonBox(width: 96, height: 96, borderRadius: 48),
               const SizedBox(height: 16),
-
-              // Display Name
               const SkeletonBox(width: 150, height: 24, borderRadius: 6),
               const SizedBox(height: 8),
-
-              // Location
               const SkeletonBox(width: 120, height: 16, borderRadius: 4),
               const SizedBox(height: 20),
-
-              // Edit Profile Button
               const SkeletonBox(width: 160, height: 44, borderRadius: 12),
               const SizedBox(height: 40),
-
-              // Adaptive Goal Hero Card
               const SkeletonBox(width: double.infinity, height: 160, borderRadius: 24),
               const SizedBox(height: 24),
-
-              // Lifestyle Profile Header
               const Align(alignment: Alignment.centerLeft, child: SkeletonBox(width: 140, height: 18, borderRadius: 4)),
               const SizedBox(height: 16),
-
-              // 2 Grid Cards
               Row(
                 children: const [
                   Expanded(child: SkeletonBox(height: 110, borderRadius: 24)),
@@ -824,12 +806,8 @@ class ProfileSkeletonView extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 40),
-
-              // Account & Settings Header
               const Align(alignment: Alignment.centerLeft, child: SkeletonBox(width: 160, height: 18, borderRadius: 4)),
               const SizedBox(height: 16),
-
-              // Settings Container with 2 Tile Placeholders
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
                 decoration: BoxDecoration(

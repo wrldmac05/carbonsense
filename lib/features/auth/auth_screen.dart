@@ -85,10 +85,7 @@ class _AuthScreenState extends State<AuthScreen> with SingleTickerProviderStateM
       resizeToAvoidBottomInset: false,
       body: Stack(
         children: [
-          // 1. BACKGROUND
           Positioned.fill(child: Image.asset('assets/images/bg2.png', fit: BoxFit.cover)),
-
-          // 2. DYNAMIC HEADERS
           AnimatedPositioned(
             duration: const Duration(milliseconds: 800),
             curve: Curves.easeInOutCubic,
@@ -104,8 +101,6 @@ class _AuthScreenState extends State<AuthScreen> with SingleTickerProviderStateM
               ),
             ),
           ),
-
-          // 3. BOTTOM SHEET
           AnimatedPositioned(
             duration: const Duration(milliseconds: 800),
             curve: Curves.easeInOutCubic,
@@ -136,7 +131,6 @@ class _AuthScreenState extends State<AuthScreen> with SingleTickerProviderStateM
     );
   }
 
-  // --- Header Routing ---
   Widget _getTopHeader() {
     switch (_authState) {
       case AuthState.splash:
@@ -150,7 +144,6 @@ class _AuthScreenState extends State<AuthScreen> with SingleTickerProviderStateM
     }
   }
 
-  // --- Bottom Sheet Routing ---
   Widget _getBottomSheetContent() {
     switch (_authState) {
       case AuthState.splash:
@@ -346,7 +339,7 @@ class _LoginFormState extends State<_LoginForm> {
         child: Padding(
           padding: const EdgeInsets.all(24.0),
           child: Column(
-            mainAxisSize: MainAxisSize.min,
+            mainAxisSize: minAxisSize(),
             children: [
               Container(
                 width: 64,
@@ -391,6 +384,8 @@ class _LoginFormState extends State<_LoginForm> {
     );
   }
 
+  MainAxisSize minAxisSize() => MainAxisSize.min;
+
   Future<void> _login() async {
     if (!_formKey.currentState!.validate()) return;
 
@@ -409,13 +404,20 @@ class _LoginFormState extends State<_LoginForm> {
           final isBanned = profile['is_banned'] as bool? ?? false;
           final isArchived = profile['is_archived'] as bool? ?? false;
 
-          if (isBanned || isArchived) {
+          if (isBanned) {
             await Supabase.instance.client.auth.signOut();
             if (mounted) {
-              _showCustomBanDialog(
-                title: isBanned ? 'Account Suspended' : 'Account Archived',
-                message: isBanned ? 'Your account has been suspended by an administrator due to violations of platform terms.' : 'Your account has been archived. Please contact support.',
-              );
+              _showCustomBanDialog(title: 'Account Suspended', message: 'Your account has been suspended by an administrator due to violations of platform terms.');
+            }
+            return;
+          }
+
+          if (isArchived) {
+            await Supabase.instance.client.auth.signOut();
+            if (mounted) {
+              setState(() {
+                _errorMessage = 'Invalid Login Credentials';
+              });
             }
             return;
           }
@@ -427,19 +429,18 @@ class _LoginFormState extends State<_LoginForm> {
       if (mounted) {
         final errorMsg = e.message.toLowerCase();
 
-        // Check specifically for suspension or ban messages, not the generic 400 status
         if (errorMsg.contains('banned') || errorMsg.contains('suspended')) {
           _showCustomBanDialog(title: 'Account Suspended', message: 'Your account is currently suspended. Access is restricted by an administrator.');
         } else {
           setState(() {
-            _errorMessage = 'Account not found or incorrect credentials.';
+            _errorMessage = 'Invalid Login Credentials';
           });
         }
       }
     } catch (error) {
       if (mounted) {
         setState(() {
-          _errorMessage = 'Incorrect email or password. Please try again.';
+          _errorMessage = 'Invalid Login Credentials';
         });
       }
     } finally {
@@ -456,7 +457,6 @@ class _LoginFormState extends State<_LoginForm> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Static Header
           const Padding(
             padding: EdgeInsets.fromLTRB(28, 36, 28, 12),
             child: Text(
@@ -464,8 +464,6 @@ class _LoginFormState extends State<_LoginForm> {
               style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.black87),
             ),
           ),
-
-          // Scrollable Form Fields
           Expanded(
             child: SingleChildScrollView(
               padding: EdgeInsets.fromLTRB(28, 12, 28, 20 + bottomInset),
@@ -473,26 +471,13 @@ class _LoginFormState extends State<_LoginForm> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
+                  // Plain red text error display (no container/border)
                   if (_errorMessage != null)
-                    Container(
-                      margin: const EdgeInsets.only(bottom: 20),
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: Colors.red.shade50,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Colors.red.shade200),
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(Icons.error_outline_rounded, color: Colors.red.shade700, size: 20),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Text(
-                              _errorMessage!,
-                              style: TextStyle(color: Colors.red.shade700, fontSize: 13, fontWeight: FontWeight.w600),
-                            ),
-                          ),
-                        ],
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 16.0),
+                      child: Text(
+                        _errorMessage!,
+                        style: const TextStyle(color: Colors.red, fontSize: 13, fontWeight: FontWeight.w600),
                       ),
                     ),
 
@@ -613,7 +598,6 @@ class _ForgotPasswordFormState extends State<_ForgotPasswordForm> {
   final _emailController = TextEditingController();
   bool _isLoading = false;
 
-  // 🌟 CUSTOM SUCCESS/ERROR MESSAGE HELPER
   void _showCustomMessage(String message, {bool isError = false}) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -629,7 +613,6 @@ class _ForgotPasswordFormState extends State<_ForgotPasswordForm> {
             ),
           ],
         ),
-        // Uses AppTheme.primaryColor for success messages
         backgroundColor: isError ? Colors.redAccent : AppTheme.primaryColor,
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -650,11 +633,8 @@ class _ForgotPasswordFormState extends State<_ForgotPasswordForm> {
     setState(() => _isLoading = true);
 
     try {
-      // 🌟 DATABASE CHECK: Verify if the email exists in your database table first
-      // Note: Replace 'profiles' with your actual table name if different (e.g., 'users')
       final existingUser = await Supabase.instance.client.from('users').select('user_id').eq('email', email).maybeSingle();
 
-      // If no matching user record is found, abort and display error message
       if (existingUser == null) {
         if (mounted) {
           _showCustomMessage('No account found with this email address.', isError: true);
@@ -662,7 +642,6 @@ class _ForgotPasswordFormState extends State<_ForgotPasswordForm> {
         return;
       }
 
-      // Email exists, proceed with password reset request
       await Supabase.instance.client.auth.resetPasswordForEmail(email, redirectTo: 'io.supabase.carbonsense://reset-password');
 
       if (mounted) {
@@ -778,6 +757,7 @@ class _RegisterFormState extends State<_RegisterForm> {
   bool _hasMinLength = false;
   bool _hasUppercase = false;
   bool _hasNumber = false;
+  bool _hasSpecialChar = false;
 
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
@@ -805,13 +785,14 @@ class _RegisterFormState extends State<_RegisterForm> {
       _hasMinLength = password.length >= 6;
       _hasUppercase = password.contains(RegExp(r'[A-Z]'));
       _hasNumber = password.contains(RegExp(r'[0-9]'));
+      _hasSpecialChar = password.contains(RegExp(r'[^a-zA-Z0-9]'));
     });
   }
 
   Future<void> _register() async {
     if (!_formKey.currentState!.validate()) return;
 
-    if (!_hasMinLength || !_hasUppercase || !_hasNumber) {
+    if (!_hasMinLength || !_hasUppercase || !_hasNumber || !_hasSpecialChar) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please ensure your password meets all requirements.')));
       return;
     }
@@ -889,7 +870,6 @@ class _RegisterFormState extends State<_RegisterForm> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Static Header
           const Padding(
             padding: EdgeInsets.fromLTRB(28, 36, 28, 12),
             child: Text(
@@ -897,8 +877,6 @@ class _RegisterFormState extends State<_RegisterForm> {
               style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.black87),
             ),
           ),
-
-          // Scrollable Form Fields
           Expanded(
             child: SingleChildScrollView(
               padding: EdgeInsets.fromLTRB(28, 12, 28, 20 + bottomInset),
@@ -910,6 +888,7 @@ class _RegisterFormState extends State<_RegisterForm> {
                     controller: _fullNameController,
                     style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
                     autovalidateMode: AutovalidateMode.onUserInteraction,
+                    inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z ]')), FilteringTextInputFormatter.deny(RegExp(r'  '))],
                     decoration: InputDecoration(
                       labelText: 'Name',
                       floatingLabelBehavior: FloatingLabelBehavior.always,
@@ -921,6 +900,9 @@ class _RegisterFormState extends State<_RegisterForm> {
                     ),
                     validator: (value) {
                       if (value == null || value.trim().isEmpty) return 'Enter full name';
+                      if (!RegExp(r'^[a-zA-Z]+( [a-zA-Z]+)*$').hasMatch(value.trim())) {
+                        return 'Only letters and single spaces allowed';
+                      }
                       return null;
                     },
                   ),
@@ -973,6 +955,7 @@ class _RegisterFormState extends State<_RegisterForm> {
                   _buildRequirement('At least 6 characters', _hasMinLength),
                   _buildRequirement('At least 1 uppercase letter', _hasUppercase),
                   _buildRequirement('At least 1 number', _hasNumber),
+                  _buildRequirement('At least 1 special character', _hasSpecialChar),
                   const SizedBox(height: 8),
 
                   TextFormField(
