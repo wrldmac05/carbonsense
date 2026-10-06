@@ -30,11 +30,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
       final lifestyleResponse = await Supabase.instance.client.from('lifestyle_profiles').select().eq('user_id', userId).maybeSingle();
 
       if (profileResponse != null) {
-        final rawLocation = profileResponse['location'];
-        final bool hasLocation = rawLocation != null && rawLocation.toString().trim().isNotEmpty;
+        final rawAvatar = profileResponse['avatar_url'];
+        final bool hasAvatar = rawAvatar != null && rawAvatar.toString().trim().isNotEmpty;
         final bool isObProfileDone = profileResponse['ob_profile'] == true;
 
-        if (hasLocation && !isObProfileDone) {
+        // Check for avatar_url, not location
+        if (hasAvatar && !isObProfileDone) {
           await Supabase.instance.client.from('user_profiles').update({'ob_profile': true}).eq('user_id', userId);
           profileResponse['ob_profile'] = true;
         }

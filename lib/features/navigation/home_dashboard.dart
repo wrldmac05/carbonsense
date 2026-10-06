@@ -103,24 +103,19 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
     }
   }
 
+  // FIXED: Removed the automatic avatar_url check that was falsely completing the task
   Future<void> _validateAutomatedOnboardingSteps() async {
     try {
-      final profileRes = await Supabase.instance.client.from('user_profiles').select('avatar_url, ob_profile, ob_first_log').eq('user_id', _userId).maybeSingle();
+      final profileRes = await Supabase.instance.client.from('user_profiles').select('ob_first_log').eq('user_id', _userId).maybeSingle();
 
       if (profileRes != null) {
-        final String? avatarUrl = profileRes['avatar_url'];
-        final bool currentObProfile = profileRes['ob_profile'] ?? false;
         final bool currentObFirstLog = profileRes['ob_first_log'] ?? false;
-
-        if (avatarUrl != null && avatarUrl.isNotEmpty && !currentObProfile) {
-          await _updateOnboardingTask('ob_profile', currentObProfile);
-        }
 
         if (!currentObFirstLog) {
           final logsCount = await Supabase.instance.client.from('activity_logs').select('logged_at').eq('user_id', _userId).limit(1);
 
           if (logsCount.isNotEmpty) {
-            await _updateOnboardingTask('ob_first_log', currentObFirstLog);
+            await Supabase.instance.client.from('user_profiles').update({'ob_first_log': true}).eq('user_id', _userId);
           }
         }
       }
@@ -447,10 +442,10 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
     );
   }
 
-  Future<void> _updateOnboardingTask(String column, bool currentValue) async {
-    final newValue = !currentValue;
+  // FIXED: Explicitly sets boolean values instead of toggling them blindly
+  Future<void> _updateOnboardingTask(String column, bool targetValue) async {
     try {
-      await Supabase.instance.client.from('user_profiles').update({column: newValue}).eq('user_id', _userId);
+      await Supabase.instance.client.from('user_profiles').update({column: targetValue}).eq('user_id', _userId);
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Failed to save progress.')));
@@ -792,7 +787,7 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
               isOnboarding: !obGuide,
               onComplete: () async {
                 if (!obGuide) {
-                  await _updateOnboardingTask('ob_guide', obGuide);
+                  await _updateOnboardingTask('ob_guide', true);
                 }
               },
             ),
@@ -1416,7 +1411,6 @@ class MonthlyBreakdownSkeleton extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Emissions Section Header
               Row(children: const [SkeletonBox(width: 20, height: 20, borderRadius: 10), SizedBox(width: 8), SkeletonBox(width: 170, height: 16, borderRadius: 6)]),
               const SizedBox(height: 16),
               ...List.generate(
@@ -1439,7 +1433,6 @@ class MonthlyBreakdownSkeleton extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 24),
-              // Completed Tasks Section Header
               Row(children: const [SkeletonBox(width: 20, height: 20, borderRadius: 10), SizedBox(width: 8), SkeletonBox(width: 160, height: 16, borderRadius: 6)]),
               const SizedBox(height: 16),
               ...List.generate(
