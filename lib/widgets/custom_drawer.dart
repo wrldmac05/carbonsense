@@ -1,6 +1,7 @@
 import 'package:carbonsense/main.dart';
 import 'package:carbonsense/theme/app_theme.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -10,6 +11,7 @@ class CustomDrawer extends StatefulWidget {
   // 1. Static cache: persists across drawer rebuilds/opens
   static String? _cachedDisplayName;
   static String? _cachedEmail;
+  static String? _cachedUserId;
   static String? _cachedAvatarUrl;
   static bool _hasFetchedOnce = false;
 
@@ -17,6 +19,7 @@ class CustomDrawer extends StatefulWidget {
   static void clearCache() {
     _cachedDisplayName = null;
     _cachedEmail = null;
+    _cachedUserId = null;
     _cachedAvatarUrl = null;
     _hasFetchedOnce = false;
   }
@@ -29,6 +32,7 @@ class _CustomDrawerState extends State<CustomDrawer> {
   // Initialize with cached values if available
   late String _displayName;
   late String _email;
+  late String _userIdSnippet;
   String? _avatarUrl;
 
   @override
@@ -36,6 +40,7 @@ class _CustomDrawerState extends State<CustomDrawer> {
     super.initState();
     _displayName = CustomDrawer._cachedDisplayName ?? 'Eco Warrior';
     _email = CustomDrawer._cachedEmail ?? '';
+    _userIdSnippet = CustomDrawer._cachedUserId ?? '';
     _avatarUrl = CustomDrawer._cachedAvatarUrl;
 
     // Only fetch from Supabase if we haven't fetched yet
@@ -48,9 +53,16 @@ class _CustomDrawerState extends State<CustomDrawer> {
     final user = Supabase.instance.client.auth.currentUser;
     if (user != null) {
       final userEmail = user.email ?? '';
+      // Extract the first 8 characters of the Supabase user ID
+      final userSnippet = user.id.length >= 8 ? user.id.substring(0, 8) : user.id;
+
       if (mounted) {
-        setState(() => _email = userEmail);
+        setState(() {
+          _email = userEmail;
+          _userIdSnippet = userSnippet;
+        });
         CustomDrawer._cachedEmail = userEmail;
+        CustomDrawer._cachedUserId = userSnippet;
       }
 
       try {
@@ -183,6 +195,29 @@ class _CustomDrawerState extends State<CustomDrawer> {
                           _email,
                           style: const TextStyle(fontSize: 13, color: Colors.white70, fontWeight: FontWeight.w500),
                         ),
+                        if (_userIdSnippet.isNotEmpty) ...[
+                          const SizedBox(height: 6),
+                          InkWell(
+                            onTap: () {
+                              Clipboard.setData(ClipboardData(text: _userIdSnippet));
+                              ScaffoldMessenger.of(
+                                context,
+                              ).showSnackBar(SnackBar(content: Text('Copied User ID: $_userIdSnippet'), duration: const Duration(seconds: 2), behavior: SnackBarBehavior.floating));
+                            },
+                            borderRadius: BorderRadius.circular(4),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  'ID: $_userIdSnippet',
+                                  style: TextStyle(fontFamily: 'monospace', fontSize: 11, color: Colors.white.withOpacity(0.65), fontWeight: FontWeight.w500, letterSpacing: 0.5),
+                                ),
+                                const SizedBox(width: 5),
+                                Icon(Icons.copy_rounded, size: 11, color: Colors.white.withOpacity(0.6)),
+                              ],
+                            ),
+                          ),
+                        ],
                       ],
                     ),
                   ),
@@ -246,7 +281,7 @@ class _CustomDrawerState extends State<CustomDrawer> {
                     child: Divider(color: dividerColor, thickness: 1),
                   ),
 
-                  // SECTION 3: Legal Information (Same style as other tiles)
+                  // SECTION 3: Legal Information
                   _buildDrawerTile(
                     context,
                     icon: Icons.gavel_outlined,
